@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="61px" height="61px" viewBox="0 0 61 61" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 55.1 (78136) - https://sketchapp.com -->
+    <title>Icon / E-reader / Delete</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Icon-/-E-reader-/-Delete" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <path d="M19,21 L42,21" id="Stroke-1" stroke="#000000" stroke-width="2"></path>
+        <polyline id="Stroke-3" stroke="#000000" stroke-width="2" fill="#FFFFFF" points="25 21 25 17 36 17 36 21"></polyline>
+        <path d="M21,21 L40,21 L40,44 L21,44 L21,21 Z" id="Stroke-5" stroke="#000000" stroke-width="2" fill="#FFFFFF"></path>
+        <path d="M26.5,26 L26.5,39" id="Stroke-10" stroke="#000000"></path>
+        <path d="M30.5,26 L30.5,39" id="Stroke-10" stroke="#000000"></path>
+        <path d="M34.5,26 L34.5,39" id="Stroke-10" stroke="#000000"></path>
+    </g>
+</svg>

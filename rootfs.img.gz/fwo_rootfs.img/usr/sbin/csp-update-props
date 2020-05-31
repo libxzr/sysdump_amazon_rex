@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# Copyright (c) 2013 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# PROPRIETARY/CONFIDENTIAL
+#
+# Use is subject to license terms.
+#
+
+#
+# csp-update-props
+#     update font.properties using font manifests
+#
+
+. /etc/upstart/bundlefuncs
+. /usr/lib/contentpack/csp_functions
+
+###############################################################################
+
+newfontprop_ok=0
+
+# process manifest files -> font properties file
+csp_log_info "Updating font properties file..."
+
+if [ -f "$FONTPROPNEWPATH" ]; then
+    csp_log_info "New font properties file found."
+    mv "$FONTPROPNEWPATH" "$FONTPROPPATH"
+    if [ $? -ne 0 ]; then
+        csp_log_err "Can't rename new font properties file."
+        set_status $CSP_HARD_ERROR
+    fi
+else
+    csp_log_err "Can't find new font properties file."
+    set_status $CSP_HARD_ERROR
+fi
+
+current_status=`get_status`
+csp_log_info "Exiting with status = $current_status"
+exit $current_status
+
+# end.

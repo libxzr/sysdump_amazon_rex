@@ -1,0 +1,120 @@
+# set the maximum tries allowed
+RESTART_LIMIT=5
+REBOOT_LIMIT=1
+
+# If Mesquite is running for 10 seconds successfully, we consider the launch succeeded.
+# we use this to differentiate between the quick start failure and the termination by
+# pmond or Mesquite crashes
+SUCCESS_INTERVAL=10
+
+respawn_script() {
+    source /etc/upstart/functions
+    source /etc/upstart/env
+    source /etc/upstart/monitor_functions
+    source /etc/upstart/upstart_functions
+    source /etc/upstart/shutdown_modes
+    source /usr/bin/record_device_metric.sh
+
+    local JOB=$1
+    local begin_time="_begin_time"
+    local process_begin_time="/tmp/$JOB$begin_time"
+    local success="_success"
+    local process_success="/tmp/$JOB$success"
+
+    f_log I $JOB "started"
+
+    # if the device is shutting down, we don't respawn
+    if [ -e  /tmp/shutdown_in_progress ]; then
+        exit
+    fi
+
+    # Read in counters
+    REBOOTS=$(f_monitor_persist_read_count $JOB)
+    RESTARTS=$(f_monitor_session_read_count $JOB)
+    f_log I $JOB "read_in_counters" "REBOOTS=$REBOOTS, REBOOT_LIMIT=$REBOOT_LIMIT, RESTARTS=$RESTARTS, RESTART_LIMIT=$RESTART_LIMIT"
+
+    # Increase restart counter
+    RESTARTS=$(expr $RESTARTS + 1)
+
+    # Increase reboot counter if needed
+    if [ "$RESTARTS" -gt "$RESTART_LIMIT" ]; then
+        REBOOTS=$(expr $REBOOTS + 1)
+        f_monitor_persist_set_count ${JOB} $REBOOTS;
+        RESTARTS=0
+        if [ "$REBOOTS" -eq 1 ]; then
+            f_upstart_save_first_reboot_logs
+        fi
+    fi
+
+    # start the device even though the process start fails 
+    if [ "$REBOOTS" -gt "$REBOOT_LIMIT" ]; then
+        echo "#####################################################" >> /var/local/system/motd
+        echo "#       E R R O R  *  E R R O R  *  E R R O R       #" >> /var/local/system/motd
+        echo "#####################################################" >> /var/local/system/motd
+        echo "#     $JOB failed to start. Reboot limit reached     " >> /var/local/system/motd
+        echo "#    REBOOTS=$REBOOTS, REBOOT_LIMIT=$REBOOT_LIMIT    " >> /var/local/system/motd
+        echo "#####################################################" >> /var/local/system/motd
+
+        f_upstart_clear_counters $JOB
+        record_device_metrics upstart $JOB maxreboots 1 '' $METRIC_PRIORITY_HIGH $METRIC_TYPE_COUNTER
+        f_log I $JOB "Exiting Normally"
+        #exit 13 is a normal exit, see stored.conf for more info
+        exit 13
+    else
+        if [ "$RESTARTS" -eq 0 ]; then
+            f_log C $JOB "reboot"
+            record_device_metrics upstart $JOB maxrestarts 1 '' $METRIC_PRIORITY_HIGH $METRIC_TYPE_COUNTER
+            reboot
+        else
+            f_monitor_session_set_count ${JOB} $RESTARTS;
+            time_begin=$(date -u +%s)
+            echo $time_begin > $process_begin_time
+
+            #Make the process user the owner of the cache directory
+            chown -R framework:javausers /var/local/mesquite
+
+            if [ $TRACK_MEMORY -eq 1 ]; then
+                export LD_PRELOAD=/usr/lib/libinterceptMalloc.so
+            fi
+            /usr/bin/mesquite -d $2
+
+            # The following code is executed only if stored exits with no errors. 
+            echo 1 > $process_success
+        fi
+    fi
+}
+
+post_stop_script() {
+    source /etc/upstart/functions
+    source /etc/upstart/monitor_functions
+    source /etc/upstart/upstart_functions
+    
+    local JOB=$1
+    local begin_time="_begin_time"
+    local process_begin_time="/tmp/$JOB$begin_time"
+    local success="_success"
+    local process_success="/tmp/$JOB$success"
+    # In the case if time difference between start and stop of the process is greater than or equal to 10seconds, 
+    # we consider it as a successful run. 
+    time_end=$(date -u +%s)
+    time_begin=$(cat $process_begin_time)
+    time_diff=$((time_end - time_begin))
+ 
+    if [ $time_diff -ge $SUCCESS_INTERVAL ]; then
+        echo 1 > $process_success
+    f_log I $JOB "post-stop script - Time Interval = $time_diff"
+    fi
+
+    # Clear counters, if
+    # 1) process exits with no error,
+    # 2) has been running for longer than SUCCESS_INTERVAL
+    if [ -f $process_success ]; then
+        f_upstart_clear_counters $JOB
+    f_log I $JOB "post-stop script - cleared counters"
+    fi
+    
+    rm -rf $process_success
+    f_log I $JOB "post-stop script - sending event to appmgrd"
+    lipc-send-event -r 5 -d 2 com.lab126.upstart stopped -s $2
+}
+

@@ -1,0 +1,9 @@
+# /etc/ppp/peers/peer-1
+
+# don't require peer to authenticate itself
+noauth
+
+# connect/disconnect chat scripts
+connect "/usr/sbin/chat -f /etc/ppp/chat/connect-1"
+disconnect "/usr/sbin/chat -f /etc/ppp/chat/disconnect-1"
+

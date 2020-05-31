@@ -1,0 +1,24 @@
+#Support functions for changing cpu governor mode
+
+PERFD_FIFO=/tmp/perfdFifo
+PID=$$
+PERFD_LOGGER=perfdfuncs
+
+#Switch the cpu governor to performance mode [$Context name]
+enable_perf_mode() {
+  [ $# -eq 1 ] && echo 0:$PID:$1 >> $PERFD_FIFO || \
+  logger -t $PERFD_LOGGER "enable perfmode failed args = $#"
+}
+
+#Switch the cpu to ondemand mode [$Context name]
+disable_perf_mode() {
+  [ $# -eq 1 ] && echo 1:$PID:$1 >> $PERFD_FIFO || \
+  logger -t $PERFD_LOGGER "disable perfmode failed args = $#"
+}
+
+#Turn on performance mode for limited time period
+#60 seconds max [$Context name] [$Time period]
+reserve_perf_mode() {
+  [ $# -eq 2 ] && echo 2:$PID:$1:$2 >> $PERFD_FIFO || \
+  logger -t $PERFD_LOGGER "Reserve perfmode failed args = $#"
+}

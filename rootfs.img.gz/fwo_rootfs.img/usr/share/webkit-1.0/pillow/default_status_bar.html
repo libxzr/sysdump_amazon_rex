@@ -1,0 +1,63 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <link rel="stylesheet" type="text/css" href="stylesheets/default_status_bar.css" />
+        <script type="text/javascript" src="javascripts/local_debug.js"></script>
+        <script type="text/javascript" src="javascripts/constants.js"></script> <!-- must be first -->
+        <script type="text/javascript" src="javascripts/pillow.js"></script>
+        <script type="text/javascript" src="strings/default_status_bar_strings.js"></script>
+        <script type="text/javascript" src="javascripts/default_status_bar_connection.js"></script>
+        <script type="text/javascript" src="javascripts/default_status_bar_parentalcontrols.js"></script>
+        <script type="text/javascript" src="javascripts/default_status_bar_activity.js"></script>
+        <script type="text/javascript" src="javascripts/default_status_bar_battery.js"></script>
+        <script type="text/javascript" src="javascripts/default_status_bar_audio_icon.js"></script>
+        <script type="text/javascript" src="javascripts/default_status_bar.js"></script>
+        <script type="text/javascript" src="javascripts/window_title.js"></script>
+    </head>
+    <body class="statusBarBody" onload="StatusBar.init()" onclick="State.appState.tapHandler('titleBar')">
+        <div class="statusBarMainDiv" id="mainDiv">
+            <div id="spinner"></div>
+            <div id="statusBarTextArea">
+                <div id="textualActivity">
+                    <div id="textualActivityTextDiv">
+                        <span id="textualActivityText"></span>
+                    </div>
+                </div>
+                <div id="titleText">
+                    <div class="statusBarTextDiv" id="leftTextDiv">
+                        <span class="statusBarText" id="leftTextSpan"></span>
+                    </div>
+                    <div class="statusBarTextDiv" id="middleTextDiv">
+                        <span class="statusBarText" id="middleTextSpan"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="statusBarRightIconDock" id="statusBarRightIconDock">
+                <div id="statusBarAudioIconDiv" class="screenReaderIcon">
+                </div>
+                <div id="statusBarParentalControlsIconDiv" class="parentalControlsOn">
+                </div>
+                <div class="statusBarConnectionDiv">
+                    <div id="connectionStatusIconDiv"></div>
+                    <div id="connectionSignalStrengthIconDiv"></div>
+                </div>
+                <div id="sodaStatusIconDiv">
+                    <div id="sodaFillContainer">
+                        <div id="sodaFill"></div>
+                    </div>
+                </div>
+                <div id="batteryStatusIconDiv">
+                    <div id="batteryFillContainer">
+                        <div id="batteryFill"></div>
+                    </div>
+                </div>
+                <div class="statusBarTimeDiv" id="timeDiv">
+                    <span class="statusBarText" id="timeSpan"></span>
+                </div>
+            </div>
+        </div>
+        <div id="hiddenTextTester">
+            <span class="statusBarText" id="hiddenText">this should be hidden</span>
+        </div>
+    </body>
+</html>

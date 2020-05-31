@@ -1,0 +1,43 @@
+/*
+ * pwm_dialog.css
+ *
+ * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+.text-right {
+    text-align: right;
+}
+
+.pwmDialogBody {
+    border: 1px solid #000000;
+}
+
+.pwmField {
+    font-size: 8pt;
+}
+
+.pwmTitle {
+    display: inline-block;
+    margin: 9pt auto 0 auto;
+    font-size: 13pt;
+}
+
+.pwmTable {
+    margin-top: 8pt;
+    text-align: center;
+    font-size: 7pt;
+    table-layout: fixed;
+    width: 130pt;
+}
+
+.pwmTable td {
+    padding: 3pt;
+}
+
+.closeBtnContainer {
+    margin-bottom: 10pt;
+}

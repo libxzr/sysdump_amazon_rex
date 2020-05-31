@@ -1,0 +1,140 @@
+source /etc/upstart/functions
+
+MONITOR_SESSION_TYPE=s
+MONITOR_SESSION_DIR=/var/run/upstart
+
+MONITOR_PERSIST_TYPE=p
+MONITOR_PERSIST_DIR=/var/local/upstart
+
+MONITOR_FILE_EXT=restarts
+
+# Get the monitor dir base on the type
+# @param TYPE monitor type (persist or session)
+_f_monitor_dir() {
+    local TYPE=$1
+    local DIR=""
+
+    case $TYPE in 
+        $MONITOR_SESSION_TYPE)
+            DIR=$MONITOR_SESSION_DIR
+            ;;
+        $MONITOR_PERSIST_TYPE)
+            DIR=$MONITOR_PERSIST_DIR
+            ;;
+    esac
+    if [ -z $DIR ]; then
+        f_log C monitor "invalid_type" "type=${TYPE}"
+        return 1
+    fi
+    echo $DIR
+}
+
+# Get the file path based on the type
+# @param TYPE monitor type (persist or session)
+# @param NAME service name
+_f_monitor_file_path() {
+    local TYPE=$1
+    local NAME=$2
+    local DIR=$(_f_monitor_dir $TYPE)
+
+    echo ${DIR}/${NAME}.${MONITOR_FILE_EXT}
+}
+
+# Set the count
+# @param TYPE monitor type (persist or session)
+# @param NAME service name
+# @param COUNT count value to store
+_f_monitor_set_count() {
+    local TYPE=$1
+    local NAME=$2
+    local COUNT=$3
+    
+    local DIR=$(_f_monitor_dir $TYPE)
+    local FILE=$(_f_monitor_file_path $TYPE $NAME)
+    
+    # make sure the directory exists
+    mkdir -p ${DIR}
+    if [ ! -d ${DIR} ]; then
+        f_log C monitor "create_dir" "dir=${DIR}" "failed"
+    else
+        # make the creation/update of the file seem atomic
+        echo ${COUNT} > ${FILE}.tmp
+        
+        f_log I monitor "writing_file" "file=${FILE}"
+        mv -f ${FILE}.tmp ${FILE}
+    fi
+}
+
+# Clear the count
+# @param TYPE monitor type (persist or session)
+# @param NAME service name
+_f_monitor_clear_count() {
+    local TYPE=$1
+    local FILE=$(_f_monitor_file_path $TYPE $2)
+
+    if [ -e ${FILE} ]; then
+        rm -f ${FILE} || f_log W monitor "del_file" "file=${FILE}" "failed"
+    fi
+}
+
+# Read the count
+# @param TYPE monitor type (persist or session)
+# @param NAME service name
+_f_monitor_read_count() {
+    local TYPE=$1
+    local FILE=$(_f_monitor_file_path $TYPE $2)
+
+    if [ -e ${FILE} ]; then
+        cat ${FILE}
+    else
+        echo 0
+    fi
+}
+
+# Increment the count
+# @param TYPE monitor type (persist or session)
+# @param NAME service name
+_f_monitor_inc_count() {
+    local TYPE=$1
+    local NAME=$2
+    local COUNT=$(_f_monitor_read_count $TYPE $NAME)
+
+    # update the count
+    COUNT=$(expr 0${COUNT} + 1)
+    
+    _f_monitor_set_count $TYPE $NAME $COUNT
+    echo ${COUNT}
+}
+
+#
+# Session Counts
+#
+f_monitor_session_set_count() {
+    _f_monitor_set_count $MONITOR_SESSION_TYPE $1 $2
+}
+f_monitor_session_clear_count() {
+    _f_monitor_clear_count $MONITOR_SESSION_TYPE $1
+}
+f_monitor_session_read_count() {
+    _f_monitor_read_count $MONITOR_SESSION_TYPE $1
+}
+f_monitor_session_inc_count() {
+    _f_monitor_inc_count $MONITOR_SESSION_TYPE $1
+}
+
+#
+# Persist Counts
+#
+f_monitor_persist_set_count() {
+    _f_monitor_set_count $MONITOR_PERSIST_TYPE $1 $2
+}
+f_monitor_persist_clear_count() {
+    _f_monitor_clear_count $MONITOR_PERSIST_TYPE $1
+}
+f_monitor_persist_read_count() {
+    _f_monitor_read_count $MONITOR_PERSIST_TYPE $1
+}
+f_monitor_persist_inc_count() {
+    _f_monitor_inc_count $MONITOR_PERSIST_TYPE $1
+}
+

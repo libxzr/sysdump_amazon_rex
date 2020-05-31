@@ -1,0 +1,7 @@
+# nomkd configuration
+
+NKD_PROCNAME=cvm
+NKD_MAX_VSIZE=54
+NKD_MAX_RSS=44
+NKD_DELAY=23
+

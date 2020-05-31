@@ -1,0 +1,102 @@
+/*
+ * widget_discrete_slider.css
+ *
+ * Copyright 2012-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+.discrete-slider {
+    -webkit-box-sizing: border-box;
+    display: -webkit-box;
+    -webkit-box-pack: justify;
+}
+
+.discrete-slider.inverted {
+    -webkit-box-direction: reverse;
+}
+
+.discrete-slider.horizontal {
+    -webkit-box-orient: horizontal;
+    height: 30pt;
+}
+
+.discrete-slider.vertical {
+    -webkit-box-orient: vertical;
+    width: 38pt;
+}
+
+.discrete-slider > .box {
+    -webkit-box-flex: 1;
+    -webkit-box-sizing: border-box;
+    display: -webkit-box;
+    -webkit-box-align: center;
+    -webkit-box-direction: normal;
+    padding-top: 10pt;
+}
+
+.discrete-slider.horizontal > .box {
+    height: 100%;
+    -webkit-box-orient: vertical;
+}
+
+.discrete-slider.vertical > .box {
+    width: 100%;
+    -webkit-box-orient: horizontal;
+}
+
+.discrete-slider > .box > .vb {
+    -webkit-box-sizing: border-box;
+    border: 0.8pt solid #000000;
+}
+
+.discrete-slider.horizontal > .box > .vb {
+    width: 4pt;
+    height: 12pt;
+    padding-top: 3pt;
+}
+
+.discrete-slider.vertical > .box > .vb {
+    height: 4pt;
+    width: 12pt;
+}
+
+.discrete-slider > .box.empty > .vb {
+    background-color: #FFFFFF;
+}
+
+.discrete-slider > .box.full > .vb {
+    background-color: #000000;
+}
+
+.discrete-slider.show-numbers > .box > .tb, .discrete-slider.show-numbers-after > .box > .tb {
+    -webkit-user-select: none;
+    -webkit-font-smoothing: none;
+    font-size: 6pt;
+    font-family: dialog;
+    visibility: hidden;
+}
+
+.discrete-slider.horizontal.show-numbers > .box > .tb {
+    text-align: center;
+    padding-bottom: 2pt;
+}
+
+.discrete-slider.horizontal.show-numbers-after > .box > .tb {
+    padding-top: 2pt;        
+    text-align: center;
+}
+
+.discrete-slider.vertical.show-numbers > .box > .tb {
+    text-align: right;
+    padding-right: 4pt;
+    position: relative;
+    top: -1.4pt;
+}
+
+.discrete-slider.show-numbers > .box.full.last > .tb, .discrete-slider.show-numbers-after > .box.full.last > .tb {
+    visibility: visible;
+}
+

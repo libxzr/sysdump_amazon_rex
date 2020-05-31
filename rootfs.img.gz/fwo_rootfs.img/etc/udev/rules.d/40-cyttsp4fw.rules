@@ -1,0 +1,1 @@
+KERNEL=="cyttsp4_loader.main_ttsp_core", SUBSYSTEM=="firmware", ACTION=="add", ATTR{loading}=="0", RUN+="/lib/udev/bin/cyttsp4fw", OPTIONS+="last_rule"

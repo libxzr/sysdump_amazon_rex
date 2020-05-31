@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets"
+    xmlns:kindle = "http://kindle.amazon.com/ns/widget-extensions"
+    id="com.amazon.kindle.features.jquery"
+    viewmodes="windowed"
+    version="1.5">
+    <name>JQuery</name>
+    <description>The write less, do more JavaScript library.</description>
+    <content src="index.html"/>
+    <kindle:export resource="jquery.js"/>
+</widget>

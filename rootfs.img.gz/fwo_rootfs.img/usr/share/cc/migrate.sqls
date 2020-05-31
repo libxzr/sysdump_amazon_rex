@@ -1,0 +1,35 @@
+--## Attach
+ATTACH DATABASE "/var/cc.db" AS cc_temp
+
+--## CreateInterface: Entries:1
+SELECT name, type, sql FROM cc_temp.sqlite_master WHERE sql NOT NULL AND type=='table' AND name like 'Entries'
+
+--## CreateInterface: Collections:1
+SELECT name, type, sql FROM cc_temp.sqlite_master WHERE sql NOT NULL AND type=='table' AND name like 'Collections'
+
+--## CreateInterface: CollectionsJournal:1
+SELECT name, type, sql FROM cc_temp.sqlite_master WHERE sql NOT NULL AND type=='table' AND name like 'CollectionsJournal'
+
+--## CreateInterface: Versions:1
+SELECT name, type, sql FROM cc_temp.sqlite_master WHERE sql NOT NULL AND type=='table' AND name like 'Versions'
+
+--## CreateInterface: DBOK:1
+SELECT name, type, sql FROM cc_temp.sqlite_master WHERE sql NOT NULL AND type=='table' AND name like 'DBOK'
+
+--## Insert: Entries:1
+INSERT INTO Entries SELECT * FROM cc_temp.Entries
+
+--## Insert: Collections:1
+INSERT INTO Collections SELECT * FROM cc_temp.Collections
+
+--## Insert: CollectionsJournal:1
+INSERT INTO CollectionsJournal SELECT * FROM cc_temp.CollectionsJournal
+
+--## Insert: Versions:1
+INSERT INTO Versions SELECT * FROM cc_temp.Versions where x_table in ("Entries", "Collections", "CollectionsJournal")
+
+--## Insert: DBOK:1
+INSERT INTO DBOK SELECT * FROM cc_temp.DBOK
+
+
+

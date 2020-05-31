@@ -1,0 +1,11 @@
+# srstlog configuration
+
+# (comment out the following line to disable srstlog processing)
+SRST_ENABLE=true
+
+SRST_LOGNAME=restart_log.txt
+SRST_LOGNAME_BOOT=restart_log_reset.txt
+
+SRST_SYSDIR=/mnt/us/system
+SRST_LOGDIR=${SRST_SYSDIR}/logs
+

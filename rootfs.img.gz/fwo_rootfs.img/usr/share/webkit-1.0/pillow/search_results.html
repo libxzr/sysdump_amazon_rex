@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<!--
+ - search_results.html
+ -
+ - Copyright (c) 2012-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ -
+ - PROPRIETARY/CONFIDENTIAL
+ -
+ - Use is subject to license terms.
+ -->
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title></title>
+        <script type="text/javascript" src="javascripts/local_debug.js"></script>
+        <script type="text/javascript" src="javascripts/constants.js"></script> <!-- must be first -->
+        <script type="text/javascript" src="javascripts/pillow.js"></script>
+        <script type="text/javascript" src="javascripts/client_params_handler.js"></script>
+        <script type="text/javascript" src="javascripts/lipc_event_handler.js"></script>
+        <script type="text/javascript" src="javascripts/pillow_case.js"></script>
+        <script type="text/javascript" src="strings/search_domain_strings.js"></script>
+        <script type="text/javascript" src="strings/search_bar_strings.js"></script>
+        <script type="text/javascript" src="javascripts/xor_button.js"></script>
+        <script type="text/javascript" src="javascripts/widget_list.js"></script>
+        <script type="text/javascript" src="javascripts/window_title.js"></script>
+        <script type="text/javascript" src="javascripts/search_results.js"></script>
+        <link href="stylesheets/widget_list.css" rel="stylesheet" type="text/css"/>
+        <link href="stylesheets/search_results.css" rel="stylesheet" type="text/css"/>
+    </head>
+    <body>
+        <div id="mainResultsDiv">
+            <div id="resultsHeader">
+                <span id = "title"> </span>
+                <span id = "clear"> </span>
+            </div>
+
+            <div id="noResultsTextDiv"> </div>
+
+            <div id="results" class="list">
+                <button class="template item">
+                    <div class="class-field icon"></div>
+                    <div class="searchResultCell">
+                        <div class="text-replace-field label"></div>
+                        <div class="text-replace-field secondary-label"></div>
+                    </div>
+                </button>
+            </div>
+            <div id="spacing"> </div>
+        </div>
+        <div id="moreResults" class="list">
+            <button class="template item">
+                <div class="text-replace-field singlelabel"></div>
+            </button>
+        </div>
+
+    </body>
+</html>

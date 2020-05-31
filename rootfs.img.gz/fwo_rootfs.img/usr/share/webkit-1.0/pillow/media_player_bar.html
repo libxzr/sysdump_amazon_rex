@@ -1,0 +1,39 @@
+<html lang="en" dir="ltr">
+    <head>
+        <link rel="stylesheet" type="text/css" href="stylesheets/pillow.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/media_player_bar.css" />
+        <script src="json2.js"></script>
+        <script type="text/javascript" src="javascripts/constants.js"></script> <!-- must be first -->
+        <script type="text/javascript" src="javascripts/pillow.js"></script>
+        <script type="text/javascript" src="javascripts/xor_button.js"></script>
+        <script type="text/javascript" src="strings/media_player_bar_strings.js"></script>
+        <script type="text/javascript" src="javascripts/media_player_bar.js"></script>
+    </head>
+    <body onload="MediaPlayerBar.init();">	
+        <div id="main">
+            <div class="thickLineseparator"></div>
+            <div id="navigationPanel">
+                <div id="previousDiv"><button type="button" id="previous"></button></div>             
+                <div id="trackInfo">                 
+                    <div><p id="track"></p></div>   
+                    <div><p id="title"></p></div>
+                    <div><p id="artist"></p></div>
+                </div>
+                <div id="nextDiv"><button type="button" id="next"></button></div>
+            </div>
+            <div class="thinLineseparator"></div>
+            <div id="volumePanel">
+                <div id="playPauseDiv"><button type="button" id="playControl" class="playPause play buttonVisible"></button><button type="button" id="pauseControl" class="playPause pause buttonHide"></button></div>        
+		<div id="volumeController">
+			<div id="volumeDecreaseDiv"><button type="button" id="volumeDecreaseButton"></button></div>                
+			<div id="volumeMeterDiv"><canvas id="volumeMeterCanvas" onClick="MediaPlayerBar.volumeInputChanged(event)"></canvas></div>
+                	<div id="volumeIncreaseDiv"><button type="button" id="volumeIncreaseButton"></button></div>                
+		</div>
+		<div id="turnOffDiv"><button type="button" id="turnOffButton" ></button></div>                
+            </div>
+        </div>
+        <img id="squareOff" src="assets/square_off.png"  class="buttonHide"/>
+        <img id="squareOn" src="assets/square_on.png"  class="buttonHide"/>
+    </body>
+</html>
+

@@ -1,0 +1,8 @@
+#!/bin/sh
+
+USBNETWORK=/usr/local/bin/usbnetwork
+
+if [ -x ${USBNETWORK} ] ; then
+	${USBNETWORK} $*
+fi
+

@@ -1,0 +1,149 @@
+# Upstart helper functions
+
+# job status
+UP_JOB_STS_RUNNING=1
+UP_JOB_STS_STOPPED=2
+UP_JOB_STS_NOEXIST=3
+UP_JOB_STS_UNKNOWN=4
+
+# Determine a job's status
+# param - job name
+# echo's job status
+f_upstart_job_status() {
+    local sts=$(initctl status $1 2>&1 || true)
+    local stop=$(echo "$sts" | grep "\/waiting")
+    local start=$(echo "$sts" | grep "\/running")
+    local unknown=$(echo "$sts" | grep "Unknown job")
+
+    if [ -n "$start" ]; then
+        echo $UP_JOB_STS_RUNNING
+        return
+    fi
+
+    if [ -n "$stop" ]; then
+        echo $UP_JOB_STS_STOPPED
+        return
+    fi
+
+    if [ -n "$unknown" ]; then
+        echo $UP_JOB_STS_NOEXIST
+        return
+    fi
+
+    echo $UP_JOB_STS_UNKNOWN
+}
+
+# Stop a list of jobs and timeout after a while
+# param - timeout in seconds
+# param - list of jobs
+f_upstart_job_stop_timeout() {
+    local timeout_s=$1
+    local joblist=$2
+
+    # first stop all the jobs
+    for j in $joblist; do
+        local ret=$(f_upstart_job_status ${j})
+
+        # if a job is already stopped, note it and continue
+        if [ "${ret}" -eq "${UP_JOB_STS_STOPPED}" ]; then
+            f_log I upstart_f "job_already_stopped" "job=${j}"
+            continue
+        fi
+
+        # log that we're stopping the job
+        f_log I upstart_f "stopping_job" "job=${j}"
+        stop -n ${j} || f_log E upstart_f "cannot_stop_job" "job=${j}"
+    done
+
+    # keep track of which jobs caused us to timeout
+    local jobs_not_stopped=""
+    
+    # calculate a few key vars in more convenient units
+    local timeout_ms=$(expr ${timeout_s} \* 1000) || true
+
+    # calculate the timeout time based on the current time
+    local time_now_ms=$(f_ms)
+    local time_begin_ms=${time_now_ms}
+    local timeout_time_ms=$(expr ${time_now_ms} + ${timeout_ms}) || true
+    
+    # loop until we timeout
+    while [ "${time_now_ms}" -lt "${timeout_time_ms}" ]; do
+        jobs_not_stopped=""
+        
+        for j in $joblist; do
+            local ret=$(f_upstart_job_status ${j})
+
+            if [ "${ret}" -ne "${UP_JOB_STS_STOPPED}" ]; then
+                jobs_not_stopped="${j} ${jobs_not_stopped}"
+            fi
+        done
+
+        # if jobs_not_stopped is null, then all jobs that we care about
+        # are stopped, go ahead and break from the loop
+        if [ -z "${jobs_not_stopped}" ]; then
+            break
+        fi
+        
+        # sleep for the alloted time
+        usleep 250000
+        time_now_ms=$(f_ms)
+    done
+
+    # calculate the allotted time
+    local elapsed_ms=$(expr ${time_now_ms} \- ${time_begin_ms}) || true
+
+    # if jobs not stopped is non-null, then we timed-out
+    if [ -n "${jobs_not_stopped}" ]; then
+        f_log E usptart_f "timed_out" "elapsed_ms=${elapsed_ms},timeout_ms=${timeout_ms}"
+        for j in $jobs_not_stopped; do
+            f_log E upstart_f "timed_out_job" "job=${j}"
+        done
+    else
+        f_log I upstart_f "jobs_stopped" "elapsed_ms=${elapsed_ms},timeout_ms=${timeout_ms}"
+    fi
+}
+
+# Stop a job
+# param - job name
+# returns 0 on success, 1 on failure
+f_upstart_job_stop() {
+    local jobname=$1
+    local ret=$(f_upstart_job_status $jobname)
+
+    case "$ret" in
+        $UP_JOB_STS_RUNNING)
+            f_log I upstart_f "stopping" "$jobname"
+            stop $jobname || return 1;
+            ;;
+        $UP_JOB_STS_STOPPED)
+            f_log I upstart_f "job already stopped" "$jobname"
+            ;;
+        $UP_JOB_STS_NOEXIST)
+            f_log E upstart_f "job doesn't exist" "$jobname"
+            return 1
+            ;;
+        $UP_JOB_STS_UNKNOWN)
+            f_log E upstart_f "unknown error" "$jobname"
+            return 1
+            ;;
+     esac
+}
+
+# Save Logs
+f_upstart_save_first_reboot_logs() {
+    rm -f /var/local/firstReboot /var/local/firstReboot.gz || true
+    touch /var/local/firstReboot || true
+    showlog | tail -5000 > /var/local/firstReboot || true
+    gzip /var/local/firstReboot || true
+}
+
+# Clear counters
+# argument - job name
+f_upstart_clear_counters() {
+    source /etc/upstart/functions
+    source /etc/upstart/monitor_functions
+
+    local JOB=$1
+    f_monitor_session_clear_count $JOB
+    f_monitor_persist_clear_count $JOB
+}

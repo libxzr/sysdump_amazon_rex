@@ -1,0 +1,102 @@
+/*
+ * bt_wizard_dialog.css
+ *
+ * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+.grayText {
+    font-size: 10pt;
+    font-weight: bold;
+    color: gray;
+}
+
+#noDevices {
+    padding: 0pt;
+    padding-left: 12pt;
+}
+
+.dialogHeaderText {
+    text-align: left;
+    width: 216pt;
+}
+
+#advancedCancelButton {
+    width: 13.44pt;
+    height: 13.44pt;
+    margin-top: 14.88pt;
+    margin-right: 12pt;
+}
+
+#devices {
+    padding: 0;
+    margin: 0;
+    padding-left: 8.3pt;
+    padding-right: 8.33pt;
+}
+
+#devices .selectedIcon,
+#devices .btIcon {
+    width: 13.44pt;
+    height: 13.44pt;
+    background-position: bottom;
+}
+
+#devices .btIcon {
+    padding-right: 13.92pt;
+    padding-left: 0;
+    padding-top: 3pt;
+    background-position: left bottom;
+}
+
+#devices .selectedIcon {
+    padding-top: 2pt;
+    margin-left: 11.52pt;
+}
+
+#devices .device {
+    width: 139.68pt;
+    height: 11.52pt;
+    font-size: 9pt;
+    padding: 0;
+    text-align: left;
+}
+
+#devices .BtImage {
+    background-image: url('../assets/bluetooth_list.png');
+}
+
+#devices .xor .BtImage {
+    background-image: url('../assets/bluetooth_list_XOR.png');
+}
+
+#devices .selectedDevice {
+    background-image: url('../assets/check_mark.png');
+}
+
+#devices .xor .selectedDevice {
+    background-image: url('../assets/check_mark_active.png');
+}
+
+.bt-wizard-dialog {
+    -webkit-box-sizing: border-box;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: start;
+    -webkit-box-align: start;
+    height: 106.96pt;
+    width: 216pt;
+    margin: 0;
+    padding: 0;
+    padding-top: 13.44pt;
+    padding-bottom: 13.44pt;
+    margin-bottom: 13.44pt;
+    border: none;
+}
+
+#BtDeviceCmdBar {
+    padding-top: 0pt;
+}

@@ -1,0 +1,82 @@
+#! /bin/sh
+# script for loading cyttsp5 module and updating parade touch firwmare.
+# There is no way to know if it's really connected, so failure just unloads
+# the module and returns "true"
+
+# DO_UPDATE can take 2 values:
+#    0: Do not update
+#    1: Enable auto update process
+
+source /etc/upstart/functions
+
+bootmode=`cat /proc/bootmode`
+CYTTSP5_LOADER_DELAY=40
+
+if [ "$(f_platform)" = "zelda" -o "$(f_platform)" = "rex" ]; then
+	# set FW version
+	if [ "$(f_board)" = "cognac" ]; then
+		FILE_VER=0025
+	elif [ "$(f_board)" = "stinger" ]; then
+		FILE_VER=002F
+	elif [ "$(f_board)" = "moonshine" ]; then
+		FILE_VER=0027
+	elif [ "$(f_board)" = "jaeger" ]; then
+		FILE_VER=307
+	fi
+
+	modprobe cyttsp5_i2c
+
+	if [ "$bootmode" = "1" ]; then
+		f_log I cyttsp5 update "cyttsp5 skip fw update in diags mode"
+		exit 0
+	fi
+
+	DO_UPDATE=1
+	FW_DIR="/lib/firmware/cyttsp5"
+	SYS_FW_VER="/sys/bus/i2c/devices/1-0024/ic_ver"
+	SYS_TOUCH_INPUT="/sys/bus/i2c/devices/1-0024/input"
+	MANUAL_UPDATE="/sys/bus/i2c/devices/1-0024/manual_upgrade"
+	ENSKY_MFG="/sys/bus/i2c/devices/1-0024/ensky_mfg"
+
+	# Handle FW corrupted case
+	if [ ! -e $SYS_TOUCH_INPUT -a -e $SYS_FW_VER ]; then
+		f_log D cyttsp5 update "cyttsp5 fw found corrupted, update firmware"
+		modprobe cyttsp5_loader
+		sleep $CYTTSP5_LOADER_DELAY
+		f_log D cyttsp5 update "cyttsp5 fw update finished - reboot"
+		reboot
+		exit 0
+	fi
+
+	# auto FW update is available only in pre-GM builds or enable auto update process flag
+	if [ -e "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC" -o "$DO_UPDATE" = "1" ] ; then
+
+		if [ "$(f_platform)" = "zelda" -o "$(f_platform)" = "rex" ]; then
+
+			if [ ! -e $SYS_FW_VER -o ! -e $FW_DIR ]; then
+				f_log E cyttsp5 update "cannot find firmware version!!"
+				exit 0
+			fi
+
+			# Move to save the latest FW Version number using a string
+			#FW_FILE=`ls -h $FW_DIR/$(f_board)*.bin | head -1 2>/dev/null`
+			#FILE_VER=`basename $FW_FILE .bin | cut -d _ -f 2`
+
+			CUR_FW_VER=`cat $SYS_FW_VER | grep "Firmware Configuration" | tail -c 5`
+			# For Jaeger devices
+			if [ "$(f_board)" = "jaeger" ]; then
+				CUR_FW_VER=`echo $CUR_FW_VER | tail -c 4`
+			fi
+			f_log I cyttsp5 update "cyttsp5 fw ver=0x$CUR_FW_VER file version=0x$FILE_VER"
+
+			if [ $(( 0x$FILE_VER )) -gt $(( 0x$CUR_FW_VER )) ]; then
+				f_log I cyttsp5 update "cyttsp5 fw update from 0x$CUR_FW_VER to 0x$FILE_VER"
+				modprobe cyttsp5_loader
+				if [ "$(f_board)" = "jaeger" ]; then
+					cat $ENSKY_MFG > /dev/null
+					echo 2 > $MANUAL_UPDATE
+				fi
+			fi
+		fi
+	fi
+fi

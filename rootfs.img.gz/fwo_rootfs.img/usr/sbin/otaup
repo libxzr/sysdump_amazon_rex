@@ -1,0 +1,354 @@
+#!/bin/sh
+
+export PATH=/usr/sbin:${PATH}
+
+source /etc/upstart/functions
+source /etc/upstart/bundlefuncs
+
+BLANKET=com.lab126.update
+
+ID_IMAGE=128
+ID_SCRIPT=129
+
+TMPDIR=/tmp/.update-tmp.$$
+TMPSIZE=190M
+
+ERR_GENERAL=U000
+ERR_BUNDLE_VER=U001
+ERR_BUNDLE_MD5=U002
+
+ERR_UPDATE_MISSING=U004
+ERR_UPDATE_TMPDIR=U005
+ERR_UPDATE_FAILED=U006
+ERR_SIGNATURE_FAILED=U007
+ERR_EXTRACT_FAILED=U008
+ERR_TMPFS_RESIZE_FAILED=U009
+
+_ERR_CODE=${ERR_GENERAL}
+
+KEYFILES="/etc/uks/pubprodkey01.pem /etc/uks/pubprodkey02.pem"
+
+# Blanket interface for the OTA splash screens and progress indicator.
+blanket()
+{
+    local BLANKET=com.lab126.blanket
+    local OTAMODULE="${BLANKET}.ota"
+    
+    case "${1}" in
+        begin)
+            # Load the OTA module in Blanket and display the splash screen.
+            lipc-set-prop $BLANKET load ota
+            lipc-send-event $OTAMODULE otaSplashInit
+            ;;
+        progress)
+            # Update the progress indicator in the OTA splash screen.
+            lipc-send-event $OTAMODULE otaSplashProgress -i ${3}
+            ;;
+        success)
+            # Display a successful installation in the OTA splash screen.	
+            lipc-send-event $OTAMODULE otaSplashSuccess
+            ;;
+        error|fail)
+            # Display an error and error string.
+            lipc-send-event $OTAMODULE otaSplashError -s "${3}"
+            ;;
+        end)
+            # Remove the splash screen and unload the OTA module from Blanket.
+            lipc-send-event $OTAMODULE otaSplashCleanup
+            lipc-set-prop $BLANKET unload ota
+            ;;
+        *) ;;
+    esac
+}
+
+
+set_error_code()
+{
+    [ "x${_ERR_CODE}" = "x${ERR_GENERAL}" ] && _ERR_CODE=${1}
+}
+
+
+# Set up the environment for updating.  This includes
+# shutting down non-essential services if they are 
+# running and resizing /tmp to 190MB
+setup() {
+    initctl emit ota-update
+
+    if [ $_NOREBOOT -eq 0 ]; then    
+        sync
+        # echo 3 >/proc/sys/vm/drop_caches
+    
+        mount -t tmpfs tmpfs /var -o rw,remount,size=$TMPSIZE
+        if [ $? -ne 0 ]; then
+            die $ERR_TMPFS_RESIZE_FAILED update tmpfs_resize "" "unable to resize tmpfs to $TMPSIZE"
+        fi
+    fi
+}
+
+cleanup() {
+    trap - INT TERM EXIT
+    cd
+    [ -d "${TMPDIR}" ] && rm -rf "${TMPDIR}"
+    [ -f "${_UPDATEBIN}" ] && rm -f "${_UPDATEBIN}"
+}
+
+display_error_code()
+{
+    blanket error -i ${1#U}
+}
+
+# return MD5 checksum - handles name or stdin
+
+_check() {
+    set $(md5sum $*) ; echo $1
+}
+
+validate_bundle()
+{
+    # TODO: Properly support nested bundles
+    while [ "${OTA_VERSION}" = "SP01" ]; do
+        verify_bundle "${1}" "${OTA_BLOCKSIZE}"
+
+        if [ $? -ne 0 ]; then
+            f_log E update bundle_checksum "" "invalid bundle signature ${OTA_BLOCKSIZE}"
+            set_error_code ${ERR_SIGNATURE_FAILED}
+            display_error_code $ERR_SIGNATURE_FAILED
+            return 1
+        fi
+
+        parse_bundle "${1}" "${OTA_BLOCKSIZE}" >/dev/null 2>&1
+
+        if [ $? -ne 0 ]; then
+            f_log E update bundle_version "" "version=${OTA_VERSION}" "parse bundle failure - ${OTA_BLOCKSIZE}"
+            set_error_code ${ERR_BUNDLE_VER}  # either unknown bundle version or invalid header
+            display_error_code $ERR_BUNDLE_VER
+            return 1
+        fi
+
+    done
+
+    verify_bundle "${1}" "${OTA_BLOCKSIZE}"
+    if [ $? -ne 0 ]; then
+        f_log E update bundle_checksum "" "checksum failure ${OTA_BLOCKSIZE}"
+        set_error_code ${ERR_BUNDLE_MD5}
+        display_error_code $ERR_BUNDLE_MD5
+        return 1
+    fi
+
+    return 0
+}
+
+
+verify_signature()
+{
+    if [ $# -gt 0 ]; then
+
+        local _FILE="$1"
+
+        if [ -f "${_FILE}.sig" ]; then
+            local let _FAIL=1
+            for key in ${KEYFILES}; do
+                /usr/bin/openssl dgst -sha256 -verify "${key}" -signature "${_FILE}.sig" "${_FILE}" 2>&1 >/dev/null
+                if [ $? -eq 0 ]; then
+                    let _FAIL=0
+                    break
+                fi
+            done
+
+            if [ ${_FAIL} -ne 0 ]; then
+                f_log E update signature file="${_FILE}" "signature verification failed"
+                return 1
+            fi
+        else
+            f_log E update signature file="${_FILE}" "signature does not exist"
+            return 1
+        fi
+
+    fi
+
+    return 0
+}
+
+
+read_bundle_lines()
+{
+# || return 1 is because the loop is a redirection sub-shell
+
+    cat "$1" | while read bundle; do verify_signature $bundle || return 1; done || return 1
+
+    return 0
+}
+
+
+process_image()
+{
+    [ $# -eq 0 ] && return 0
+
+    # bundle line format is "id md5 filename block_count display_name"
+
+    local _ID=$1 _MD5SUM=$2 _FILE=$3 _BLOCK_COUNT=$4 _NAME="${5//_/ }"
+
+# original didn't consider lack of file an error??
+
+    [ -f "$_FILE" ] && case "$_ID" in
+        $ID_IMAGE)
+            f_log D update process_skip file="$_FILE"
+            ;;
+        $ID_SCRIPT)
+            f_log D update process_sh file="$_FILE"
+            sh $_FILE || return 1
+            ;;
+        *)
+            f_log W update process_skip_unknown file="$_FILE"
+            ;;
+    esac
+    return 0
+}
+
+process_images()
+{
+# || return 1 is because the loop is a redirection sub-shell
+    cat "$2" | while read image ; do process_image $image || return 1; done || return 1
+
+    sync
+
+    return 0
+}
+
+progress()
+{
+    let _PROGRESS+=$1
+
+    blanket progress -i $_PROGRESS
+}
+
+# error code (mandatory) and possible log message
+
+die() {
+    if [ $# -gt 0 ] ; then
+        display_error_code "$1"
+    else
+        display_error_code $ERR_GENERAL
+    fi
+    FAILCODE=$(expr $(echo ${1} | sed 's#^U##') + 0)
+    f_log E update otaup "" "otaup error (${1}), exiting with code: ${FAILCODE}"
+    shift
+    [ $# -gt 0 ] && f_log E $*
+    mount -o ro,remount /
+    (sleep 10 && reboot) & # Allow user to see error code
+    exit ${FAILCODE}
+}
+
+
+if [ $# -eq 0 ]; then
+    f_log W update usage "" "usage: $0 updatefile"
+    return 1
+fi
+
+_NOREBOOT=0
+if [ "-r" = "$1" ]; then
+    _NOREBOOT=1 && shift
+fi
+
+_UPDATEBIN=$(realpath "$1")
+_PROGRESS=0	# this does have to be exported for the .ffs script...
+
+trap cleanup INT TERM EXIT
+
+setup
+
+f_log I update begin "bin=$_UPDATEBIN" "update started"
+
+# First get the bundle version
+OTA_VERSION=$(get_bundle_version "${_UPDATEBIN}" 0)
+
+LEGACY_FORMAT=false
+
+case "${OTA_VERSION}" in
+    SP01) 
+        ;;
+# Disable support for legacy OTA bundle formats
+#    FC02|FD03)
+#        LEGACY_FORMAT=true
+#        ;;
+    FB02)
+        trap - INT TERM EXIT
+        NEWNAME=$(basename "${_UPDATEBIN}")
+        if ! echo ${NEWNAME} | grep "^update" >/dev/null 2>&1 ; then
+            NEWNAME="update-${NEWNAME}"
+            mv "${_UPDATEBIN}" "/mnt/us/${NEWNAME}"
+            sync
+        fi
+        reboot
+        exit 0
+        ;;
+    *)
+        set_error_code ${ERR_BUNDLE_VER} # not reqd
+        f_log E update bundle_version "" "invalid bundle type ${OTA_VERSION}" 
+        die $ERR_BUNDLE_VER update bundle_version "" "invalid bundle type"
+        ;;
+esac
+
+# Parse the bundle to get our environment initialized.
+parse_bundle "${_UPDATEBIN}"
+[ $? -ne 0 ] && {
+    blanket begin
+    display_error_code $ERR_SIGNATURE_FAILED
+    f_log E update parse_bundle "" "parse_bundle failed ${OTA_VERSION}" 
+    die $ERR_SIGNATURE_FAILED update bundle_version "version=${OTA_VERSION}" "parse bundle failure - 0"
+}
+f_log I update bundle "bundle=$1,version=${OTA_VERSION}" 
+
+# If this is a signed FB02 or FB03, then there is nothing to 
+# extract, so reboot device to start the installation process...
+case "$(get_bundle_version ${_UPDATEBIN} ${OTA_BLOCKSIZE})" in
+    FB02|FB03)
+        trap - INT TERM EXIT 
+	f_log I update bundle "type=fullbin" "rebooting"
+        reboot
+        exit 0
+        ;;
+esac
+
+blanket begin
+progress 1
+
+# validate_bundle does its own logging and error code
+
+validate_bundle "$_UPDATEBIN" || die $_ERR_CODE update validate_bundle "" ""
+
+[ -e "$TMPDIR" ] && rm -rf "$TMPDIR"
+mkdir -p "${TMPDIR}" || die $ERR_UPDATE_TMPDIR update tmpdir "dir=$TMPDIR"
+
+progress 1
+cd "${TMPDIR}"
+extract_bundle "$_UPDATEBIN" "${OTA_BLOCKSIZE}" || die $ERR_EXTRACT_FAILED update process "" "failed to extract bundle content"
+
+dat=$(find update*.dat)
+[ -s "$dat" ] || die $ERR_UPDATE_MISSING update missing "dat=$dat"
+progress 1
+
+# For the legacy format, we need to validate content signatures.
+${LEGACY_FORMAT} && {
+    read_bundle_lines $dat || die $ERR_SIGNATURE_FAILED update verify
+}
+progress 1
+
+version=${dat%.dat}
+
+mount -o rw,remount /
+
+process_images $version $dat || die $ERR_UPDATE_FAILED update process
+progress 1
+
+mount -o ro,remount /
+
+if [ $_NOREBOOT -eq 0 ]; then
+    blanket success
+
+    f_log I update success
+
+    (sleep 10 && reboot) & # Allow logging to record the exit code
+fi
+
+exit 0

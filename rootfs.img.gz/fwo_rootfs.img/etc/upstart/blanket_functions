@@ -1,0 +1,103 @@
+# Blanket specific functions for (un)loading module
+
+# Internal variables
+_BLANKET_LIPC_NAME="com.lab126.blanket"
+_BLANKET_LIPC_LOAD="load"
+_BLANKET_LIPC_UNLOAD="unload"
+
+# Sleep interval when we need to poll
+BLANKET_SLEEP_INTERVAL_MS=100
+BLANKET_MAX_SLEEP_INTERVAL_MS=5000
+
+
+# Returns codes for status
+BLANKET_MODULE_STS_LOADED="loaded"
+BLANKET_MODULE_STS_NOT_LOADED="not_loaded"
+
+# Check module status
+# param - module name
+# echo's one of the above status codes and returns 0
+f_blanket_module_status() {
+    local MODULE=$1
+
+    MODULE_LIST=$(lipc-get-prop $_BLANKET_LIPC_NAME $_BLANKET_LIPC_LOAD -s)
+    #f_log I blanket_f "loaded module list" "$MODULE_LIST"
+    for M in $MODULE_LIST; do
+        #f_log I blanket_f "module=>\"$M\"" "lookfor=>\"$MODULE\""
+        if [ "$M" == "$MODULE" ]; then
+            echo $BLANKET_MODULE_STS_LOADED
+            return;
+        fi
+    done
+    echo $BLANKET_MODULE_STS_NOT_LOADED
+}
+
+# Unload a module
+# param - module name
+# returns 0 on success, !0 on error
+f_blanket_unload_module() {
+    local MODULE=$1
+    local SLEEP_TIME_MS=0
+
+    # see if it's already unloaded
+    local ret=$(f_blanket_module_status $MODULE)
+    if [ "$ret" == "$BLANKET_MODULE_STS_NOT_LOADED" ]; then
+        f_log I blanket_f "module already unloaded" "$MODULE"
+        return 0;
+    fi
+
+    # try to unload it
+    f_log I blanket_f "unloading blanket module" "$MODULE"
+    lipc-set-prop $_BLANKET_LIPC_NAME $_BLANKET_LIPC_UNLOAD -s "$MODULE"
+
+    # wait for it to be loaded
+    while [ "${SLEEP_TIME_MS}" -lt "${BLANKET_MAX_SLEEP_INTERVAL_MS}" ]; do
+        local ret=$(f_blanket_module_status $MODULE)
+        if [ "$ret" == "$BLANKET_MODULE_STS_NOT_LOADED" ]; then
+            return 0;
+        fi
+
+        # sleep and keep track of the time
+        usleep $(expr $BLANKET_SLEEP_INTERVAL_MS \* 1000)
+        SLEEP_TIME_MS=$(expr $SLEEP_TIME_MS + $BLANKET_SLEEP_INTERVAL_MS)
+    done
+
+    # return an error
+    f_log E blanket_f "cannot unload module" "$MODULE"
+    return 1;
+}
+
+# Load a module
+# param - module name
+# returns 0 on success, !0 on error
+f_blanket_load_module() {
+    local MODULE=$1
+    local SLEEP_TIME_MS=0
+
+    # see if it's already loaded
+    local ret=$(f_blanket_module_status $MODULE)
+    if [ "$ret" == "$BLANKET_MODULE_STS_LOADED" ]; then
+        f_log I blanket_f "module already loaded" "$MODULE"
+        return 0;
+    fi
+
+    # try to load it
+    f_log I blanket_f "loading blanket module" "$MODULE"
+    lipc-set-prop $_BLANKET_LIPC_NAME $_BLANKET_LIPC_LOAD -s "$MODULE"
+
+    # wait for it to be loaded
+    while [ "${SLEEP_TIME_MS}" -lt "${BLANKET_MAX_SLEEP_INTERVAL_MS}" ]; do
+        local ret=$(f_blanket_module_status $MODULE)
+        if [ "$ret" == "$BLANKET_MODULE_STS_LOADED" ]; then
+            return 0;
+        fi
+
+        # sleep and keep track of the time
+        usleep $(expr $BLANKET_SLEEP_INTERVAL_MS \* 1000)
+        SLEEP_TIME_MS=$(expr $SLEEP_TIME_MS + $BLANKET_SLEEP_INTERVAL_MS)
+    done
+
+    # return an error
+    f_log E blanket_f "cannot load module" "$MODULE"
+    return 1;
+}

@@ -1,0 +1,20 @@
+#!/bin/sh
+
+#This is used to force compaction of all memory zones.
+#For now, this is intended to be triggered every time
+#the device goes into screensaver.
+
+_FUNCTIONS=/etc/upstart/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+if [ "$(f_platform)" != "yoshime3" ]; then
+    #Currently, we want this to be done only for Celeste devices
+    exit 1;
+fi
+
+#Sleep for 2 seconds to not contend with screensaver paint
+sleep 2
+
+f_log I "force_compaction" "Triggering compaction"
+echo 1 > /proc/sys/vm/compact_memory
+

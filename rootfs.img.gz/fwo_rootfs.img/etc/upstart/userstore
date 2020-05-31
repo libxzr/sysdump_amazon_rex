@@ -1,0 +1,337 @@
+#!/bin/sh
+
+_PATHS=/etc/sysconfig/paths
+[ -f ${_PATHS} ] && . ${_PATHS}
+
+_FL_ERASED_MNTUS=0
+
+t0=$(f_ms)
+f_log I userstore run "time=$t0,action=$1"
+
+init_us() {
+	if [ "$1" = "create" ]; then
+		_CREATE=1
+		f_log I userstore create_us "" "creating userstore filesystem"
+	else
+		_CREATE=0
+		f_log I userstore check_us "" "checking userstore filesystem"
+	fi
+
+	_BASE_MNTUS_DEV=`basename ${MNTUS_DEV}`
+
+	# retrieve the base drive parameters
+	_GEOM=`sfdisk --show-geometry ${MNTUS_DEV}`
+	_MAX_BLOCKS=`echo ${_GEOM} | awk /${_BASE_MNTUS_DEV}/\ '{ print $2 }'`
+	_TRACKSIZE=`echo ${_GEOM} | awk /${_BASE_MNTUS_DEV}/\ '{ print $6 }'`
+	_HEADS=`echo ${_GEOM} | awk /${_BASE_MNTUS_DEV}/\ '{ print $4 }'`
+	_CYLSIZE=`expr ${_TRACKSIZE} \* ${_HEADS}`
+
+	PART_START=${_TRACKSIZE}
+
+	# try to read back the existing partition size
+	PART_SIZE=`sfdisk --force -l ${MNTUS_DEV} | awk '$1 ~ '/${_BASE_MNTUS_DEV}p1/\ '{ print $5 }'`
+
+	if [ -z "${PART_SIZE}" ]; then
+		_CREATE=1
+	fi
+
+	if [ ${_CREATE} -ne 0 ]; then
+		# clear the first cylinder
+		dd if=/dev/zero of=${MNTUS_DEV} bs=${_CYLSIZE} count=1
+
+		# create the volume partition
+		sfdisk -q --force -uS ${MNTUS_DEV} <<EOI
+${PART_START},,b
+EOI
+
+		# read back the created partition size
+		PART_SIZE=`sfdisk --force -l ${MNTUS_DEV} | awk '$1 ~ '/${_BASE_MNTUS_DEV}p1/\ '{ print $5 }'`
+
+		if [ -z "${PART_SIZE}" ]; then
+			f_log C userstore create_failed "" "could not create the userstore partition"
+		fi
+
+	fi
+
+	# compute the loopback offset
+	SECTOR_SIZE=512
+	PART_OFFSET=`expr ${PART_START} \* ${SECTOR_SIZE}`
+
+	# create the drive parameters file
+	cat >${MNTUS_PARAMS} <<EOI
+# auto-generated file -- do not modify!
+
+# computed values
+MNTUS_PART_START=${PART_START}
+MNTUS_PART_SIZE=${PART_SIZE}
+MNTUS_PART_OFFSET=${PART_OFFSET}
+
+# constant values
+# FAT32 fs
+MNTUS_FATSIZE=32
+# Align fs data to 4MB boundary
+MNTUS_ALIGNMENT_MB=4
+# Use 8k cluster size for better write performance
+MNTUS_SECTORS_PER_CLUSTER=16
+
+EOI
+
+	# source the new parameters file
+	. ${MNTUS_PARAMS}
+
+	if [ ${_CREATE} -ne 0 ]; then
+		# format the generated partition
+		losetup -o ${MNTUS_PART_OFFSET} ${MNTUS_LOOP_DEV} ${MNTUS_DEV}
+		# Align FAT fs data on 4 MB boundary to improve eMMC performance
+		MNTUS_PART_START_SECTOR=`cat /sys/class/block/${ROOT}${USER_P}/start`
+		mkfs.vfat -F ${MNTUS_FATSIZE} -n ${MNTUS_LABEL} -B ${MNTUS_ALIGNMENT_MB} -P ${MNTUS_PART_START_SECTOR} -t ${MNTUS_PART_SIZE} -v ${MNTUS_LOOP_DEV} -s ${MNTUS_SECTORS_PER_CLUSTER}
+		losetup -d ${MNTUS_LOOP_DEV}
+	fi
+}
+
+install_data()
+{
+	source /etc/upstart/bundlefuncs
+	
+	local DATA_FILE="data.stgz"
+	local DATA_PATH="${MNTUS_MP}/${DATA_FILE}"
+	local MANIFEST_PATH_FROM="/usr/lib/font/manifests/*"
+	local MANIFEST_PATH_TO="/var/local/font/manifests/"
+	local FONT_UPDATE_SKIP_FILE="/var/local/fontUpdateSkip"
+	local RET=1
+	local RET_MANIFEST=1
+        local TEST_DATA_PATH="${MNTUS_MP}/testutils"
+
+	if [ ! -e "${DATA_PATH}"  -a ! -f "${DATA_PATH}" ]; then
+        	return 0
+        fi
+        
+	f_log I userstore found_data "" "found ${DATA_FILE}"
+        	                
+	if parse_bundle "${DATA_PATH}" ; then
+		if [ "${OTA_VERSION}" != "SP01" ] ; then
+			f_log E userstore signature_check_failed "" "${DATA_FILE} is not signed, removing file"
+			rm -f "${DATA_PATH}"
+			return 1
+		fi
+		verify_bundle "${DATA_PATH}" "${OTA_BLOCKSIZE}"
+		RET=$?
+		if [ $RET -eq 0 ] ; then
+			f_log I userstore extract_data "" "extracting ${DATA_FILE}"
+                        rm -rf "${TEST_DATA_PATH}-tmp"
+			dd if="${DATA_PATH}" bs=${OTA_BLOCKSIZE} skip=1 | tar xzvf - -C "${MNTUS_MP}"
+			RET=$?
+		else
+			f_log I userstore extract_data "" "verify_bundle failed RET=$RET"
+		fi
+	fi
+
+	if [ $RET -eq 0 ] ; then
+                if [ -d "${TEST_DATA_PATH}-tmp" ]; then
+                        rm -rf "${TEST_DATA_PATH}"
+                        mv "${TEST_DATA_PATH}-tmp" "${TEST_DATA_PATH}"
+                fi
+		f_log I userstore extract_data "" "extracting ${DATA_FILE} succeeded, removing file"
+		mkdir -p ${MANIFEST_PATH_TO}
+		cp ${MANIFEST_PATH_FROM} ${MANIFEST_PATH_TO}
+		RET_MANIFEST=$?
+		if [ $RET_MANIFEST -eq 0 ] ; then
+			f_log I userstore extract_data "" "copying font manifest succeeded"
+			touch ${FONT_UPDATE_SKIP_FILE}
+			RET_MANIFEST=$?
+			if [ $RET_MANIFEST -eq 0 ] ; then
+				f_log I userstore extract_data "" "touching font update skip file succeeded"
+			else
+				f_log E userstore extract_data_failed "" "touching font update skip file failed"
+			fi
+		else
+			f_log E userstore extract_data_failed "" "copying font manifest failed"
+		fi
+		rm -f "${DATA_PATH}"
+	else
+		f_log E userstore extract_data_failed "" "extracting ${DATA_FILE} failed. Ret=$RET"
+	fi
+
+	if [ ! -e "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC" ] ; then
+		rm -f "${DATA_PATH}"
+	fi
+	# Make sure all data is written to disk
+	sync
+
+    return $RET
+}
+
+setup() {
+	if [ -f ${MNTUS_MP}/documents ] ; then
+	    f_log I userstore setup "A file by name documents exists in userstore" "deleting documents file" I
+	    rm -f ${MNTUS_MP}/documents || true
+	fi
+        f_log I userstore create_default "" "creating userstore system and documents directories" I
+	mkdir -p ${MNTUS_MP}/system ${MNTUS_MP}/documents
+	RET=$?
+	if [ $RET -ne 0 ] ; then
+	    f_log I userstore mkdir_failed "$RET" ""
+	fi
+
+        if [ $? -ne 0 ] ; then
+            f_log I userstore setup "Error in creating userstore system and documents directories" ""
+            exit 1
+        fi
+	local KUG=
+        for i in default $(f_platform) $(f_board); do
+            [ -d /opt/amazon/kug/$i ] && KUG=/opt/amazon/kug/$i
+        done
+        [ -n "$KUG" ] && cp -RpL $KUG/. ${MNTUS_MP}/documents/.
+	[ -d ${MNTUS_MP}/system ] && dosattr -hs ${MNTUS_MP}/system;
+}
+
+recreate_us()
+{
+	f_log I userstore recreate_us start ""
+	grep -qs /mnt/base-us /proc/mounts
+	if [ $? -eq 0 ] ; then
+		mntus umount
+		if [ $? -ne 0 ] ; then
+			f_log I userstore recreate_us "Unmounting userstore failed" ""
+			exit 1
+		fi
+	fi
+	init_us create
+	mntus mount
+	if [ $? -eq 0 ] ; then
+		setup
+	else
+		f_log C userstore mntus_failed "" "mntus failure ${_RES}"
+	fi
+}
+
+start_us() {
+	INITFLAG=0
+	# load the mntus settings
+	# should not have to do that anymore : sourcing paths already
+	#. /etc/sysconfig/mntus
+
+	if [ ! -f ${MNTUS_PARAMS} ]; then
+		f_log I userstore mntus.param_not_found "" "mntus.param not found, initializing volume"
+		init_us
+		INITFLAG=1
+	else
+		. ${MNTUS_PARAMS}
+	fi
+
+	_RES=1
+	[ -e $FLAG_VFAT_SHUTDOWN ] && f_log I userstore start found_shutdown_flag "Found SHUTDOWN flag file"
+	[ -e $FLAG_VFAT_BOOTUP ] && f_log I userstore start found_bootup_flag "Found BOOTUP flag file"
+	[ -e $FLAG_VFAT_FSCK ] && f_log I userstore start found_fsck_flag "Found FSCK flag file"
+	if [ -e $FLAG_VFAT_SHUTDOWN ] && [ ! -e $FLAG_VFAT_BOOTUP  ] && [ ! -e $FLAG_VFAT_FSCK ]; then
+		mntus mount
+		_RES=$?
+	else
+		mntus --fsck mount
+		_RES=$?
+	fi
+
+	if [ ${_RES} -ne 0 ]; then
+		if [ ! -e $FLAG_VFAT_FSCK_FAIL_REBOOT ] ; then
+			
+			if [ "`idme --bootmode -s`" = "diags" ] ; then
+				f_log I userstore start_us "diags recreate userstore"
+				recreate_us	
+			else
+				f_log I userstore start_us "creating FLAG_VFAT_FSCK_FAIL_REBOOT flag" ""
+				echo 1 > $FLAG_VFAT_FSCK_FAIL_REBOOT
+				reboot
+			fi
+		else
+			f_log I userstore start_us "removing FLAG_VFAT_FSCK_FAIL_REBOOT flag" ""
+			rm -f $FLAG_VFAT_FSCK_FAIL_REBOOT
+			touch /var/local/system/FSCK_FAIL_STARTUP
+			f_log I userstore start_us "creating FSCK_FAIL_STARTUP flag" ""
+			# Mount the filesystem if we come here before booting up. We assume that mounting the userstore will not fail normally.
+			mntus mount
+			_RES=$?
+			if [ $_RES -ne 0 ] ; then
+				f_log C userstore mntus_failed "" "mntus failure ${_RES}"
+				_RES=1
+			fi
+		fi
+	else
+		rm -f $FLAG_VFAT_SHUTDOWN $FLAG_VFAT_FSCK_FAIL_REBOOT
+		echo 1 > $FLAG_VFAT_BOOTUP
+	fi
+
+	if [ ${_RES} -eq 0 ] && [ ${INITFLAG} -eq 1 ] ; then
+		setup
+	fi
+
+	# Userstore needs to be mounted no-exec for 
+	if [ ! -f /MNTUS_EXEC ]; then
+        	/bin/mount /mnt/us
+	else
+		/bin/mount /mnt/us -o exec
+	fi
+
+	# Handle data.stgz if it exists.  Do not unarchive unless system is
+	# booted up in normal mode.
+	if [ "$(idme --bootmode -s)" != "diags" ] ; then
+		install_data
+	fi
+
+	# clean up after OTA
+	find /mnt/us/. -type f -name \*.tmp -exec rm -f {} \; || true
+}
+
+
+# make sure the drive isn't exported and tear it down.
+
+stop_us()
+{
+	lipc-send-event -r 3 com.lab126.hal usbUnconfigured
+	STATUS=`lipc-get-prop com.lab126.volumd driveModeState`
+	I=0
+	while [ ${STATUS} -ne 0 ]; do
+	    sleep 1
+		STATUS=`lipc-get-prop com.lab126.volumd driveModeState`
+		I=$(($I+1))
+		[ $I -gt 4 ] && break;
+	done
+
+    	sync
+    	echo 3 > /proc/sys/vm/drop_caches
+    	sync
+        
+        f_log I userstore "filesystem sync done"
+
+	# If the vfat is in RO mode (linuxfs/fat/misc.c:fat_fs_panic), it means it needs repair (fsck).
+	# Note that if the grep for RO succeeds, FLAG_VFAT_OK should be 0 (not OK).
+	mount -t vfat | grep \(ro
+	FLAG_VFAT_OK=$?
+	[ ${FLAG_VFAT_OK} -eq 0 ] && f_log I userstore stop found_readonly_mode "Found LOCKED/RO partition"
+	[ -e $FLAG_VFAT_SHUTDOWN ] && f_log I userstore stop found_shutdown_flag "Found SHUTDOWN flag file"
+	[ -e $FLAG_VFAT_BOOTUP ] && f_log I userstore stop found_bootup_flag "Found BOOTUP flag file"
+	if [ ${FLAG_VFAT_OK} -ne 0 ] && [ -e $FLAG_VFAT_BOOTUP ] && [ ! -e $FLAG_VFAT_SHUTDOWN  ]; then
+		rm -f $FLAG_VFAT_BOOTUP
+		mntus umount
+		_RES=$?
+	else
+		rm -f $FLAG_VFAT_BOOTUP
+		mntus --fsck umount
+		_RES=$?
+	fi
+	
+	if [ ${_RES} -eq 0 ]; then
+		/bin/umount /mnt/us >/dev/null 2>/dev/null
+		echo 1 > $FLAG_VFAT_SHUTDOWN
+	fi
+}
+
+
+# returned status is that of the called routine
+
+case "$1" in
+  start) start_us ;;
+  stop) stop_us ;;
+  init) init_us ;;
+  recreate) recreate_us ;;
+  *) echo "usage: $0 [start|stop|init|recreate]" ; exit 1 ;;
+esac

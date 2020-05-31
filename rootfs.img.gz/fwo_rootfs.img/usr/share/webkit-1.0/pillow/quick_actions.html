@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!--
+ - quick_actions.html
+ -
+ - Copyright (c) 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ -
+ - PROPRIETARY/CONFIDENTIAL
+ -
+ - Use is subject to license terms.
+ -->
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/drop_down_dialog.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/widget_discrete_slider.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/quick_actions.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/widget_toggle.css" />
+        <script type="text/javascript" src="strings/light_control_strings.js"></script>
+	<script type="text/javascript" src="strings/quick_actions_strings.js"></script>
+	<script type="text/javascript" src="strings/airplanemode_control_strings.js"></script>
+        <script type="text/javascript" src="javascripts/local_debug.js"></script>
+        <script type="text/javascript" src="javascripts/constants.js"></script> <!-- must be first -->
+        <script type="text/javascript" src="javascripts/pillow.js"></script>
+        <script type="text/javascript" src="javascripts/client_params_handler.js"></script>
+        <script type="text/javascript" src="javascripts/lipc_event_handler.js"></script>
+        <script type="text/javascript" src="javascripts/pillow_case.js"></script>
+        <script type="text/javascript" src="javascripts/window_title.js"></script>
+        <script type="text/javascript" src="javascripts/xor_button.js"></script>
+        <script type="text/javascript" src="javascripts/light_config.js"></script>
+        <script type="text/javascript" src="javascripts/light.js"></script>
+        <script type="text/javascript" src="javascripts/quick_actions_items.js"></script>
+        <script type="text/javascript" src="javascripts/quick_actions_provider.js"></script>
+        <script type="text/javascript" src="javascripts/quick_actions.js"></script>
+        <script type="text/javascript" src="javascripts/quick_actions_lipc_event_handler.js"></script>
+        <script type="text/javascript" src="javascripts/widget_discrete_slider.js"></script>
+	    <script type="text/javascript" src="javascripts/interrogate.js"></script>
+    	<script type="text/javascript" src="javascripts/interrogate_light_dialog.js"></script>
+	<script type="text/javascript" src="javascripts/interrogate_quick_actions.js"></script>
+    </head>
+    <body id="body" class="body">
+            
+    <div class ="quick-actions-dialog">
+            <div id="light-popup" class="drop-down-dialog popup">
+                    <div id="light-info">
+                            <div id="light-controls-text"> </div>
+                            <div id="light-controls-settings">
+                                    <div id="auto"></div>
+                                    <button id="check-box"></button>
+                                    <div id="info-turbobrightness" class="info-turbobrightness">
+                                            <button id="TurboBrightnessSelector" aria-label="Max Brightness"> </button>
+                                    </div>
+                            </div>
+                    </div>
+                    <div id="dialog" class="controls">
+                            <button id="light-decr"></button>
+                            <div id="light-slider" class="discrete-slider horizontal show-numbers light-slider"></div>
+                            <button id="light-incr"></button>
+                    </div>
+            </div>
+    </div>
+    
+    <hr/>
+    
+    <div id="quick-actions-dialog" class ="quick-actions-dialog"/>    
+    </body>
+</html>

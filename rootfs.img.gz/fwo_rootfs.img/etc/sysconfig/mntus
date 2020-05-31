@@ -1,0 +1,15 @@
+# /mnt/us partition and filesystem definitions
+
+_LAYOUT=/etc/default/layout
+[ -f $_LAYOUT ] && . $_LAYOUT || true
+
+# device definitions
+MNTUS_DEV=/dev/${ROOT}${USER_P}
+MNTUS_LOOP_DEV=/dev/loop/0
+
+# filesystem definitions
+MNTUS_MP=/mnt/base-us
+
+MNTUS_LABEL="Kindle"
+
+# MNTUS_PARAMS is defined in paths  because it moved to var/local/

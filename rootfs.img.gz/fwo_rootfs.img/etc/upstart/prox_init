@@ -1,0 +1,34 @@
+#! /bin/sh
+#
+# /etc/upstart/prox_init
+
+source /etc/upstart/functions
+
+# init prox for Rex/Moonshine VFG and NTT only (ATT doesn't need prox sensor)
+
+WAN_DSN_TYPE=`cat /proc/serial | cut -c 4-6`
+
+if [ "${WAN_DSN_TYPE}" = "0T2" ] || [ "${WAN_DSN_TYPE}" = "0T3" ] ]; then
+    f_log I prox "Initializing proximity sensor for VFG/NTT only"
+    echo 0xDE > /sys/devices/virtual/proximity/proximity0/softreset
+    cat /sys/devices/virtual/proximity/proximity0/irqsrc > /dev/null
+    echo 0x10 > /sys/devices/virtual/proximity/proximity0/irqsrc
+    echo 0x00 > /sys/devices/virtual/proximity/proximity0/irqmask
+    echo 0x00 > /sys/devices/virtual/proximity/proximity0/irqfunc
+    echo 0x70 > /sys/devices/virtual/proximity/proximity0/prox_ctrl0
+    echo 0x00 > /sys/devices/virtual/proximity/proximity0/prox_ctrl1
+    echo 0x8B > /sys/devices/virtual/proximity/proximity0/prox_ctrl2
+    echo 0x00 > /sys/devices/virtual/proximity/proximity0/prox_ctrl3
+    echo 0xFF > /sys/devices/virtual/proximity/proximity0/prox_ctrl4
+    echo 0xC1 > /sys/devices/virtual/proximity/proximity0/prox_ctrl5
+    echo 0xA0 > /sys/devices/virtual/proximity/proximity0/prox_ctrl6
+    echo 0x0C > /sys/devices/virtual/proximity/proximity0/prox_ctrl7
+    echo 0x25 > /sys/devices/virtual/proximity/proximity0/prox_ctrl8
+    echo 0x23 > /sys/devices/virtual/proximity/proximity0/prox_ctrl9
+    echo 0x15 > /sys/devices/virtual/proximity/proximity0/prox_ctrl10
+    echo 0xD0 > /sys/devices/virtual/proximity/proximity0/sar_ctrl0
+    echo 0x8A > /sys/devices/virtual/proximity/proximity0/sar_ctrl1
+    echo 0x3C > /sys/devices/virtual/proximity/proximity0/sar_ctrl2
+fi
+
+exit 0

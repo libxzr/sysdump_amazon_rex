@@ -1,0 +1,12 @@
+-Dch.ethz.iks.concierge.basedir=file:/opt/amazon/ebook/lib
+-Dch.ethz.iks.concierge.jars=file:/opt/amazon/ebook/lib
+-Dch.ethz.iks.concierge.log.enabled=true
+-Dch.ethz.iks.concierge.log.level=4
+-Dch.ethz.iks.concierge.debug.classloading=true
+-Dch.ethz.iks.concierge.storage=/var/local/java
+-Dch.ethz.iks.concierge.strictStartup=true
+-Dcom.amazon.kindle.util.log.logLevel=info
+
+-istart portability-impl.jar
+-istart kaf.jar
+-istart WirelessHandler.jar

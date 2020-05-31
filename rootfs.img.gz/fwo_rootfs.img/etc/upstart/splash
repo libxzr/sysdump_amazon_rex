@@ -1,0 +1,23 @@
+SPLASH_SOURCE=com.lab126.hal.splash
+SPLASH_EVENT_INIT=bootSplashInit
+SPLASH_EVENT_PROG=bootSplashProgress
+SPLASH_EVENT_CLEAN=bootSplashCleanup
+
+# Number of times to retry before failing
+SPLASH_EVENT_RETRY_COUNT=5
+
+splash_init() {
+    source /etc/upstart/blanket_functions
+
+    f_blanket_load_module splash || f_log E splash "cannot load splash module"
+    lipc-send-event -r $SPLASH_EVENT_RETRY_COUNT $SPLASH_SOURCE $SPLASH_EVENT_INIT
+}
+
+splash_progress() {
+    lipc-send-event -r $SPLASH_EVENT_RETRY_COUNT $SPLASH_SOURCE $SPLASH_EVENT_PROG -i $1
+}
+
+splash_cleanup() {
+    lipc-send-event -r $SPLASH_EVENT_RETRY_COUNT $SPLASH_SOURCE $SPLASH_EVENT_CLEAN
+}
+

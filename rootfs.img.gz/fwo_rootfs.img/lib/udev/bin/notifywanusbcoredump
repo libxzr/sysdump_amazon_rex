@@ -1,0 +1,25 @@
+#!/bin/sh
+
+if [ "$ACTION" = "add" ] ; then
+  	if [ ! -f /tmp/wancoredump ] ; then
+	    _DATE=`date +%Y%m%d%H%M%S`
+	    _COREDUMP_FILE="/mnt/us/coredump.${_DATE}.istp"
+	    echo "${_COREDUMP_FILE}" > /tmp/wancoredump
+	    _CDLOG_PARAMS="-z -output=${_COREDUMP_FILE}.tmp"
+	    /usr/bin/setsid /usr/bin/cdlog ${_CDLOG_PARAMS} &
+  	fi
+elif [ "$ACTION" = "remove" ] ; then
+	PID=`ps -e | grep cdlog | grep -v grep | awk '{print $1}'`
+	if [[ "" != "$PID" ]]; then
+    	killall -9 cdlog
+	fi
+	while [ "" != "$PID" ]; do
+	    sleep 1
+	    PID=`ps -e | grep cdlog | grep -v grep | awk '{print $1}'`
+	done
+    _COREDUMP_FILE=`cat /tmp/wancoredump`
+    if [ -f ${_COREDUMP_FILE}.tmp ] ; then
+        mv -f ${_COREDUMP_FILE}.tmp ${_COREDUMP_FILE}
+    fi
+    rm -f /tmp/wancoredump
+fi

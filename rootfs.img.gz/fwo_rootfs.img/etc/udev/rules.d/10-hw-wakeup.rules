@@ -1,0 +1,4 @@
+# Hall Notifications
+KERNEL=="rex_hall", DRIVER=="hall_sensor", RUN+="/lib/udev/bin/notifyUserTrigger"
+# Powerbutton Notifications
+KERNEL=="0-004b", DRIVER=="bd71827", RUN+="/lib/udev/bin/notifyUserTrigger"

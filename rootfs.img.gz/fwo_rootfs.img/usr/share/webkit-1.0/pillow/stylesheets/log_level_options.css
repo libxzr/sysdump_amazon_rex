@@ -1,0 +1,26 @@
+/*
+ * log_level_options.css
+ *
+ * Copyright 2012 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+ #logLevels .logType {
+      width: 60.25pt;
+      Height: 15.25pt;
+ }
+
+#logLevels > .items > .item .selected-icon {
+    width: 15.6pt;
+}
+
+#logLevels > .items > .item .selected-icon.selected {
+    background-image: url('../assets/check_mark.png');
+}
+
+#logLevels > .items > .item.xor .selected-icon.selected {
+    background-image: url('../assets/check_mark_active.png');
+}

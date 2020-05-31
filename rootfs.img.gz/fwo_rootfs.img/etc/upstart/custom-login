@@ -1,0 +1,7 @@
+#!/bin/sh
+
+echo '--- SORRY, LOGIN IS DISABLED ON DEVICE ---'
+# Disable Ctrl-C
+trap '' 2
+# Sleep indefinitely
+while true; do sleep 86400; done

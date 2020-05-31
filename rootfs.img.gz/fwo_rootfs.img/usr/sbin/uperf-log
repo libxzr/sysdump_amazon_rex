@@ -1,0 +1,49 @@
+#! /bin/sh
+
+if [ $# -gt 0 ] && [ "$1" = "-h" ]
+then
+    printf "usage: %s [messages_file ...]\n" ${0##*/} >&2
+    printf "\tExamples, on device:\n" >&2
+    printf "\t\t[root@kindle us]# showlog -f | uperf-log\n" >&2
+    printf "\t\t[root@kindle us]# uperf-log /var/log/messages\n" >&2
+    printf "\tExample on host, in Scratchbox:\n" >&2
+    printf "\t\t[sbox-main: ~/src/main--yoshi-rel] > uperf-log /tmp/syslog_results_*\n" >&2
+    printf "\tExample on host, ordinary shell:\n" >&2
+    printf "\t\t$ platform/files/uperf-log /tmp/syslog_results_*\n" >&2
+    exit 1
+fi
+
+exec awk '
+function get_field_value(name,line) {
+    # Java uses comma as separator.
+    match(line,name"=[^:,]+")
+    RSTART+= length(name"=")
+    RLENGTH-=length(name"=")
+    return substr(line, RSTART, RLENGTH)
+}
+
+function epoch_usec_to_syslog_plus_usec(usec_string) {
+    sec_string = substr(usec_string,1,length(usec_string)-6)
+    syslog_sec = strftime("%y%m%d:%H%M%S", sec_string)
+    usec_fraction = substr(usec_string,length(usec_string)+1-6,6)
+    return syslog_sec "." usec_fraction
+}
+
+/usec_bits=/ {
+    usec_string = get_field_value("usec_bits",$0)
+    printf "%s ", epoch_usec_to_syslog_plus_usec(usec_string)
+    printf "%4d ", get_field_value("pid",$0)
+    printf "%4d ", get_field_value("tid",$0)
+    # "%15s " for "comm" fixes the field width at 15 -- helpful since
+    #   "comm" may contain embedded spaces.
+    printf "%15s ", get_field_value("comm",$0)
+    printf "%s:", get_field_value("func",$0)
+    file = get_field_value("file",$0)
+    i_lasttwo = match( file, "[/][^/]*$")
+    printf "%s:", substr(file,i_lasttwo)
+    printf "%s:", get_field_value("line",$0)
+    sub(/[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:/,"")
+    sub(/:[^:]*$/,"")
+    printf " %s\n", $0
+}
+' "$@"

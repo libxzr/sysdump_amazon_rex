@@ -1,0 +1,59 @@
+#!/bin/sh
+# script for loading haptics configuration
+
+source /etc/upstart/functions
+
+if [ "$(f_platform)" = "wario" ]; then
+	FSR_FW_DIR="/lib/firmware/kl05"
+	SYS_FSR_APP_VER="/sys/devices/platform/fsr_keypad.0/app_ver"
+  SYS_FSR="/sys/devices/platform/fsr_keypad.0"
+
+	if [ "$(f_board)" = "icewine" ]; then
+		modprobe drv26xx_haptics
+		modprobe fsr_keypad
+		
+		# turn off KL05 when programming haptic waveform
+		echo lock > /proc/keypad
+		
+		HAPTIC_ID=`cat /sys/devices/system/drv26xx_haptics/drv26xx_haptics0/id_pin`
+
+		if [ "$HAPTIC_ID" = "0" ]; then #AAC
+		  echo 1 > /sys/devices/system/drv26xx_haptics/drv26xx_haptics0/gain_setting
+		  HAPTIC_FW="/lib/firmware/haptics/haptics0.config"
+		else                            #SEMCO
+		  echo 2 > /sys/devices/system/drv26xx_haptics/drv26xx_haptics0/gain_setting
+		  HAPTIC_FW="/lib/firmware/haptics/haptics1.config"
+		fi
+
+		HAPTIC_PI="/sys/devices/system/drv26xx_haptics/drv26xx_haptics0/programming_interface"
+		cat $HAPTIC_FW > $HAPTIC_PI
+		
+		echo unlock > /proc/keypad
+		
+		f_log I fsr_keypad adc "`cat /sys/devices/platform/fsr_keypad.0/adc`"
+		f_log I fsr_keypad calibration "`cat /sys/devices/platform/fsr_keypad.0/calib_data`"
+		
+		bootmode=`cat /proc/bootmode`
+		if [ "$bootmode" = "diags" ]; then
+		  exit 0
+		fi
+		
+		#FSR FW
+		FW_FILE=`ls $FSR_FW_DIR/app*.bin`
+
+		for FILE in $FW_FILE; do
+		  FILE_VER=`basename $FILE .bin | cut -d _ -f 2`
+		  CUR_FW_VER=`cat $SYS_FSR_APP_VER`
+		  f_log I fsr_keypad update "fsr app version=$CUR_FW_VER"
+		  if [ $(( 0x$FILE_VER )) -gt $(( $CUR_FW_VER )) ]; then
+			f_log I fsr_keypad update "from $CUR_FW_VER to $FILE_VER"
+			echo 1 > $SYS_FSR/mcu_firmware
+			sleep 1
+			echo 1 > $SYS_FSR/firmware/fsr_keypad.0/loading
+			cat $FILE > $SYS_FSR/firmware/fsr_keypad.0/data
+			echo 0 > $SYS_FSR/firmware/fsr_keypad.0/loading
+		  fi
+		done
+  
+	fi
+fi

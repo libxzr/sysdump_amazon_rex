@@ -1,0 +1,29 @@
+
+# DEVTYPE_<XYZ> where XYZ matches the return of productid defined in /etc/rc.d/features
+# based on https://w.amazon.com/index.php/DevicePlatform/DeviceRegistry
+
+# ADS - reported as Turing
+DEVTYPE_ADS=A3UN6WX5RRO2AG
+
+# MARIO - reported as Turing
+DEVTYPE_Mario=A3UN6WX5RRO2AG
+
+# Nell
+DEVTYPE_Nell=A1PA6795UKMFR9
+
+# Turing 
+DEVTYPE_Turing=A3UN6WX5RRO2AG
+
+# TuringWW 
+DEVTYPE_TuringWW=A1F83G8C2ARO7P
+
+# NellWW 
+DEVTYPE_NellWW=A13V1IB3VIYZZH
+
+# Luigi - reported as a Shasta
+DEVTYPE_Luigi=A1VC38T7YXB528
+
+# Shasta
+DEVTYPE_Shasta=A1VC38T7YXB528
+
+

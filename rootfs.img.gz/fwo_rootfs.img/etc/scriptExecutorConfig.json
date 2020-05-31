@@ -1,0 +1,5 @@
+{
+    "/usr/bin/lipc-daemon" : "/usr/share/webkit-1.0/pillow/debug_cmds.json",
+    "/usr/java/bin/cvm" : "/usr/share/cvm/cvm_cmds.json",
+    "/usr/bin/pillowd" : "/usr/share/webkit-1.0/pillow/debug_cmds.json"
+}

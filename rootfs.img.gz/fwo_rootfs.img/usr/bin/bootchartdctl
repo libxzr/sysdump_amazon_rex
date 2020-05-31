@@ -1,0 +1,173 @@
+#! /bin/sh -ex
+
+source /etc/upstart/functions
+
+usage () {
+    set +x
+    printf "\n%s\n" "$1"
+    printf "%s\n" ""
+    printf "%s\n" "Usage:"
+    printf "\t%s ( start [sample_period_in_seconds] | stop | tgz header_text_to_be_inserted )\n" ${0##*/}
+    exit 1
+}
+
+# NICE_LEVEL -15 gets 10-12 msec between recorded samples, during common interactions
+# This kind of default assignment can be overridden with an environment variable.
+: ${NICE_LEVEL:=-15}
+
+#  "-t" dumps the "stat" file for every thread viz. /proc/*/task/*/stat
+#  To disable, set it to a single space:
+#           BOOTCHARTD_ARGS=' '
+: ${BOOTCHARTD_ARGS:=-t}
+
+if [ $# -lt 1 ]
+then
+    usage "must supply at least one arg"
+fi
+
+ARGS="$@"
+ARG_1="$1"
+
+BOOTCHARTD=/sbin/bootchartd   # XXX wrong output if only "bootchartd" is used !??
+if ! type ${BOOTCHARTD} >/dev/null
+then
+    usage "no bootchartd installation found"
+fi
+
+if [ $# -eq 0 ]
+then
+    echo usage ${0##*/} junk
+fi
+
+mkname () {
+    FROM_CHARS_COMPLEMENT='\-._[0-9][a-z][A-Z]'
+    FILL_CHAR='_'
+
+    # first word handled separataly, in order not to precede with SEP_CHAR
+    a=$1
+    out=$(echo -n                     $a | tr -c "${FROM_CHARS_COMPLEMENT}" "${FILL_CHAR}")
+    shift
+
+    SEP_CHAR='-'
+    for a in "$@"; do
+        out=${out}${SEP_CHAR}$(echo -n $a | tr -c "${FROM_CHARS_COMPLEMENT}" "${FILL_CHAR}")
+    done
+
+    echo $out
+}
+
+CPU_GOVERNOR_FILE=/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+OLD_GOVERNOR_FILE=/tmp/scaling_governor
+
+if [ $ARG_1 = start ]
+then
+    rm -rf /var/log/subdir  # free RAM
+
+    if [ $# -eq 2 ]
+    then
+	PERIOD="$2"
+    else
+	PERIOD="0.2"
+    fi
+
+    if pidof bootchartd
+    then
+        usage "bootchartd is already running!"
+    fi
+
+    # Don't let CPU throttling during less-busy periods skew the apparent loads
+    cat $CPU_GOVERNOR_FILE >$OLD_GOVERNOR_FILE
+    echo performance >$CPU_GOVERNOR_FILE
+
+    # XX No shell-level access found to sub-second-precision bits of
+    # gettimeofday(2), so tweak bootchartd's source has been tweaked to get it instead?
+    #   => Or, tweak busybox's config so that `date +%s%N` works
+
+    # Establish zero-centisecond epoch, as time domain of this bootchart run.
+    #  "-s" dumps only a subset of the stat fields.
+    ${BOOTCHARTD} -p $PERIOD ${BOOTCHARTD_ARGS} -s init
+    renice ${NICE_LEVEL} $(pidof bootchartd)
+
+    pidof bootchartd > /tmp/BOOTCHARTD_PID
+    f_log I bootchartd starting $(cat /tmp/BOOTCHARTD_PID)   # support for events.txt
+
+elif [ $ARG_1 = stop ] && [ $# -eq 1 ]   # stop the daemon
+then
+    PID=$(pidof bootchartd)
+    if ! [ $PID ]
+    then
+	f_log I bootchartd stopping failed -- could not find a running bootchartd
+	exit 1
+    fi
+
+    # XXX  /tmp/times problematic for bootchart2 collector?
+    ${BOOTCHARTD} stop >/tmp/times
+
+    # `bootchartd stop` merely sends the signal and exits, so we need to wait for any
+    # writes to syslog currently buffered up in user-space to hit the kernel.
+    sleep 1
+
+    cat $OLD_GOVERNOR_FILE >$CPU_GOVERNOR_FILE
+
+    # Scanning the log after bootchartd stops is better than modifying
+    # bootchartd to tail syslog during the run, since it defers the
+    # CPU load until completion of the test run.
+    mkdir -p /var/log/subdir
+    # XX  Temporary file in /var/local works around breakage from `tinyrot --force`,
+    # which after 60 seconds of waiting for showlog, or `showlog -f`,
+    # to release the lock file by exiting, starts mucking with the log files anyway.
+    showlog >/var/local/showlog
+    </var/local/showlog awk -v \
+	field_4=$(printf "bootchartd:starting:%s:" $(cat /tmp/BOOTCHARTD_PID)) \
+             'FOUND_START == 0 { if ($4 ~ field_4)
+                                    { FOUND_START=1 ; print }
+                                next }
+                              { print }
+             ' > /var/log/subdir/showlog.raw.txt
+
+elif [ $ARG_1 = tgz ]   # collect data stored in filesystem;  name bootchart*.tgz according to command-line commentary
+then
+    # XX  bootchartd creates large temporary directories that don't always get cleaned up on
+    #     abnormal exits
+    rm -rf /tmp/bootchart.*
+
+    ARGS_2_onward="${ARGS#* }"
+    DAEMON_OUT_FILE=bootchart.tgz  # changing this would require bootchartd's cooperation
+    OUT_FILE=bootchart.$(mkname $ARGS_2_onward).tgz
+    OUT_DIR=/mnt/us
+
+    (
+        set -e
+
+        cd /var/log/subdir
+
+        tar -xz -f ../$DAEMON_OUT_FILE
+
+        BUILD_VERSION_SUBSTR=$(awk '/System Software Version:/ { print $4 }' /etc/version.txt)
+
+        # Add comment from user command line
+        #  XXX  Add bootchartd sample latencies.
+        sed -i "s,Boot chart for .*,${BUILD_VERSION_SUBSTR} -- ${ARGS_2_onward}," header
+
+        [ -e /proc/kallsyms ] && cp /proc/kallsyms .
+        tar -cz -f $OUT_DIR/$OUT_FILE *
+        cd ..
+
+	# XX  Takes up RAM, but allows revision of run name
+	#     => move to Flash
+	# rm $DAEMON_OUT_FILE
+	# rm -rf subdir
+
+        set +x
+        printf "\nResults written to: %s\n\n" $OUT_DIR/$OUT_FILE
+
+        PYBOOTCHARTGUI_LINE=$(printf "\tpybootchartgui.py --show-all --output=%s %s\n" \
+	    $(mkname $ARGS_2_onward).png $OUT_FILE)
+        printf "    # ON HOST:\n"
+        printf "\tscp root@kindle:%s .\n" $OUT_DIR/$OUT_FILE
+        printf "\t# OR\n"
+        printf "\tscp root@kindle:%s/bootchart*.tgz .\n" $OUT_DIR
+    )
+else
+    usage "No sub-command found"
+fi

@@ -1,0 +1,11 @@
+--## Attach
+ATTACH DATABASE "/var/local/cc.db" AS cc
+
+--## Insert: DeviceContentEntry:1
+INSERT into DeviceContentEntry (p_uuid, p_location, p_thumbnail, p_cdeKey, p_cdeType, p_modificationTime, p_isVisibleInHome, p_diskUsage, p_contentIndexedState, p_version, p_guid, p_contentSize, p_ownershipType, p_mimeType, p_type, p_referenceCount ) SELECT Entries.p_uuid, Entries.p_location, Entries.p_thumbnail, Entries.p_cdeKey, Entries.p_cdeType, Entries.p_modificationTime, Entries.p_isVisibleInHome, Entries.p_diskUsage, Entries.p_contentIndexedState, Entries.p_version, Entries.p_guid, Entries.p_contentSize, Entries.p_ownershipType, Entries.p_mimeType, Entries.p_type, 1 from Entries where Entries.p_location NOT NULL
+
+--## Insert: EntryUserAssociation:1
+INSERT into EntryUserAssociation (p_uuid, p_profileId) SELECT Entries.p_uuid, 'DEFAULT_USER' from cc.Entries where Entries.p_location NOT NULL
+
+--## Attach
+DETACH DATABASE cc

@@ -1,0 +1,225 @@
+#!/bin/sh
+# Copyright 2010 Lab126 Inc
+# Be careful the true value is 0 and the false is 1. 
+
+BOARDID=/proc/board_id
+undef="undefined"
+
+if [ -e $BOARDID ]; then 
+    READOUT=`cat $BOARDID | sed 's/^\(.\)\(.\)\(.\)\(.\)\(.\)\(.\).*/\1 \2 \3 \4 \5 \6/g'`
+else
+    READOUT="L X 1 B 0 0"
+fi
+
+ID=`cat $BOARDID`
+TATTOO=${ID:0:3}
+REV=${ID:4:1}
+
+# New style board id (PCB ser no)
+# Fake this for now
+if [ "x$TATTOO" == "x000" ]; then
+    _P=Y
+    _HWB=X
+    _HR=$REV
+    _MS=C
+    _RD=0
+    _SL=0 
+elif [ "x$TATTOO" == "x003" ] || [ "x$TATTOO" == "x004" ] || [ "x$TATTOO" == "x005" ] || [ "x$TATTOO" == "x006" ]; then
+    _P=Y
+    _HWB=X
+    _HR=$REV
+    _MS=B
+    _RD=0
+    _SL=0 
+else
+# old style board id
+    I=1
+    for ITEM in $READOUT; do 
+	[ 1 -eq $I ] && _P=$ITEM    
+	[ 2 -eq $I ] && _HWB=$ITEM
+	[ 3 -eq $I ] && _HR=$ITEM
+	[ 4 -eq $I ] && _MS=$ITEM
+	[ 5 -eq $I ] && _RD=$ITEM
+	[ 6 -eq $I ] && _SL=$ITEM
+	J=$(($I+1))
+	I=$J
+    done
+fi
+
+### Product related stuff 
+productid()
+{
+case "$_P" in
+# Deprecated
+#A=ADS
+#M=Mario
+#N=Nell
+#T=Turing
+#W=TuringWW
+#E=NellSL||NellWW
+	L) echo "Luigi";return $TRUE;;
+    S) echo "Shasta";return $TRUE;;
+    Y) echo "Yoshi";return $TRUE;;
+    *) echo $undef;return $FALSE;;
+esac
+}
+### Platform related stuff 
+platformid()
+{
+case "$_P" in
+    L|S) echo "Luigi";return $TRUE;;
+    Y) echo "Yoshi";return $TRUE;;
+    *) echo $undef;return $FALSE;;
+esac
+}
+
+
+is_Luigi(){
+if [ "x$_P" == "xL" ]; then return $TRUE ; else return $FALSE; fi
+}
+is_Shasta(){
+if [ "x$_P" == "xS" ]; then return $TRUE ; else return $FALSE; fi
+}
+is_Shasta_WFO()
+{
+# "SHR" - WAN/WiFi pcba
+# "SHW" - WiFi only pcba
+SHASTA_WFO_PCB_IDENTIFIER="SHW"
+# Must be a Shasta first
+if [ "x$_P" == "xS" ]; then
+# Check the PCBA number to determine if WFO
+    pcb_id=`/usr/sbin/idme --pcbsn -s`
+    if [ -n "$pcb_id" ]; then
+        echo "$pcb_id" | grep "$SHASTA_WFO_PCB_IDENTIFIER" > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            return $TRUE ; 
+        fi
+    fi
+fi
+return $FALSE;
+}
+is_Luigi_Platform(){
+    if ( is_Luigi ) || ( is_Shasta ); then
+        return $TRUE
+    else
+        return $FALSE
+    fi
+}
+
+is_Yoshi(){
+if [ "x$_P" == "xY" ]; then return $TRUE ; else return $FALSE; fi
+}
+is_Yoshi_Platform(){
+    if ( is_Yoshi ); then
+        return $TRUE
+    else
+        return $FALSE
+    fi
+}
+
+
+### Hardware build
+hwbuildid()
+{    
+case "$_HWB" in
+    X) echo "PROTO";return $TRUE;;
+    E) echo "EVT";return $TRUE;;
+    D) echo "DVT";return $TRUE;;
+    P) echo "PVT";return $TRUE;;
+    *) echo $undef;return $FALSE;;
+esac
+
+}
+is_PROTO(){
+if [ "x$_HWB" == "xX" ]; then return $TRUE ; else return $FALSE; fi
+}
+is_EVT(){
+if [ "x$_HWB" == "xE" ]; then return $TRUE ; else return $FALSE; fi
+}
+is_DVT(){
+if [ "x$_HWB" == "xD" ]; then return $TRUE ; else return $FALSE; fi
+}
+is_PVT(){
+if [ "x$_HWB" == "xP" ]; then return $TRUE ; else return $FALSE; fi
+}
+
+### HW build revision
+hwrevision()
+{    
+    if [ "x$_HR" != "x0" ]; then 
+        echo "$_HR"
+        return $TRUE
+    else 
+        echo $undef
+        return $FALSE
+    fi
+}
+is_rev1(){
+if [ "x$_HR" == "x1" ]; then return $TRUE ; else return $FALSE; fi
+}
+is_rev2(){
+if [ "x$_HR" == "x2" ]; then return $TRUE ; else return $FALSE; fi
+}
+is_rev3(){
+if [ "x$_HR" == "x3" ]; then return $TRUE ; else return $FALSE; fi
+}
+is_rev4(){
+if [ "x$_HR" == "x4" ]; then return $TRUE ; else return $FALSE; fi
+}
+is_rev5(){
+if [ "x$_HR" == "x5" ]; then return $TRUE ; else return $FALSE; fi
+}
+
+### Memory size 
+memorysize(){    
+case "$_MS" in
+    A) echo "128MB";return $TRUE;;
+    B) echo "256MB";return $TRUE;;
+    C) echo "512MB";return $TRUE;;
+    D) echo "1024MB";return $TRUE;;
+    *) echo $undef;return $FALSE;;
+esac
+}
+
+has_128MB(){
+if [ "x$_MS" == "xA" ] || [ "x$_MS" == "xB" ] || [ "x$_MS" == "xC" ] || [ "x$_MS" == "xD" ]; then
+    return $TRUE 
+fi
+return $FALSE
+}
+
+has_256MB(){
+if [ "x$_MS" == "xB" ] || [ "x$_MS" == "xC" ] || [ "x$_MS" == "xD" ]; then 
+    return $TRUE 
+fi
+return $FALSE
+}
+
+has_512MB(){
+if [ "x$_MS" == "xC" ] || [ "x$_MS" == "xD" ]; then
+    return $TRUE
+fi
+return $FALSE
+}
+
+# Return memory as reported by /proc/meminfo
+get_mem_total() {
+    grep MemTotal /proc/meminfo | awk '{print $2}'
+}
+
+#########################
+### Board specific stuff
+is_Luigi3(){
+if ( is_Luigi ) && ( is_rev3 ); then return $TRUE; else return $FALSE; fi 
+}
+has_Ethernet(){
+if ( is_Luigi3 ); then return $TRUE; else return $FALSE; fi
+}
+has_WAN(){
+# incorrect for some of older boards, but covers all the actual products.
+if is_Shasta_WFO; then
+    return $FALSE
+else
+    return $TRUE
+fi
+}

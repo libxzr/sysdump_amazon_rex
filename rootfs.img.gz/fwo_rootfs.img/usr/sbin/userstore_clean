@@ -1,0 +1,5 @@
+#!/bin/sh
+
+source /etc/upstart/shutdown_modes
+
+/etc/upstart/shutdown_special $SHUTDOWN_MODE_USERSTORE_CLEAN

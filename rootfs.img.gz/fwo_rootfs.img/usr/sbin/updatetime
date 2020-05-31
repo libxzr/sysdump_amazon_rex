@@ -1,0 +1,116 @@
+#!/bin/sh
+source /usr/bin/record_device_metric.sh
+
+HTTP_SERVER=kindle-time.amazon.com
+
+NTP_CONFIG=/etc/sysconfig/ntp
+[ -f ${NTP_CONFIG} ] && . ${NTP_CONFIG}
+
+FUNCTIONS=/etc/rc.d/functions
+[ -f ${FUNCTIONS} ] && . ${FUNCTIONS}   # just for msg()
+
+# Using SNTP instead of ntpdate as ntpdate has being deprecated in this version 4.2.8p8
+# For More Info, refer: http://support.ntp.org/bin/view/Dev/DeprecatingNtpdate
+SNTP=/usr/bin/sntp
+NTP_TIME_CACHE=/var/run/prntpset.dat
+NTP_TIME_LOCK=/var/run/prntpset.lock
+
+NTP_TIME_SET_NOTIFICATION="lipc-send-event -r 30 com.lab126.time timeChanged"
+
+AUTOTIME_DISABLE_FLAG=/var/run/AUTOTIME_OFF
+
+_CUR_TIME=$(date -u +%s)
+
+_PREV_TIME=0
+
+_COUNTER=1
+
+if [ -f ${NTP_TIME_CACHE} ]; then
+    _PREV_TIME=$(cat ${NTP_TIME_CACHE})
+fi
+
+_DELTA=$((${_CUR_TIME} - ${_PREV_TIME}))
+
+
+set_ntp_time()
+{
+    # -u is not an option for SNTP, hence using -S as recommended in the above link
+    if ${SNTP} -S -t 10 ${NTP_SERVER}; then
+        local _NEW_CUR_TIME=$(date -u +%s)
+
+        echo ${_NEW_CUR_TIME} >${NTP_TIME_CACHE}
+
+        _DELTA=$((${_NEW_CUR_TIME} - ${_CUR_TIME}))
+        if [ ${_DELTA} -ne 0 ]; then
+            ${NTP_TIME_SET_NOTIFICATION} -i ${_DELTA}
+        fi
+
+        hwclock -u -w
+
+        msg "new=${_NEW_CUR_TIME}, delta=${_DELTA}:time set from server" I "tssfs"
+        record_device_metric updatetime ntpTimeUpdate ntpTimeUpdateSuccess 1 '' $METRIC_PRIORITY_LOW $METRIC_TYPE_COUNTER || true
+
+    else
+    	
+        msg ":could not query time server" E "cnqts"
+        record_device_metric updatetime ntpTimeUpdate ntpTimeUpdateFailed 1 '' $METRIC_PRIORITY_LOW $METRIC_TYPE_COUNTER || true
+        return 1
+    fi
+
+    return 0
+}
+
+get_web_time()
+{
+	nc -w 90 ${HTTP_SERVER} 80 <<EOI | grep "Date: " | cut -d ' ' -f 3-
+HEAD / HTTP/1.1
+Host: ${HTTP_SERVER}
+User-Agent: kindle/2.0
+Pragma: no-cache
+Cache-Control: no-cache
+Connection: close
+
+EOI
+}
+
+set_web_time()
+{
+    local _WEBDATE="$(get_web_time)"
+
+    # make sure we get a somewhat sane date here.
+    if [ -n "${_WEBDATE}" ] && \
+       [ $(date -u -D "%d %b %Y %T %Z" +%s -d "${_WEBDATE}") \
+         -gt $(date -u -D "%Y-%m-%d %H:%M%Z" +%s -d "$(cat /etc/epoch.txt)") ]; then
+
+        if /usr/sbin/setdate $(date -u -D "%d %b %Y %T %Z" +%s -d "${_WEBDATE}"); then
+            local _NEW_CUR_TIME=$(date -u +%s)
+            echo ${_NEW_CUR_TIME} >${NTP_TIME_CACHE}
+            msg "new=${_NEW_CUR_TIME}:set date via HTTP" I "httpdate"
+            record_device_metric updatetime httpTimeUpdate httpUpdateSuccess 1 '' $METRIC_PRIORITY_LOW $METRIC_TYPE_COUNTER || true
+        fi
+    else
+        if [ ${_COUNTER} -le 3 ]; then                                         
+            msg "webdate=\"${_WEBDATE}\":could not get date via HTTP:attempt ${_COUNTER}" E "nohttpdate"
+            record_device_metric updatetime httpTimeUpdate httpTimeUpdateFailed 1 '' $METRIC_PRIORITY_LOW $METRIC_TYPE_COUNTER || true
+            _COUNTER=$((_COUNTER + 1))            
+            set_web_time
+        else 
+            msg "webdate=\"${_WEBDATE}\":could not get date via HTTP:giving up" E "nohttpdate"                                                                                                                                                                                                                                                                                
+        fi
+    fi
+}
+
+
+if [ -e ${AUTOTIME_DISABLE_FLAG} -o ${_CUR_TIME} -gt ${NTP_CHECK_TIME} -a ${_DELTA#-} -lt ${NTP_CHECK_TIME} ]; then
+    exit 0
+fi
+
+if ( set -o noclobber; echo "lock" > ${NTP_TIME_LOCK} ) 2> /dev/null;
+then
+	set_ntp_time || set_web_time
+
+	rm -f ${NTP_TIME_LOCK}
+else
+        msg ":updatetime already in progress" E "cnqts"
+fi
+

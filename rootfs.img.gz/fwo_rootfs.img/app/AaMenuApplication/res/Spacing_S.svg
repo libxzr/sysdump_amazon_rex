@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="78px" height="44px" viewBox="0 0 78 44" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 55.1 (78136) - https://sketchapp.com -->
+    <title>167ppi_Spacing_Small_Not-Selected</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Symbols" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Icon-/-E-reader-/-167ppi-/-Spacing-/-Small-/-Not-Selected" stroke="#000000">
+            <g id="167ppi_Spacing_Small_Not-Selected">
+                <rect id="Rectangle" fill="#FFFFFF" x="0.5" y="0.5" width="77" height="43" rx="6"></rect>
+                <path d="M13,13.5 L66,13.5" id="Line" stroke-linecap="square"></path>
+                <path d="M13,19.5 L66,19.5" id="Line" stroke-linecap="square"></path>
+                <path d="M13,25.5 L66,25.5" id="Line" stroke-linecap="square"></path>
+                <path d="M13,31.5 L66,31.5" id="Line" stroke-linecap="square"></path>
+            </g>
+        </g>
+    </g>
+</svg>

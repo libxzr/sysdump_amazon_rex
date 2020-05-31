@@ -1,0 +1,56 @@
+state.PMICaudio {
+	control.1 {
+		comment.access 'read write'
+		comment.type INTEGER
+		comment.count 1
+		comment.range '0 - 15 (step 1)'
+		iface MIXER
+		name 'Master Output Playback Volume'
+		value 12
+	}
+	control.2 {
+		comment.access 'read write'
+		comment.type INTEGER
+		comment.count 1
+		comment.range '0 - 100 (step 1)'
+		iface MIXER
+		name 'Master Playback Volume'
+		value 50
+	}
+	control.3 {
+		comment.access 'read write'
+		comment.type INTEGER
+		comment.count 1
+		comment.range '0 - 3 (step 1)'
+		iface MIXER
+		name 'Master Monoconfig Playback Volume'
+		value 0
+	}
+	control.4 {
+		comment.access 'read write'
+		comment.type INTEGER
+		comment.count 1
+		comment.range '0 - 100 (step 1)'
+		iface MIXER
+		name 'Master Balance Playback Volume'
+		value 50
+	}
+	control.5 {
+		comment.access 'read write'
+		comment.type INTEGER
+		comment.count 1
+		comment.range '0 - 100 (step 1)'
+		iface MIXER
+		name 'Master Capture Volume'
+		value 40
+	}
+	control.6 {
+		comment.access 'read write'
+		comment.type INTEGER
+		comment.count 1
+		comment.range '0 - 7 (step 1)'
+		iface MIXER
+		name 'Master Input Capture Volume'
+		value 2
+	}
+}

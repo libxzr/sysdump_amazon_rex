@@ -1,0 +1,621 @@
+#!/bin/sh
+
+GLOBAL_OFFSET=8
+
+MISCDATA_PARTITION=/dev/mmcblk1p6
+HIBERNATION_CONFIG_FILE=/tmp/hibernation.config
+
+TUXONICE_ROOT="/sys/power/tuxonice"
+EXPECT_COMPRESSION_RATIO="$TUXONICE_ROOT"/compression/expected_compression
+HIBERNATION_PARTITION="/dev/mmcblk1p7"
+HIBERNATION_SWAPON="/tmp/HIBERNATION_SWAPON"
+
+SHOW_ST=0
+VERBOSE=0
+DROP_CACHE=1
+
+# needed for quick boot
+BANK=0h
+IDLE=1
+PRELOAD=
+#List of processes to be added to pre-load.Specify flags with '|' (ex : cvm|AF pillow|Af)
+# Supported options
+#'A' - preload all anon pages
+#'f' - preload file pages, but only active ones
+#'F' - preload all file pages
+# <#> - preload the virtual mapping containing address #.
+PCONFIGLIST="pillowd blanket Xorg awesome powerd dbus-daemon wifid wpa_supplicant cmd"
+
+# Check if falcon enabled.
+if [ -e "/sys/devices/platform/falconblk/uevent" ]; then
+	QUICK_BOOT_ENABLED=true
+elif [ -e $TUXONICE_ROOT ]; then
+	TOI_ENABLED=true
+fi
+
+disp_vmsg()
+{
+	if [ $VERBOSE -eq 1 ];then
+		slog $1
+	fi
+}
+
+slog()
+{
+	echo $@
+	logger -t snapshot[$$] "$@"
+}
+
+save_hibernation_file()
+{
+	name=$1
+	file=$2
+	seek=$GLOBAL_OFFSET
+
+	size=$(stat -c '%s' $file)
+	echo $name"_size="$size >> $HIBERNATION_CONFIG_FILE
+	echo $name"_offset="$GLOBAL_OFFSET >> $HIBERNATION_CONFIG_FILE
+
+	GLOBAL_OFFSET=$(( $GLOBAL_OFFSET + $size / 512 + 1 ))
+
+	if [ $GLOBAL_OFFSET -ge 32768 ]; then
+		exit 1
+	fi
+	dd if=$file of=$MISCDATA_PARTITION bs=512 seek=$seek
+}
+
+generate_splash_image()
+{
+	slog "generate_splash_image..."
+	BMP_DEST_FILE=/tmp/hibernate.bmp
+
+	lab126_convert $BMP_DEST_FILE -s 1 -d 8 -r "qboot.resume.dtcp.msg"
+	if [ -e "$BMP_DEST_FILE" ]; then
+		gzip -f -9 $BMP_DEST_FILE
+
+		save_hibernation_file splash $BMP_DEST_FILE.gz
+		rm -f $BMP_DEST_FILE
+	else
+		slog "Failed to generate splash image"
+	fi
+}
+
+prepare_epdc()
+{
+	# copy waveform to miscdata
+	wfm_mount
+
+	waveform_file=$(ls /mnt/wfm/waveform_to_use/*wrf* 2>/dev/null)
+	waveform_count=$(echo $waveform_file | wc -w)
+
+	if [ $waveform_count -eq 0 ]; then
+		slog "no waveform file found."
+		wfm_umount
+		return
+	elif [ $waveform_count -ne 1 ]; then
+		slog "too many waveform files, use first one"
+		waveform_file=$(echo -n $waveform_file | awk '{print $1}')
+	fi
+
+	if echo $waveform_file | grep -qF ".wrf.gz"; then
+		cp $waveform_file /tmp/current.wrf.gz
+	else
+		gzip -c -9 $waveform_file > /tmp/current.wrf.gz
+	fi
+
+	wfm_umount
+
+	save_hibernation_file waveform /tmp/current.wrf.gz
+	rm -f /tmp/current.wrf.gz
+
+	# working buffer
+	cat /proc/eink/waveform/working_buffer >/tmp/working_buffer
+	save_hibernation_file working_buffer /tmp/working_buffer
+	rm -f /tmp/working_buffer
+
+	echo "working_buffer_addr="$(cat /proc/eink/waveform/working_buffer_addr) >> $HIBERNATION_CONFIG_FILE
+}
+
+WAN_MOD=$(ls -d /sys/bus/platform/devices/mwan 2>/dev/null)
+WAND=$(pgrep wand)
+DIAGS=$(cat /proc/bootmode 2>/dev/null)
+WIRELESS_ENABLED=$(lipc-get-prop com.lab126.cmd wirelessEnable 2>/dev/null)
+
+usb_stop()
+{
+	slog "WAN_MOD:$WAN_MOD WIRELESS_ENABLED:$WIRELESS_ENABLED WAND:$WAND DIAGS:$DIAGS"
+	stop asr
+
+	if [ -n "$WAN_MOD" ]; then
+		if [ "$DIAGS" != "diags" ]; then
+			slog "Stopping WAND"
+			stop wand
+			slog "Done Stopping WAND"
+		fi
+	fi
+
+	if [ "$DIAGS" = "diags" ]; then
+		modprobe -r g_ether
+	else
+		echo TODO: modprobe -r g_mass_storage
+	fi
+}
+
+usb_start()
+{
+	slog "WAN_MOD:$WAN_MOD WIRELESS_ENABLED:$WIRELESS_ENABLED DIAGS:$DIAGS"
+	if [ "$DIAGS" = "diags" ]; then
+		modprobe g_ether
+	else
+		echo TODO: modprobe g_mass_storage removable=y
+	fi
+
+	if [ -n "$WAN_MOD" ]
+	then
+		#modprobe mwan
+		if [ "$DIAGS" != "diags" ] && [ -n "$WAND" ]; then
+			start wand
+		fi
+	fi
+	slog "Done with usb_start"
+}
+
+toi_swapon()
+{
+	# Only use swap partition for snapshot purpose
+	echo 0 > /proc/sys/vm/swappiness
+
+	# expect compression ratio
+	echo 90 > $EXPECT_COMPRESSION_RATIO
+
+	if [ ! -e "$HIBERNATION_SWAPON" ]
+	then
+		# Make swap partition
+		mkswap $HIBERNATION_PARTITION
+		slog mkswap $HIBERNATION_PARTITION....
+
+		# activate it
+		swapon $HIBERNATION_PARTITION
+		slog swapon $HIBERNATION_PARTITION....
+
+		touch "$HIBERNATION_SWAPON"
+	else
+		swapon $HIBERNATION_PARTITION
+		slog swapon $HIBERNATION_PARTITION....
+	fi
+}
+
+toi_swapoff()
+{
+	slog swapoff $HIBERNATION_PARTITION....
+	swapoff $HIBERNATION_PARTITION
+}
+
+pause_wifid()
+{
+	WIFID_PID=$(pgrep wifid)
+	if [ -n "$WIFID_PID" ]; then
+		echo $WIFID_PID > /tmp/wifid.pid
+		kill -STOP $WIFID_PID
+		slog "pause_wifid: $WIFID_PID"
+	fi
+}
+
+resume_wifid()
+{
+	if [ -e "/tmp/wifid.pid" ]; then
+		WIFID_PID=$(cat /tmp/wifid.pid)
+		if [ -n "$WIFID_PID" ]; then
+			kill -CONT $WIFID_PID
+			slog "resume_wifid: $WIFID_PID"
+		fi
+		rm -f /tmp/wifid.pid
+	fi
+}
+
+save_cpugovernor()
+{
+	echo "performance" > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+	echo 996000 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed
+}
+
+restore_cpugovernor()
+{
+	echo "ondemand" > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+	slog "restore_cpugovernor"
+}
+
+qb_suspend()
+{
+	slog "qb_suspend...."
+
+	rm -f $HIBERNATION_CONFIG_FILE
+
+	save_cpugovernor
+	generate_splash_image
+	prepare_epdc
+
+	# early suspend
+	pause_wifid
+	usb_stop
+
+	free -m
+	if [ "$DROP_CACHE" -eq 1 ] ; then
+		slog "Dropping buffers and file system caches"
+		sync && echo 3 > /proc/sys/vm/drop_caches
+		free -m
+	fi
+
+	# debug for splash
+	if [ "$SHOW_SPLASH" = "1" ]; then
+		echo force_splash=1 >> $HIBERNATION_CONFIG_FILE
+	fi
+
+	if [ "$MIDDLE_SPLASH" = "1" ]; then
+                echo splash_middle=1 >> $HIBERNATION_CONFIG_FILE
+        fi
+
+	if [ "$QUICK_BOOT_ENABLED" = "true" ]; then
+		# quickboot type is 1
+		echo type=1 >> $HIBERNATION_CONFIG_FILE
+	elif [ "$TOI_ENABLED" = "true" ]; then
+		# toi type is 2
+		echo type=2 >> $HIBERNATION_CONFIG_FILE
+	fi
+
+	# save config file
+	dd if=$HIBERNATION_CONFIG_FILE of=$MISCDATA_PARTITION bs=512
+	rm -f $HIBERNATION_CONFIG_FILE
+
+	if [ "$QUICK_BOOT_ENABLED" = "true" -a "$PRELOAD" = "true" ]; then
+		for CONFIG in $PCONFIGLIST; do
+
+			PNAME=$(echo $CONFIG | awk -F '|' '{print $1}')
+			FLAG=$(echo $CONFIG | awk -F '|' '{print $2}')
+			if [ -z "$FLAG" ]; then
+				#default flag
+				FLAG="AF"
+			fi
+
+			slog "Adding $PNAME $FLAG to pre-load"
+			echo $(pgrep -o $PNAME)$FLAG > /proc/falconmem/process_options
+		done
+
+		ACTIVE_APP_PID=$(lipc-get-prop com.lab126.appmgrd activeAppPid)
+
+		# The list of active processes/apps could be one of the following,
+		# 1. cvm       - Home/Reader/Settings/GROK
+		# 2. stored    - Store App
+		# 3. mesquite  - Experimental Browser/ODAC/AdViewer
+		if [ -n "$ACTIVE_APP_PID" ]; then
+			slog "Adding Active App PID("$ACTIVE_APP_PID") to pre-load"
+			echo "$ACTIVE_APP_PID"AF > /proc/falconmem/process_options
+		else
+			slog "Failed to query Active App PID, so adding CVM by default"
+			echo $(pgrep -o cvm)AF > /proc/falconmem/process_options
+		fi
+	fi
+}
+
+qb_late_resume()
+{
+	slog "qb_late_resume start"
+	sleep 4
+	usb_start
+	sleep 2
+	resume_wifid
+	if [ "$TOI_ENABLED" = "true" ]; then
+		sleep 2
+		toi_swapoff
+	fi
+	sleep 3
+	restore_cpugovernor
+	slog "qb_late_resume done"
+}
+
+qb_resume()
+{
+	slog "qb_resume...."
+
+	# print resume status
+	dd if=$MISCDATA_PARTITION bs=512 count=1 skip=8 | head -n1 | cut -c-32 | while read msg; do
+		if [ -n "$msg" ]; then
+			slog "resume_status: $msg"
+		fi
+	done
+
+	# Removes previously configurations
+	dd if=/dev/zero of=$MISCDATA_PARTITION bs=512 count=9
+
+	if [ "$QUICK_BOOT_ENABLED" = "true" ]; then
+		if [ "$PRELOAD" = "true" ]; then
+			echo 1 >/proc/falconmem/reset
+		fi
+		while read msg; do
+			if [ -n "$msg" ]; then
+				slog "snapshot_status: $msg"
+			fi
+		done < /proc/falcon/load_stats
+	fi
+
+	if ! cat /sys/power/state | grep -q "on"; then
+		echo on > /sys/power/state
+		disp_vmsg "Start late_resume"
+	else
+		disp_vmsg "Skip late_resume"
+	fi
+
+	# clear rtc wakealarm
+	alarmset=$(cat /sys/class/rtc/rtc0/wakealarm)
+	if [ -n "$alarmset" ];then
+		echo "rtc0 wakealarm: $(cat /sys/class/rtc/rtc0/wakealarm)"
+		echo 0 > /sys/class/rtc/rtc0/wakealarm
+	fi
+
+	# start qb_late_resume
+	qb_late_resume &
+}
+
+show_status()
+{
+	echo ""
+	if [ "$QUICK_BOOT_ENABLED" = "true" ]; then
+		echo "saved bank  : $BANK"
+		if [ -d /proc/falcon ]; then
+			echo "boot_status : $(cat /proc/falcon/boot_status)"
+			echo "load_status : $(cat /proc/falcon/load_status)"
+			echo "loaded      : $(cat /proc/falcon/loaded)"
+			echo "idleload    : $(cat /proc/falcon/idleload)"
+			echo "revision    : $(cat /proc/falcon/revision)"
+
+			if [ -e /proc/falcon/learning ]; then
+				echo "learning    : $(cat /proc/falcon/learning)"
+			fi
+		fi
+		echo ""
+	fi
+}
+
+show_verbose_info()
+{
+	if [ $VERBOSE -eq 1 ];then
+		show_status
+		sleep 1
+	fi
+}
+
+show_usage()
+{
+	echo "" 1>&2
+	echo "Usage: $0 [-b bank] [-i value] [-s] [-v] [-c value]" 1>&2
+	echo "" 1>&2
+	echo "  -b : Bank (QuickBoot:0,1,2... Hibernation:0h,1h,2h...)" 1>&2
+	echo "  -i : Set idle load status (0:off 1:on)" 1>&2
+	echo "  -c : Drops buffer and Caches before taking snapshot (0:off 1:on; default is on)" 1>&2
+	echo "  -m : Splash in the middle of the screen" 1>&2
+	echo "  -s : Print status and exit" 1>&2
+	echo "  -v : Verbose mode" 1>&2
+	exit 1
+}
+
+cleanup_child_pid() {
+	slog "Cancelling Power Event Handler Child Process !!!!"
+	kill_process $POWER_EVENT_HANDLER_PID
+	slog "Cancelling Mag Sensor Event Handler Child Process !!!!"
+	kill_process $MAG_SENSOR_EVENT_HANDLER_PID
+	slog "Cancelling QB Suspend Monitor Child Process !!!!"
+	kill_process $QB_SUSPEND_MONITOR_PID
+
+	rm -f /tmp/qb_suspend_pid
+	rm -f /tmp/qb_suspend_monitor_pid
+	rm -f /tmp/power_button_event_handler_pid
+	rm -f /tmp/mag_event_handler_pid
+}
+
+kill_process() {
+	PID=$1
+	if ! ps -p $PID > /dev/null
+	then
+		slog "Ignoring to kill process ("$PID"), as it is already killed!!!"
+		return 0
+	fi
+	# Killing the parent script, will detach the current sleeping child process and process id '1' will
+	# become the parent of the sleeping process. Because of this, the sleeping process will never be killed
+	# until they are waken up. For instance, 'lipc-wait-event or sleep' will wait till they complete.
+	# So, Kill the parent first, and then the child processes inside any script.
+	CHILD_PIDS=$(pgrep -P $PID)
+	kill -15 $PID
+	for pid in $CHILD_PIDS
+	do
+		kill -15 $pid
+	done
+}
+
+power_button_event_handler() {
+	lipc-wait-event com.lab126.hal powerButtonPressed
+	slog "Cancelling QuickBoot due to power button press..."
+
+	terminate_qb_suspend_processes
+	if [ -f /tmp/power_button_event_handler_pid ];
+	then
+		slog "Killing Power Event Handler Child Process"
+		kill_process $(cat /tmp/power_button_event_handler_pid)
+	fi
+}
+
+mag_sensor_event_handler() {
+	lipc-wait-event com.lab126.hal magSensorOpened
+	slog "Cancelling QuickBoot due to hall sensor..."
+
+	terminate_qb_suspend_processes
+	if [ -f /tmp/mag_event_handler_pid ];
+	then
+		slog "Killing Mag Event Handler Child Process"
+		kill_process $(cat /tmp/mag_event_handler_pid)
+	fi
+}
+
+
+terminate_qb_suspend_processes() {
+	slog "Quickboot interrupt handler..."
+
+	if [ -f /tmp/qb_suspend_pid ]; then
+		slog "Killing QB Suspend Child Process"
+		kill_process $(cat /tmp/qb_suspend_pid)
+	fi
+
+	if [ -f /tmp/qb_suspend_monitor_pid ]; then
+		slog "Killing QB Suspend Monitor Child Process"
+		kill_process $(cat /tmp/qb_suspend_monitor_pid)
+	fi
+
+	if [ -f /tmp/qb_wait_pid ]; then
+		slog "Killing QB Wait Child Process"
+		wait_pid=$(cat /tmp/qb_wait_pid)
+		if [ -n "$wait_pid" ]; then
+			kill_process $wait_pid
+		fi
+	fi
+	rm -f /tmp/qb_wait_pid
+}
+
+qb_suspend_monitor() {
+	slog "QB Suspend Monitor Started ..."
+	# Sleep for 10 minutes to wait for qb_suspend to complete.
+	# Otherwise, it will reboot the device.
+	sleep 600
+	slog "About to reboot the system ..."
+	reboot
+}
+
+while getopts b:i:c:msSv OPT
+do
+	case $OPT in
+		b)  BANK=$OPTARG;;
+		i)  if [ $OPTARG -eq 0 ]; then IDLE=0; fi;;
+		c)  if [ $OPTARG -eq 0 ]; then DROP_CACHE=0; fi;;
+		m)  MIDDLE_SPLASH=1;;
+		S)  SHOW_SPLASH=1;;
+		s)  SHOW_ST=1;;
+		v)  VERBOSE=1;;
+		\?) show_usage;;
+	esac
+done
+
+if [ "$QUICK_BOOT_ENABLED" = "true" ]; then
+	if [ ! -d /proc/falcon ]; then
+		if ! modprobe falcon; then
+			# Failed to load falcon module
+			exit 1
+		fi
+		DEVNO=$(grep falcon\$ /proc/devices | cut -f 1 -d ' ')
+		mknod /dev/falcon c $DEVNO 0
+	fi
+fi
+
+if [ $SHOW_ST -eq 1 ];then
+	show_status
+	exit 1
+fi
+
+power_button_event_handler &
+POWER_EVENT_HANDLER_PID=$!
+echo $POWER_EVENT_HANDLER_PID > /tmp/power_button_event_handler_pid
+slog "Spawning Power Button Event Handler, PID : "$POWER_EVENT_HANDLER_PID
+
+mag_sensor_event_handler &
+MAG_SENSOR_EVENT_HANDLER_PID=$!
+echo $MAG_SENSOR_EVENT_HANDLER_PID > /tmp/mag_event_handler_pid
+slog "Spawning Mag Sensor Event Handler, PID : "$MAG_SENSOR_EVENT_HANDLER_PID
+
+qb_suspend_monitor &
+QB_SUSPEND_MONITOR_PID=$!
+echo $QB_SUSPEND_MONITOR_PID > /tmp/qb_suspend_monitor_pid
+slog "Spawning QB Suspend Monitor, PID : "$QB_SUSPEND_MONITOR_PID
+
+qb_suspend &
+QB_SUSPEND_PID=$!
+echo $QB_SUSPEND_PID > /tmp/qb_suspend_pid
+slog "Spawning QB Suspend, PID : "$QB_SUSPEND_PID
+
+wait $QB_SUSPEND_PID
+
+if [ $? -ne 0 ]
+then
+	slog "Script Aborted by user actions"
+	qb_resume
+	cleanup_child_pid
+	wait
+	exit 0
+fi
+
+wait_resume() {
+	if [ "$QUICK_BOOT_ENABLED" = "true" ]; then
+		cat /proc/falcon/wait &
+		QB_WAIT_PID=$!
+		echo $QB_WAIT_PID > /tmp/qb_wait_pid
+		wait $QB_WAIT_PID
+	fi
+	qb_resume
+}
+
+if [ "$QUICK_BOOT_ENABLED" = "true" ]; then
+	wait_resume &
+	echo $IDLE > /proc/falcon/idleload
+else
+	touch /tmp/qb_wait_pid
+fi
+
+show_verbose_info
+sleep 1
+tinyrot
+
+cleanup_child_pid
+
+do_hibernation()
+{
+	# Do real hibernation here
+	if [ "$QUICK_BOOT_ENABLED" = "true" ]; then
+		# disable console_suspend during hibernation
+		suspend_console=$(cat /sys/module/printk/parameters/console_suspend)
+		echo N > /sys/module/printk/parameters/console_suspend
+		nice -20 echo $BANK > /proc/falcon/snap
+		echo $suspend_console > /sys/module/printk/parameters/console_suspend
+	elif [ "$TOI_ENABLED" = "true" ]; then
+		# swapon
+		toi_swapon
+
+		# go to toi hibernation now
+		if nice -20 echo disk > /sys/power/state ; then
+			slog "Hibernation OK!"
+		else
+			slog "Hibernation FAILED!"
+		fi
+	else
+		echo mem >/sys/power/state
+	fi
+}
+
+if [ -e "/tmp/qb_wait_pid" ]; then
+	slog "About to Hibernate"
+	do_hibernation
+else
+	slog "Hibernate cancelled."
+fi
+
+rm -f /tmp/qb_wait_pid
+if [ "$QUICK_BOOT_ENABLED" != "true" ]; then
+	qb_resume
+fi
+
+if [ "$QUICK_BOOT_ENABLED" = "true" ]; then
+	if grep -q -e cancel -e error -e normal /proc/falcon/boot_status; then
+		slog "Quickboot not successful!!!"
+	else
+		slog "Quickboot successful!"
+	fi
+fi
+
+wait
+
+# vim: noet:ts=2:sw=2:filetype=sh

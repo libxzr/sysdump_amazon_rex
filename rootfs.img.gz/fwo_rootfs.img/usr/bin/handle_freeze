@@ -1,0 +1,57 @@
+#!/bin/sh
+
+#Guarentee mutual exclusion for this script. FD will be closed on process terminating
+LOCK_FILE="/tmp/HANDLE_FREEZE_LOCK"
+exec 9>$LOCK_FILE
+if ! flock -n -x 9 
+then
+    logger "W handle_freeze Another instance of the script is being run"
+    exit 1
+fi
+
+CVM_EXE_PATH="/usr/java/bin/cvm"
+
+if [ $# -ne 1 ]
+then
+    echo "USAGE : $0 <pid>"
+    exit 2
+fi
+
+print_cvm_thread_dump() {
+    lipc-set-prop com.lab126.kaf callInspector dumpAllThreads
+    if [ $? -ne 0 ]
+    then
+        killall -QUIT cvm
+    fi
+}
+
+PID=$1
+EXE_PATH=`readlink /proc/$PID/exe`
+
+#Print frozen process info to the logs
+logger "C handle_freeze UI FREEZE DETECTED:: PROCESS=$EXE_PATH, PID=$PID" 
+cat /proc/$PID/stat | logger
+cat /proc/$PID/statm | logger
+
+#Print xwininfo to the logs
+xwininfo -root -tree | logger
+
+#Print overall system info to the logs
+top -b -n1 | logger
+cat /proc/vmstat | logger
+
+#Print Debugging data depending on process
+#Hanlding only the case of cvm for now
+if [ "$EXE_PATH" == "$CVM_EXE_PATH" ]
+then
+    #For CVM, print the thread dump twice with a short interval
+    print_cvm_thread_dump
+    sleep 3
+    print_cvm_thread_dump
+fi
+
+#TODO: Display frozen UI message to user and provide option to restart process
+
+#Sleep for 3 minutes so that we do not print the same data again
+logger "I handle_freeze Done with printing information. Sleeping..."
+sleep 180

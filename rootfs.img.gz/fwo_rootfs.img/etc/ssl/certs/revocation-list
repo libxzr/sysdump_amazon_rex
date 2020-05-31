@@ -1,0 +1,112 @@
+#List of revoked certificates 
+#Each line represents a certificate to be revoked using the SHA1 signature
+#and serial number of the certificate in key=value format
+#
+#This file follows GKeyFile compatible format specified here: https://developer.gnome.org/glib/2.30/glib-Key-value-file-parser.html#glib-Key-value-file-parser.description
+#
+#Use below command to obtain serial and sha1 from certificate in PEM format
+#$openssl x509 -inform PEM -in certificate.pem -fingerprint -text | grep "Not\|SHA1\|Issuer\|Subject:\|Serial" | sed 's/^ *//' | sed 's/^/# /'
+
+#Group name for list of certs by sha1
+[revoked-certs-by-sha1]
+#format: SHA1_IN_HEX=SERIAL_NUMBER_IN_HEX
+#NOTE: both are in UPPERCASE_HEX
+
+# For testing: Google Internet Authority - intermediate CA for https://www.google.com
+# SHA1 Fingerprint=D8:3C:1A:7F:4D:04:46:BB:20:81:B8:1A:16:70:F8:18:34:51:CA:24
+# Serial Number: 146025 (0x23a69)
+# Issuer: C=US, O=GeoTrust Inc., CN=GeoTrust Global CA
+# Not Before: Apr  5 15:15:55 2013 GMT
+# Not After : Apr  4 15:15:55 2015 GMT
+# Subject: C=US, O=Google Inc, CN=Google Internet Authority G2
+#D83C1A7F4D0446BB2081B81A1670F8183451CA24=23A69
+ 
+# Explicitly Distrust "TURKTRUST Mis-issued Intermediate CA 1", Bug 825022
+# Issuer: O=T..RKTRUST Bilgi ..leti..im ve Bili..im G..venli..i Hizmetleri A...,C=TR,CN=T..RKTRUST Elektronik Sunucu Sertifikas.. Hizmetleri
+# Serial Number: 2148 (0x864)
+# Subject: E=ileti@kktcmerkezbankasi.org,CN=e-islem.kktcmerkezbankasi.org,O=KKTC Merkez Bankasi,L=Lefkosa,ST=Lefkosa,C=TR
+# Not Valid Before: Mon Aug 08 07:07:51 2011
+# Not Valid After : Thu Aug 05 07:07:51 2021
+# Fingerprint (MD5): BF:C3:EC:AD:0F:42:4F:B4:B5:38:DB:35:BF:AD:84:A2
+# Fingerprint (SHA1): F9:2B:E5:26:6C:C0:5D:B2:DC:0D:C3:F2:DC:74:E0:2D:EF:D9:49:CB
+F92BE5266CC05DB2DC0DC3F2DC74E02DEFD949CB=864
+
+# Explicitly Distrust "TURKTRUST Mis-issued Intermediate CA 2", Bug 825022
+# Issuer: O=T..RKTRUST Bilgi ..leti..im ve Bili..im G..venli..i Hizmetleri A...,C=TR,CN=T..RKTRUST Elektronik Sunucu Sertifikas.. Hizmetleri
+# Serial Number: 2087 (0x827)
+# Subject: CN=*.EGO.GOV.TR,OU=EGO BILGI ISLEM,O=EGO,L=ANKARA,ST=ANKARA,C=TR
+# Not Valid Before: Mon Aug 08 07:07:51 2011
+# Not Valid After : Tue Jul 06 07:07:51 2021
+# Fingerprint (MD5): F8:F5:25:FF:0C:31:CF:85:E1:0C:86:17:C1:CE:1F:8E
+# Fingerprint (SHA1): C6:9F:28:C8:25:13:9E:65:A6:46:C4:34:AC:A5:A1:D2:00:29:5D:B1
+C69F28C825139E65A646C434ACA5A1D200295DB1=827
+
+#SHA1 Fingerprint=8E:5B:D5:0D:6A:E6:86:D6:52:52:F8:43:A9:D4:B9:6D:19:77:30:AB
+#Serial Number: 1276011370 (0x4c0e636a)
+#Issuer: O=Entrust.net, OU=www.entrust.net/CPS_2048 incorp. by ref. (limits liab.), OU=(c) 1999 Entrust.net Limited, CN=Entrust.net Certification Authority (2048)
+#Not Before: Jul 16 17:23:37 2010 GMT
+#Not After : Jul 16 17:53:37 2015 GMT
+#Subject: C=MY, O=Digicert Sdn. Bhd., OU=457608-K, CN=Digisign Server ID - (Enrich)
+8E5BD50D6AE686D65252F843A9D4B96D197730AB=4C0E636A
+
+#SHA1 Fingerprint=5D:E8:3E:E8:2A:C5:09:0A:EA:9D:6A:C4:E7:A6:E2:13:F9:46:E1:79
+#Serial Number: 20001983 (0x13134bf)
+#Issuer: C=NL, O=Staat der Nederlanden, CN=Staat der Nederlanden Organisatie CA - G2
+#Not Before: May 12 08:51:38 2010 GMT
+#Not After : Mar 23 09:50:04 2020 GMT
+#Subject: C=NL, O=DigiNotar B.V., CN=DigiNotar PKIoverheid CA Organisatie - G2
+5DE83EE82AC5090AEA9D6AC4E7A6E213F946E179=13134BF
+
+#SHA1 Fingerprint=40:AA:38:73:1B:D1:89:F9:CD:B5:B9:DC:35:E2:13:6F:38:77:7A:F4
+#Serial Number: 20015536 (0x13169b0)
+#Issuer: C=NL, O=Staat der Nederlanden, CN=Staat der Nederlanden Overheid CA
+#Not Before: Jul  5 08:42:07 2007 GMT
+#Not After : Jul 27 08:39:46 2015 GMT
+#Subject: C=NL, O=DigiNotar B.V., CN=DigiNotar PKIoverheid CA Overheid en Bedrijven
+40AA38731BD189F9CDB5B9DC35E2136F38777AF4=13169B0
+
+# SHA1 Fingerprint=9C:BE:43:07:16:11:1E:0F:CC:FD:5D:77:F0:8B:D6:11:19:54:6D:46
+# Serial Number: 75:c3:cf:e7:f6:9c:27:72:69:45:11:d7:84:82:06:3b
+# Issuer: C=US, O=VeriSign, Inc., OU=VeriSign Trust Network, OU=Terms of use at https://www.verisign.com/rpa (c)10, CN=VeriSign Class 3 Secure Server CA - G3
+# Not Before: Jul 16 00:00:00 2013 GMT
+# Not After : Jul 17 23:59:59 2014 GMT
+# Subject: C=US, ST=Washington, L=Seattle, O=Amazon.com Inc., CN=aws.amazon.com
+# CA Issuers - URI:http://SVRSecure-G3-aia.verisign.com/SVRSecureG3.cer
+9CBE430716111E0FCCFD5D77F08BD61119546D46=75C3CFE7F69C2772694511D78482063B
+
+# SHA1 Fingerprint=24:A6:DA:F6:42:50:F4:EA:08:2B:C2:D0:0D:D9:7A:31:55:76:A1:98
+# Serial Number: 7c:6f:a8:f9:27:f9:9c:b5:66:18:31:b3:a3:81:78:7c
+# Issuer: C=US, O=VeriSign, Inc., OU=VeriSign Trust Network, OU=Terms of use at https://www.verisign.com/rpa (c)10, CN=VeriSign Class 3 Secure Server CA - G3
+# Not Before: May  1 00:00:00 2013 GMT
+# Not After : May  2 23:59:59 2014 GMT
+# Subject: C=US, ST=Washington, L=Seattle, O=Amazon.com Inc., CN=Kindle.amazon.in
+# CA Issuers - URI:http://SVRSecure-G3-aia.verisign.com/SVRSecureG3.cer
+24A6DAF64250F4EA082BC2D00DD97A315576A198=7C6FA8F927F99CB5661831B3A381787C
+
+
+# SHA1 Fingerprint=23:7F:38:2F:4D:9A:DD:FA:BF:61:53:48:57:CC:70:A2:1F:39:96:BF
+# Serial Number: 6f:d7:d7:7b:a5:2b:93:f3:02:f4:90:79:35:3b:f5:52
+# Issuer: C=US, O=VeriSign, Inc., OU=VeriSign Trust Network, OU=Terms of use at https://www.verisign.com/rpa (c)10, CN=VeriSign Class 3 Secure Server CA - G3
+# Not Before: Aug  7 00:00:00 2013 GMT
+# Not After : Aug  8 23:59:59 2014 GMT
+# Subject: C=US, ST=Washington, L=Seattle, O=Amazon.com Inc., CN=prime.amazon.eu
+# CA Issuers - URI:http://SVRSecure-G3-aia.verisign.com/SVRSecureG3.cer
+237F382F4D9ADDFABF61534857CC70A21F3996BF=6FD7D77BA52B93F302F49079353BF552
+
+# SHA1 Fingerprint=13:D0:37:6C:2A:B2:14:36:40:A6:2D:08:BB:71:F5:E9:EF:57:13:61
+# Serial Number: 3d:42:95:f3:1a:dc:61:c1:b3:b1:c1:85:3d:85:0a:b6
+# Issuer: C=US, O=VeriSign, Inc., OU=VeriSign Trust Network, OU=Terms of use at https://www.verisign.com/rpa (c)10, CN=VeriSign Class 3 Secure Server CA - G3
+# Not Before: Oct 28 00:00:00 2013 GMT
+# Not After : Aug  5 23:59:59 2015 GMT
+# Subject: C=US, ST=California, L=Palo Alto, O=Facebook, Inc., CN=*.facebook.com
+# CA Issuers - URI:http://SVRSecure-G3-aia.verisign.com/SVRSecureG3.cer
+13D0376C2AB2143640A62D08BB71F5E9EF571361=3D4295F31ADC61C1B3B1C1853D850AB6
+
+# SHA1 Fingerprint=0C:F0:6A:F0:5C:C4:C4:44:E1:DB:92:25:F0:99:4F:EC:6B:5E:4A:B5
+# Serial Number: 7c:0d:8e:d3:b8:c2:9b:3d:49:be:bd:a7:9c:51:5b:ea
+# Issuer: C=US, O=VeriSign, Inc., OU=VeriSign Trust Network, OU=Terms of use at https://www.verisign.com/rpa (c)10, CN=VeriSign Class 3 Secure Server CA - G3
+# Not Before: Apr  8 00:00:00 2014 GMT
+# Not After : Apr  9 23:59:59 2015 GMT
+# Subject: C=US, ST=Washington, L=Seattle, O=Amazon.com Inc., CN=s3.amazonaws.com
+# CA Issuers - URI:http://SVRSecure-G3-aia.verisign.com/SVRSecureG3.cer
+0CF06AF05CC4C444E1DB9225F0994FEC6B5E4AB5=7C0D8ED3B8C29B3D49BEBDA79C515BEA

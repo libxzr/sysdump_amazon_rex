@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="78px" height="44px" viewBox="0 0 78 44" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 55.1 (78136) - https://sketchapp.com -->
+    <title>Icon / E-reader / 167ppi / Alignment / Justified / Selected</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Icon-/-E-reader-/-167ppi-/-Alignment-/-Justified-/-Selected" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="167ppi_Alignment_Justified_Selected" stroke="#000000">
+            <rect id="Rectangle" stroke-width="3" fill="#FFFFFF" x="1.5" y="1.5" width="75" height="41" rx="6"></rect>
+            <path d="M13,13.5 L65,13.5" id="Line" stroke-linecap="square"></path>
+            <path d="M13,19.5 L65,19.5" id="Line" stroke-linecap="square"></path>
+            <path d="M13,25.5 L65,25.5" id="Line" stroke-linecap="square"></path>
+            <path d="M13,31.5 L65,31.5" id="Line" stroke-linecap="square"></path>
+        </g>
+    </g>
+</svg>

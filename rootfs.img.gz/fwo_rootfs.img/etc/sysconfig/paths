@@ -1,0 +1,30 @@
+_MNTLOG=/etc/sysconfig/mntlog
+[ -f $_MNTLOG ] && . $_MNTLOG || true
+
+_MNTUS=/etc/sysconfig/mntus
+[ -f $_MNTUS ] && . $_MNTUS || true
+
+FLAG_FACTORY_FRESH=$MNTLOG_SYSTEMDIR/factory_fresh
+FLAG_FACTORY_FRESH_AUTHENTICATION=$MNTLOG_SYSTEMDIR/factory_fresh_authentication
+FLAG_VFAT_SHUTDOWN=$MNTLOG_SYSTEMDIR/vfat_shutdown
+FLAG_VFAT_BOOTUP=$MNTLOG_SYSTEMDIR/vfat_bootup
+FLAG_VFAT_FSCK=$MNTLOG_SYSTEMDIR/vfat_fsck
+FLAG_VFAT_FSCK_FAIL_REBOOT=$MNTLOG_SYSTEMDIR/vfat_fsck_fail_reboot
+
+FIRST_BOOT_FILE=/opt/config/first_boot_file
+NOT_SHIPPED_FILE=/opt/config/not_shipped
+FIRST_BOOT_AFTER_SHIPMODE="/var/local/system/FIRST_BOOT_AFTER_SHIPMODE"
+CHECK_FOR_PREREGISTRATION="/var/local/system/CHECK_FOR_PREREGISTRATION"
+
+# pointer to dynamically computed parameters
+MNTUS_PARAMS=$MNTLOG_SYSTEMDIR/mntus.params
+
+# diags filesystem
+DIAGS_IMG_FILE="/diagsfs.img"
+DIAGS_PART_DEV="/dev/${BLKROOT_DEV}p3"
+DIAGS_MNT="/opt/factory"
+DIAGS_MNT_OPT="ro"
+DIAGS_ROOT="${DIAGS_MNT}"
+DIAGS_ROOTFS_MD5_LIST_FILE="$DIAGS_ROOT/rootfs_md5_list"
+DIAGS_TARGET_ROOTFS_MD5_LIST="/tmp/rootfs_md5_list"
+DIAGS_TARGET_DIAGS_MD5_LIST="/tmp/diags_md5_list"

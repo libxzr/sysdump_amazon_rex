@@ -1,0 +1,103 @@
+#!/bin/sh
+
+SHUTDOWN_MODE=$1
+LOG_NAME="shutdown_showimage"
+
+##
+# sourcing critical files
+#
+TO_SOURCE=" \
+    /etc/upstart/functions \
+    /etc/upstart/blanket_functions \
+    /etc/upstart/upstart_functions \
+    /etc/upstart/shutdown_modes"
+for F in $TO_SOURCE; do
+    # make sure the file exists
+    if [ -f $F ]; then
+        source $F
+        RES=$?
+        # make sure we sourced it successfully
+        if [ $RES -ne 0 ]; then
+            f_log C $LOG_NAME "cannot source file" "\"$F\""
+            exit 1
+        fi
+    else
+        f_log C $LOG_NAME "cannot find file" "$F"
+        exit 1;
+    fi
+done
+
+# for lipc-send-event
+BLANKET_SHUTDOWN_PARAM_SHIP="shipping"
+BLANKET_SHUTDOWN_PARAM_REBOOT="reboot"
+BLANKET_SHUTDOWN_PARAM_CRITBATT="critbatt"
+BLANKET_SHUTDOWN_PARAM_CUST_SERVICE="cust_service"
+
+# for lipc-wait-event
+BLANKET_TIMEOUT_S=10
+
+#
+# set default image
+BLANKET_SHUTDOWN_PARAM=$BLANKET_SHUTDOWN_PARAM_REBOOT
+
+# special cases
+case $SHUTDOWN_MODE in
+    $SHUTDOWN_MODE_SHIP)
+        # set the orientation to U and disable accelerometer
+	lipc-set-prop com.lab126.deviced enable_accel 0
+	lipc-set-prop com.lab126.winmgr setAccOrientation "0"
+
+        BLANKET_SHUTDOWN_PARAM=$BLANKET_SHUTDOWN_PARAM_SHIP
+        ;;
+    $SHUTDOWN_MODE_CRITBATT)
+        BLANKET_SHUTDOWN_PARAM=$BLANKET_SHUTDOWN_PARAM_CRITBATT
+        ;;
+    $SHUTDOWN_MODE_CUST_SERVICE)
+        BLANKET_SHUTDOWN_PARAM=$BLANKET_SHUTDOWN_PARAM_CUST_SERVICE
+        ;;
+    *)
+        # just use the default from above
+        ;;
+esac
+
+# Make sure x/blanket is still running
+ret=$(f_upstart_job_status x)
+if [ "$ret" -ne "$UP_JOB_STS_RUNNING" ]; then
+    f_log W $LOG_NAME "x/blanket is not running" "screen not updated"
+    exit 1;
+fi
+
+# Load some needed modules
+for M in "shutdown"; do
+    f_blanket_load_module "$M"
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        f_log W $LOG_NAME "can't load blanket module $M" "screen not updated"
+        exit 1;
+    fi
+done
+
+# Setup the blanket wait (with timeout)
+lipc-wait-event -s $BLANKET_TIMEOUT_S com.lab126.blanket.shutdown showScreenDone &
+WAIT_PID=$!
+
+# Bringup the shutdown screen
+f_log I $LOG_NAME screen "splashing screen" "$BLANKET_SHUTDOWN_PARAM"
+lipc-send-event com.lab126.hal.shutdown showScreen -s "$BLANKET_SHUTDOWN_PARAM"
+
+# wait for screen to settle
+f_log I $LOG_NAME screen "waiting for $BLANKET_SHUTDOWN_PARAM screen to come up"
+wait $WAIT_PID
+ret=$?
+case $ret in
+    0) # ok!
+        ;;
+    255)
+        f_log W $LOG_NAME "timeout occured after ${BLANKET_TIMEOUT_S}s" \
+            "shutdown-screen likely not showing"
+        ;;
+    *)
+        f_log W $LOG_NAME "unknown error occured" \
+            "shutdown-screen likely not showing"
+        ;;
+esac

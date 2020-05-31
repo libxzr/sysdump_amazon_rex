@@ -1,0 +1,9 @@
+#!/bin/sh
+# script for loading whiskey page turn button configuration
+
+source /etc/upstart/functions
+
+if [ "$(f_platform)" = "duet" ]; then
+    modprobe gpiokey
+    modprobe gpiokey_pgturn
+fi

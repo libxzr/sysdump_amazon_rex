@@ -1,0 +1,133 @@
+/*
+ * wifi_wizard_scan_list.css
+ *
+ * Copyright 2012-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+/**
+ * Overrides of default list styling
+ */
+
+#availableNetworks {
+    padding-top: 0;
+    padding-left: 10pt;
+    padding-bottom: 0;
+}
+
+#availableNetworkItem {
+    height: 26.8pt;
+}
+
+/**
+ * The normal sizes of each field
+ */
+
+#availableNetworks .emptyFlag {
+    display: none;
+}
+
+#availableNetworks .selectedIcon,
+#availableNetworks .secureIcon,
+#availableNetworks .signalIcon {
+    width: 17.25pt;
+}
+
+#availableNetworks .selectedIcon {
+    background-position: left bottom;
+}
+
+#availableNetworks .label {
+    -webkit-box-flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/**
+ * Icons
+ */
+
+#availableNetworks .selectedWifi {
+    background-image: url('../assets/check_mark.png');
+}
+
+#availableNetworks .connection0Bar {
+    background-image: url('../assets/ww_connection_0bar.png');
+}
+
+#availableNetworks .connection1Bar {
+    background-image: url('../assets/ww_connection_1bar.png');
+}
+
+#availableNetworks .connection2Bar {
+    background-image: url('../assets/ww_connection_2bar.png');
+}
+
+#availableNetworks .connection3Bar {
+    background-image: url('../assets/ww_connection_3bar.png');
+}
+
+#availableNetworks .networkSecured {
+    background-image: url('../assets/wifi_locked.png');
+}
+
+/**
+ * XOR Icons
+ */
+
+#availableNetworks .xor .selectedWifi {
+    background-image: url('../assets/check_mark_active.png');
+}
+
+/**
+ * Hide check marks when connecting to a network,
+ * other than the check mark for the network we are connecting to.
+ */
+
+#availableNetworks.connecting .selectedWifi,
+#availableNetworks.connecting .xor .selectedWifi {
+    background-image: none;
+}
+
+#availableNetworks.connecting .item:first-child .selectedWifi {
+    background-image: url('../assets/check_mark.png');
+}
+
+/**
+ * We don't have these assets yet.  They may never exist, depending on whether
+ * or not they can be made to look good.
+ */
+/*
+#availableNetworks .xor .connection0Bar {
+    background-image: url('../assets/ww_connection_0bar_active.png');
+}
+
+#availableNetworks .xor .connection1Bar {
+    background-image: url('../assets/ww_connection_1bar_active.png');
+}
+
+#availableNetworks .xor .connection2Bar {
+    background-image: url('../assets/ww_connection_2bar_active.png');
+}
+
+#availableNetworks .xor .connection3Bar {
+    background-image: url('../assets/ww_connection_3bar_active.png');
+}
+
+#availableNetworks .xor .networkSecured {
+    background-image: url('../assets/wifi_locked_active.png');
+}
+*/
+
+#availableNetworks .xor .connection0Bar,
+#availableNetworks .xor .connection1Bar,
+#availableNetworks .xor .connection2Bar,
+#availableNetworks .xor .connection3Bar,
+#availableNetworks .xor .networkSecured {
+    background-image: none;
+}
+

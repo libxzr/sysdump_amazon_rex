@@ -1,0 +1,32 @@
+/*
+ * widget_menu.css
+ *
+ * Copyright 2012 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+.list > .items > .item > .icon {
+    display: none;
+}
+
+.list > .items > .item > .label {
+    -webkit-box-flex: 1;
+}
+
+.list.with-icons > .items > .item > .icon {
+    display: block;
+    width: 8.6pt;
+    margin-left: 13.6pt;
+}
+
+.list.with-icons > .items > .item > .icon.check {
+    background-image: url('../assets/check_mark.png');
+}
+
+.list.with-icons > .items > .item.xor > .icon.check {
+    background-image: url('../assets/check_mark_active.png');
+}
+

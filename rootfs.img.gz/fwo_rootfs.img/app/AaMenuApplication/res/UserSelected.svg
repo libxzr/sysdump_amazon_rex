@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="61px" height="61px" viewBox="0 0 61 61" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 55.1 (78136) - https://sketchapp.com -->
+    <title>Preset / E-reader / User / Selected</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Preset-/-E-reader-/-User-/-Selected" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <rect id="Rectangle" stroke="#000000" stroke-width="2" fill="#FFFFFF" x="10" y="10" width="41" height="41" rx="6"></rect>
+        <g id="ic_person" transform="translate(20.000000, 19.500000)" fill="#000000" fill-rule="nonzero">
+            <path d="M10.5,10.5 C13.400625,10.5 15.75,8.2625 15.75,5.5 C15.75,2.7375 13.400625,0.5 10.5,0.5 C7.599375,0.5 5.25,2.7375 5.25,5.5 C5.25,8.2625 7.599375,10.5 10.5,10.5 Z M10.5,13 C6.995625,13 0,14.675 0,18 L0,20.5 L21,20.5 L21,18 C21,14.675 14.004375,13 10.5,13 Z" id="Shape"></path>
+        </g>
+        <path d="M26,9 C24.9461381,18.0201407 17.7367815,25 9,25 L9,15 C9,11.6862915 11.6862915,9 15,9 L26,9 Z" id="Combined-Shape" stroke="#FFFFFF" stroke-width="2" fill="#FFFFFF"></path>
+        <polygon id="Fill-3" fill="#000000" points="25.159079 0 9.81789492 16.1290679 1.84092104 7.74186413 0 9.67733016 9.81789492 20 27 1.93546603"></polygon>
+    </g>
+</svg>

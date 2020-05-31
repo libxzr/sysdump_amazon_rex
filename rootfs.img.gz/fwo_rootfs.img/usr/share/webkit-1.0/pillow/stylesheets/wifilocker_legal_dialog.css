@@ -1,0 +1,50 @@
+/*
+* wifilocker_legal.css
+*
+* Copyright (c) 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+*
+* PROPRIETARY/CONFIDENTIAL
+*
+* Use is subject to license terms.
+*/
+
+
+.wifilocker_legal_main_div {
+  width: 240pt;
+  height: 239pt;
+  margin-right: 5pt;
+  font-size: 7.2pt;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: none;
+}
+
+
+.landscape .wifilocker_legal_main_div {
+  height: 181.2pt;
+  width: 295.57pt;
+  margin-right: 5pt;
+  font-size: 7.2pt;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: none;
+
+}
+
+#wifilockerScrollContainer::-webkit-scrollbar-track
+{ 
+    background-color: #000000;
+    border: 0.8pt solid transparent;
+    background-clip: content-box; 
+}
+
+#wifilockerScrollContainer::-webkit-scrollbar
+{
+    width: 2pt;
+}
+
+#wifilockerScrollContainer::-webkit-scrollbar-thumb
+{
+    background-color: #000000;
+    border-radius: 1pt;
+}

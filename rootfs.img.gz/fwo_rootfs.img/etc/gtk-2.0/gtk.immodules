@@ -1,0 +1,9 @@
+# GTK+ Input Method Modules file
+# Automatically generated file, do not edit
+# Created by gtk-query-immodules-2.0 from gtk+-2.20.1
+#
+# ModulesPath = /usr/lib/gtk-2.0/2.10.0/immodules/2.10.0/arm-unknown-linux-gnueabi/immodules:/usr/lib/gtk-2.0/2.10.0/immodules/2.10.0/immodules:/usr/lib/gtk-2.0/2.10.0/immodules/arm-unknown-linux-gnueabi/immodules:/usr/lib/gtk-2.0/2.10.0/immodules/immodules:/home/jenkins-nightly/.gtk-2.0/2.10.0/arm-unknown-linux-gnueabi/immodules:/home/jenkins-nightly/.gtk-2.0/2.10.0/immodules:/home/jenkins-nightly/.gtk-2.0/arm-unknown-linux-gnueabi/immodules:/home/jenkins-nightly/.gtk-2.0/immodules:/usr/lib/gtk-2.0/2.10.0/arm-unknown-linux-gnueabi/immodules:/usr/lib/gtk-2.0/2.10.0/immodules:/usr/lib/gtk-2.0/arm-unknown-linux-gnueabi/immodules:/usr/lib/gtk-2.0/immodules
+#
+"/usr/lib/gtk-2.0/2.10.0/immodules/libinput.so" 
+"kindle" "Kindle Input Method" "gtk20" "/usr/share/locale" "" 
+

@@ -1,0 +1,18 @@
+#!/bin/sh
+
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+PPP_IP_STOP=/var/run/ppp/ip_stop
+
+PPP_RESOLV_CONF=`readlink /etc/resolv.conf`
+PPP_RESOLV_SAVE=/var/run/resolv.conf.save
+
+rm -f ${PPP_IP_STOP} 2>/dev/null
+
+msg "ip-down PPP interface down" I
+
+/usr/bin/lipc-send-event com.lab126.hal wanPPPDown
+
+mv ${PPP_RESOLV_SAVE} ${PPP_RESOLV_CONF}
+

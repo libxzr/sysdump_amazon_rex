@@ -1,0 +1,122 @@
+{
+    "de-DE": {
+        "marketplace": "A1PA6795UKMFR9",
+        "grok-supported": "false"
+    },
+
+    "en-AU": {
+        "marketplace": "A39IBJ37TRP1C6",
+        "grok-supported": "true"
+    },
+
+    "en-CA": {
+        "marketplace": "A2EUQ1WTGCTBG2",
+        "grok-supported": "true"
+    },
+
+    "en-GB": {
+        "marketplace": "A1F83G8C2ARO7P",
+        "grok-supported": "true"
+    },
+
+    "en-GY": {
+        "marketplace": "ATVPDKIKX0DER",
+        "grok-supported": "false"
+    },
+
+    "en-IN": {
+        "marketplace": "A21TJRUUN4KGV",
+        "grok-supported": "true"
+    },
+
+    "en-NZ": {
+        "marketplace": "ATVPDKIKX0DER",
+        "grok-supported": "false"
+    },
+
+    "en-US": {
+        "marketplace": "ATVPDKIKX0DER",
+        "grok-supported": "true"
+    },
+
+    "en-ZA": {
+        "marketplace": "ATVPDKIKX0DER",
+        "grok-supported": "false"
+    },
+
+    "es-ES": {
+        "marketplace": "A1RKKUPIHCS9HS",
+        "grok-supported": "false"
+    },
+
+    "es-MX": {
+        "marketplace": "A1AM78C64UM0Y8",
+        "grok-supported": "false"
+    },
+
+    "es-CL": {
+        "marketplace": "ATVPDKIKX0DER",
+        "grok-supported": "false"
+    },
+
+    "es-CO": {
+        "marketplace": "ATVPDKIKX0DER",
+        "grok-supported": "false"
+    },
+
+    "es-SV": {
+        "marketplace": "ATVPDKIKX0DER",
+        "grok-supported": "false"
+    },
+
+    "es-GT": {
+        "marketplace": "ATVPDKIKX0DER",
+        "grok-supported": "false"
+    },
+
+    "es-PE": {
+        "marketplace": "ATVPDKIKX0DER",
+        "grok-supported": "false"
+    },
+
+    "fr-CA": {
+        "marketplace": "A2EUQ1WTGCTBG2",
+        "grok-supported": "true"
+    },
+
+    "fr-FR": {
+        "marketplace": "A13V1IB3VIYZZH",
+        "grok-supported": "false"
+    },
+
+    "it-IT": {
+        "marketplace": "APJ6JRA9NG5V4",
+        "grok-supported": "false"
+    },
+
+    "ja-JP": {
+        "marketplace": "A1VC38T7YXB528",
+        "grok-supported": "false"
+    },
+
+    "nl-NL": {
+        "marketplace": "A1805IZSGTT6HS",
+        "grok-supported": "false"
+    },
+
+    "pt-BR": {
+        "marketplace": "A2Q3Y263D00KWC",
+        "grok-supported": "false"
+    },
+
+    "ru-RU": {
+        "marketplace": "ATVPDKIKX0DER",
+        "grok-supported": "false"
+    },
+
+    "zh-Hans-CN": {
+        "marketplace": "AAHKV2X7AFYLW",
+        "grok-supported": "false"
+    }
+}
+

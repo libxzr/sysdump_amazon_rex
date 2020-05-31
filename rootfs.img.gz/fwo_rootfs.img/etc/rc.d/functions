@@ -1,0 +1,106 @@
+# misc. useful functions/definitions
+
+TRUE=0
+FALSE=1
+
+_FEATURES=/etc/rc.d/features
+[ -f $_FEATURES ] && . $_FEATURES
+
+_STATUS=/etc/rc.d/status
+[ -f $_STATUS ] && . $_STATUS
+
+# For engineering builds, this will become DEVBUILD=1; otherwise, it'll
+# be DEVBUILD=0.
+DEVBUILD=0
+
+INTERNAL_FLAG_FILE=/INTERNAL_FEATURES_ENABLED__DO_NOT_RELEASE
+
+MSG_SLLVL_D="debug"
+MSG_SLLVL_I="info"
+MSG_SLLVL_W="warn"
+MSG_SLLVL_E="err"
+MSG_SLLVL_C="crit"
+MSG_SLLVL_P="perf"
+MSG_SLNUM_D=0
+MSG_SLNUM_I=1
+MSG_SLNUM_W=2
+MSG_SLNUM_E=3
+MSG_SLNUM_C=4
+MSG_SLNUM_P=5
+MSG_CUR_LVL=/var/local/system/syslog_level
+
+# Misc.
+#
+msg()
+{
+	{ [ "x$3" != "x" ] && str_id="$3:" ; } || str_id="def:"
+	{ [ "x$2" != "x" ] && msg_level="$2" ; } || msg_level="C" 
+	msg_sub=`basename $0`
+	eval msg_sllvl=\${MSG_SLLVL_$msg_level}
+	eval msg_slnum=\${MSG_SLNUM_$msg_level}
+	{ [ -e $MSG_CUR_LVL ] && curLvl=`cat $MSG_CUR_LVL` ; } || curLvl=1
+	if [ $msg_slnum -ge $curLvl ]; then
+		/usr/bin/logger -p local4.$msg_sllvl -t "system" "$msg_level $msg_sub:$str_id$1"
+	fi
+	[ "x$msg_level" != "xD" ] && echo "system: $msg_level $msg_sub:$str_id$1"
+}
+
+msg_setlevel()
+{
+	eval msg_slnum=\${MSG_SLNUM_$1}
+	echo $msg_slnum > $MSG_CUR_LVL
+}
+
+ltpmsg()
+{
+	test_case_name=`basename $0 .sh`
+	error="no"
+	{ [ "x$1" != "x" ] && instance_num="$1" ; } || error="yes"
+	case $instance_num in 
+		*[^0-9]*) 
+			error="yes"
+			;; 
+		*) 
+			# It is an integer; all is well
+		;; 
+	esac 
+	if [ "x$2" == "xPASS" ] || [ "x$2" == "xFAIL" ] || [ "x$2" == "xBROK" ] || [ "x$2" == "xWARN" ] || [ "x$2" == "xRETR" ] || [ "x$2" == "xINFO" ] || [ "x$2" == "xCONF" ]; then
+			status_type="$2"
+		else
+			error="yes"
+		fi
+	{ [ "x$3" != "x" ] && message="$3" ; } || error="yes"
+
+	if [ "$error" = "yes" ]; then
+		echo "$test_case_name 1 BROK : test attempted to send a non-LTP-compliant message; source shell script needs to be fixed"
+	else
+		echo "$test_case_name $instance_num $status_type : $message"
+	fi
+}
+
+ltpperf()
+{
+    if [ "x$2" == "x" ]; then
+        ltpmsg $1 "BROK" "missing performance test name"
+    elif [ "x$3" == "x" ]; then
+        ltpmsg $1 "BROK" "missing unit"
+    elif [ "x$4" == "x" ]; then
+        ltpmsg $1 "BROK" "missing value"
+    else
+        ltpmsg $1 "INFO" "PERF: $2($3) $4"
+    fi
+}
+
+kill_by_pidfile()
+{
+	PIDFILE=$1
+	
+	kill -TERM `cat ${PIDFILE}` >/dev/null 2>/dev/null && sleep 1
+	kill -KILL `cat ${PIDFILE}` >/dev/null 2>/dev/null
+}
+
+internal_features_enabled()
+{
+	[ -f $INTERNAL_FLAG_FILE ]
+	return $?
+}

@@ -1,0 +1,26 @@
+#!/bin/sh
+
+source /etc/upstart/functions
+if [ "`f_board`" = "eanab" ]; then
+  echo "eanab, dont wipe waveform partition!"	
+  exit 0
+fi
+
+if [ "$(f_platform)" = "zelda" ]; then
+  echo "zelda platform, dont wipe waveform partition!"   
+  exit 0
+fi
+
+if [ "$(f_platform)" = "rex" ]; then
+  echo "rex platform, dont wipe waveform partition!"   
+  exit 0
+fi
+
+wfm_umount
+
+echo "erasing waveform filesystem"
+
+# Set up loop as offset 0x1C41000 from flash root
+losetup -o $(( 4096 * 7233 )) /dev/loop/1 /dev/mmcblk0
+dd if=/dev/zero of=/dev/loop/1 bs=1024 count=3836
+losetup -d /dev/loop/1

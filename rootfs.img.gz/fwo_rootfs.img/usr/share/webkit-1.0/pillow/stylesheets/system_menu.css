@@ -1,0 +1,17 @@
+/*
+ * system_menu.css
+ *
+ * Copyright 2012-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+#dialog {
+    border-top-width: 3px;
+}
+
+.list > .items > .item {
+    margin-right: 20px;
+}

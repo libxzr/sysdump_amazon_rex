@@ -1,0 +1,8 @@
+#!/bin/sh
+
+DEMO_MODE_FILE=/var/local/system/DEMO_MODE
+
+if [ -e "$DEMO_MODE_FILE" ]; then
+        #Put device in shipping mode
+        /usr/sbin/shipping_mode resell_demo
+fi

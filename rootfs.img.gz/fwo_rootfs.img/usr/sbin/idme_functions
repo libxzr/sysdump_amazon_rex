@@ -1,0 +1,739 @@
+# Useful source script for helping with idme and others.
+
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+# Got to rely on something that is NOT the Boardid around here 2.6.22 is mario, anything above 2.6.24 is not hence the -gt to 23
+if [ `uname -r | sed 's/2\.6\.\([0-9][0-9]\).*/\1/'` -gt 23 ] ; then
+    __IS_MARIO=no
+else
+    __IS_MARIO=yes
+fi
+
+# MTD device for the NOR.
+#
+if [ "$__IS_MARIO" == "yes" ]; then
+    FNS_PARTITION=/dev/mtd/2
+    FNS_PARTITION_MTD=/dev/mtdblock/2
+    let SERIAL_NUM_BASE=0
+    let HW_PCB_SN_SIZE=8
+else
+    FNS_PARTITION=/dev/mmcblk0
+    FNS_PARTITION_MTD=/dev/mmcblk0
+    let SERIAL_NUM_BASE=265216    #0x40c00
+    let BOARD_ID_BASE_LUIGI=3056
+    let HW_PCB_SN_SIZE=16
+fi
+
+let SERIAL_NUM_SIZE=16
+
+let BOARD_ID_BASE=${SERIAL_NUM_BASE}+${SERIAL_NUM_SIZE}
+let BOARD_ID_SIZE=16
+
+let PANEL_ID_BASE=${BOARD_ID_BASE}+${BOARD_ID_SIZE} # Boardid move but still keeping the space for concistancy
+let PANEL_ID_SIZE=32
+
+let NOR_IMG_LEN_BASE=${PANEL_ID_BASE}+${PANEL_ID_SIZE}
+let NOR_IMG_LEN_SIZE=4
+
+let NOR_CRC32_BASE=${NOR_IMG_LEN_BASE}+${NOR_IMG_LEN_SIZE}
+let NOR_CRC32_SIZE=4
+
+let ACCEL_OFFSET_BASE=${NOR_CRC32_BASE}+${NOR_CRC32_SIZE}
+let ACCEL_OFFSET_SIZE=16
+ACCEL_OFFSET_STR_PATTERN="[-0-9]*,[-0-9]*,[-0-9]*"
+
+let MAC_ADDRESS_BASE=${ACCEL_OFFSET_BASE}+${ACCEL_OFFSET_SIZE}
+let MAC_ADDRESS_SIZE=12
+
+let HW_PCB_SN_BASE=${MAC_ADDRESS_BASE}+${MAC_ADDRESS_SIZE}
+
+let HW_PCB_CONFIG_BASE=${HW_PCB_SN_BASE}+${HW_PCB_SN_SIZE}
+let HW_PCB_CONFIG_SIZE=12
+
+let MANUFACTURER_CODE_BASE=${HW_PCB_CONFIG_BASE}+${HW_PCB_CONFIG_SIZE}
+let MANUFACTURER_CODE_SIZE=20
+
+let HW_SIGNATURE_BASE=512
+let HW_SIGNATURE_SIZE=4
+HW_SIGNATURE_VALUE="MF01"
+
+#
+# The PCB_SN and Manufacturer Code were moved from previous location behind
+# HW_SIGNATURE to the end of the global variable space (behind
+# MAC_ADDRESS).   We keep original definitions for our "recover" code
+# that copies the globals from the old location to the new to be able 
+# to adjust for this change on-the-fly so as not to break devices
+#
+# FIXME - While this code (following three lines) is safe and would 
+#   not cause a problem if left in, it can and should be removed 
+#   prior to shipping (along with code in idme that uses it).
+#
+let _PREV_HW_PCB_SN_BASE=${HW_SIGNATURE_BASE}+${HW_SIGNATURE_SIZE}
+let _PREV_HW_PCB_CONFIG_BASE=${_PREV_HW_PCB_SN_BASE}+${HW_PCB_SN_SIZE}
+let _PREV_MANUFACTURER_CODE_BASE=${_PREV_HW_PCB_CONFIG_BASE}+${HW_PCB_CONFIG_SIZE}
+
+
+
+SERIAL_NUM_PROC=/proc/usid
+BOARD_ID_PROC=/proc/board_id
+MAC_ADDRESS_PROC=/proc/mac
+PANEL_ID_PROC=/proc/panel_id
+PANEL_ID_SYSF=/sys/devices/platform/eink_fb.0/panel_bcd
+PCBSN_PROC=/proc/pcbsn
+
+# Waveform and Barcode panel id parsing functions.
+#
+_PVI_BARCODE_FILE_INT=/opt/eink/scripts/pvi_barcode_table.txt
+_PVI_BARCODE_FILE_EXT=/mnt/us/pvi_barcode_table.txt
+_PVI_BARCODE_FILE=
+
+_EINK_WAVEFORM_VERSION=${EINK_PROC}/waveform_version
+_FIELD_SEPARATOR="_"
+_PVI_BARCODE_LEN=19
+_LGD_BARCODE_LEN=17
+_BCD_BARCODE_LEN=33
+_BARCODE_PROC=
+
+_WAVEFORM_EINK_VERSION=
+_WAVEFORM_EINK_PANELID=
+_WAVEFORM_EINK_PLATFRM=
+_WAVEFORM_EINK_VERNUM=
+_WAVEFORM_EINK_LOTNUM=
+_WAVEFORM_EINK_DISPSZ=
+_WAVEFORM_EINK_BIAS=
+_WAVEFORM_EINK_MFG=
+
+_WAVEFORM_FILE_VERSION=
+_WAVEFORM_FILE_PANELID=
+_WAVEFORM_FILE_PLATFRM=
+_WAVEFORM_FILE_VERNUM=
+_WAVEFORM_FILE_LOTNUM=
+_WAVEFORM_FILE_DISPSZ=
+_WAVEFORM_FILE_BIAS=
+_WAVEFORM_FILE_MFG=
+_WAVEFORM_FILE=
+
+_BARCODE_STRING=
+_BARCODE_PANELID=
+_BARCODE_PLATFRM=
+_BARCODE_LOTNUM=
+_BARCODE_DISPSZ=
+_BARCODE_MFG=
+
+_VERSION_NUMBER=
+_MANUFACTURER=
+_DISPLAY_SIZE=
+_TUNING_BIAS=
+_LOT_NUMBER=
+_PLATFORM=
+_PANEL_ID=
+
+WAVEFORM_PANEL_ID=
+BARCODE_PANEL_ID=
+
+# Waveform functions.
+#
+get_manufacturer_waveform()
+{
+    # Panel IDs are of the form PPPP_LLL_DD_MMM, and the manufacturer is the
+    # the MMM substring.
+    #
+    _MANUFACTURER="`echo $1 | awk '{ print substr($1, 13, 3); }'`"
+}
+
+get_display_size_waveform()
+{
+    # Panel IDs are of the form PPPP_LLL_DD_MMM, and the display size is the
+    # the DD substring.
+    #
+    _DISPLAY_SIZE="`echo $1 | awk '{ print substr($1, 10, 2); }'`"
+}
+
+get_lot_number_waveform()
+{
+    # Panel IDs are of the form PPPP_LLL_DD_MMM, and the lot number is the
+    # the LLL substring.
+    #
+    _LOT_NUMBER="`echo $1 | awk '{ print substr($1, 6, 3); }'`"
+}
+
+get_platform_waveform()
+{
+    # Panel IDs are of the form PPPP_LLL_DD_MMM, and the platform is the
+    # the PPPP substring.
+    #
+    _PLATFORM="`echo $1 | awk '{ print substr($1, 1, 4); }'`"
+}
+
+get_panel_id_waveform()
+{
+    # Full waveform versions are of the form PPPP_XLLL_DD_TTVVSS_B (MMM, S/N NNN), and the
+    # panel ID is the PPPP_LLL_DD_MMM substring.
+    #
+    _PANEL_ID="`echo "$1" | awk '{ print substr($1, 1, 5) substr($1, 7, 6) "_" substr($2, 2, 3); }'`"
+}
+
+get_tuning_bias_waveform()
+{
+    # Full waveform versions are of the form PPPP_XLLL_DD_TTVVSS_B (MMM, S/N NNN), and the
+    # tuning bias is the B substring.
+    #
+    _TUNING_BIAS="`echo $1 | awk '{ print substr($1, 21, 1); }'`"
+}
+
+get_version_number_waveform()
+{
+    # Full waveform versions are of the form PPPP_XLLL_DD_TTVVSS_B (MMM, S/N NNN), and the
+    # version number is the VVSS substring.
+    #
+    _VERSION_NUMBER="`echo $1 | awk '{ print substr($1, 16, 4); }'`"
+}
+
+get_eink_waveform_panel_id()
+{
+    # Get the full waveform version from the controller.
+    #
+    _WAVEFORM_EINK_VERSION="`cat ${_EINK_WAVEFORM_VERSION}`"
+
+    # Extract the version number from the full version.
+    #
+    get_version_number_waveform "${_WAVEFORM_EINK_VERSION}"
+    _WAVEFORM_EINK_VERNUM=${_VERSION_NUMBER}
+
+    # Extract the tuning bias from the full version.
+    #
+    get_tuning_bias_waveform "${_WAVEFORM_EINK_VERSION}"
+    _WAVEFORM_EINK_BIAS=${_TUNING_BIAS}
+
+    # Extract the panel ID from the full version.
+    #
+    get_panel_id_waveform "${_WAVEFORM_EINK_VERSION}"
+    _WAVEFORM_EINK_PANELID=${_PANEL_ID}
+
+    # Extract the platform value.
+    #
+    get_platform_waveform ${_WAVEFORM_EINK_PANELID}
+    _WAVEFORM_EINK_PLATFRM=${_PLATFORM}
+
+    # Extract the lot number.
+    #
+    get_lot_number_waveform ${_WAVEFORM_EINK_PANELID}
+    _WAVEFORM_EINK_LOTNUM=${_LOT_NUMBER}
+
+    # Extract the display size.
+    #
+    get_display_size_waveform ${_WAVEFORM_EINK_PANELID}
+    _WAVEFORM_EINK_DISPSZ=${_DISPLAY_SIZE}
+
+    # Extract the manufacturer
+    #
+    get_manufacturer_waveform ${_WAVEFORM_EINK_PANELID}
+    _WAVEFORM_EINK_MFG=${_MANUFACTURER}
+
+    # When eInk debugging is enabled, dump out what we found.
+    #
+    if [ ${EINK_DEBUG} -eq 1 ]; then
+        msg "waveform  = ${_WAVEFORM_EINK_VERSION}" I idme
+        msg "version#  = ${_WAVEFORM_EINK_VERNUM}"  I idme
+        msg "panel ID  = ${_WAVEFORM_EINK_PANELID}" I idme
+        msg "platform  = ${_WAVEFORM_EINK_PLATFRM}" I idme
+        msg "lotnumber = ${_WAVEFORM_EINK_LOTNUM}"  I idme
+        msg "disp size = ${_WAVEFORM_EINK_DISPSZ}"  I idme
+        msg "bias      = ${_WAVEFORM_EINK_BIAS}"    I idme
+        msg "mfg. code = ${_WAVEFORM_EINK_MFG}"     I idme
+    fi
+}
+
+get_file_waveform_panel_id()
+{
+    _WAVEFORM_FILE="$1"
+
+    # Ensure that the passed-in file exists.
+    #
+    if [ -f "${_WAVEFORM_FILE}" ]; then
+
+        # Get the full waveform version from the file.
+        #
+        _WAVEFORM_FILE_VERSION="`${EU} ${_WAVEFORM_FILE}`"
+
+        # Extract the version number from the full version.
+        #
+        get_version_number_waveform "${_WAVEFORM_FILE_VERSION}"
+        _WAVEFORM_FILE_VERNUM=${_VERSION_NUMBER}
+
+        # Extract the tuning bias from the full version.
+        #
+        get_tuning_bias_waveform "${_WAVEFORM_FILE_VERSION}"
+        _WAVEFORM_FILE_BIAS=${_TUNING_BIAS}
+
+        # Extract the panel ID from the full version.
+        #
+        get_panel_id_waveform "${_WAVEFORM_FILE_VERSION}"
+        _WAVEFORM_FILE_PANELID=${_PANEL_ID}
+
+        # Extract the platform value.
+        #
+        get_platform_waveform ${_WAVEFORM_FILE_PANELID}
+        _WAVEFORM_FILE_PLATFRM=${_PLATFORM}
+
+        # Extract the lot number.
+        #
+        get_lot_number_waveform ${_WAVEFORM_FILE_PANELID}
+        _WAVEFORM_FILE_LOTNUM=${_LOT_NUMBER}
+
+        # Extract the display size.
+        #
+        get_display_size_waveform ${_WAVEFORM_FILE_PANELID}
+        _WAVEFORM_FILE_DISPSZ=${_DISPLAY_SIZE}
+
+        # Extract the manufacturer
+        #
+        get_manufacturer_waveform ${_WAVEFORM_FILE_PANELID}
+        _WAVEFORM_FILE_MFG=${_MANUFACTURER}
+
+        # When eInk debugging is enabled, dump out what we found.
+        #
+        if [ ${EINK_DEBUG} -eq 1 ]; then
+            msg "waveform  = ${_WAVEFORM_FILE_VERSION}" I idme
+            msg "version#  = ${_WAVEFORM_FILE_VERNUM}"  I idme
+            msg "panel ID  = ${_WAVEFORM_FILE_PANELID}" I idme
+            msg "platform  = ${_WAVEFORM_FILE_PLATFRM}" I idme
+            msg "lotnumber = ${_WAVEFORM_FILE_LOTNUM}"  I idme
+            msg "disp size = ${_WAVEFORM_FILE_DISPSZ}"  I idme
+            msg "bias      = ${_WAVEFORM_FILE_BIAS}"    I idme
+            msg "mfg. code = ${_WAVEFORM_FILE_MFG}"     I idme
+        fi
+    fi
+}
+
+get_waveform_panel_id()
+{
+    if [ $# -eq 0 ]; then
+        get_eink_waveform_panel_id
+    else
+        get_file_waveform_panel_id "$1"
+    fi
+
+    WAVEFORM_PANEL_ID=${_PANEL_ID}
+}
+
+waveform_has_increased_ds_blooming()
+{
+    get_waveform_panel_id $@
+
+    if [ ${_TUNING_BIAS} == "D" -o ${_TUNING_BIAS} == "T" ]; then
+        return $TRUE
+    else
+        return $FALSE
+    fi
+}
+
+# Barcode functions.
+#
+get_pvi_barcode_value_from_file()
+{
+    # Allow an external PVI barcode file to override the built-in one.
+    #
+    if [ -f "${_PVI_BARCODE_FILE_EXT}" ]; then
+        _PVI_BARCODE_FILE=${_PVI_BARCODE_FILE_EXT}
+    else
+        _PVI_BARCODE_FILE=${_PVI_BARCODE_FILE_INT}
+    fi
+    
+    # If the barcode_value exists in the barcode values file, use it.
+    #
+    _MANUFACTURER=`awk '/'"$1"'/ { print $2 }' <${_PVI_BARCODE_FILE}`
+    _DISPLAY_SIZE=`awk '/'"$1"'/ { print $3 }' <${_PVI_BARCODE_FILE}`
+    
+    # If it doesn't, return the appropriately-sized unknown value.
+    #
+    if [ -z ${_MANUFACTURER} ]; then
+        _MANUFACTURER="???"
+    fi
+    
+    if [ -z ${_DISPLAY_SIZE} ]; then
+        _DISPLAY_SIZE="??"
+    fi
+}
+
+get_manufacturer_pvi_barcode()
+{
+    # PVI barcodes are of the form AAABBCDDEFFGHHHHHIJ, and the manufacturer is the
+    # the J substring.  But we don't use that anymore.  Instead, we now use the
+    # display-size field because it also encodes the manufacturer.  The display-size
+    # field is the AAA substring.
+    #
+    _MANUFACTURER="`echo $1 | awk '{ print substr($1, 1, 3); }'`"
+
+    # Attempt to get the manufacturer from the PVI barcode values translation file.
+    #
+    get_pvi_barcode_value_from_file ${_MANUFACTURER}
+}
+
+get_manufacturer_lgd_barcode()
+{
+    # LGD barcodes are of the form AAABBCCCDDDDDEFFF, but the manufacturer is
+    # inferred by the length of the barcode itself.
+    #
+    _MANUFACTURER="LGD"
+}
+
+get_display_size_pvi_barcode()
+{
+    # PVI barcodes are of the form AAABBCDDEFFGHHHHHIJ, and the display size is the
+    # the AAA substring.
+    #
+    _DISPLAY_SIZE="`echo $1 | awk '{ print substr($1, 1, 3); }'`"
+
+    # Attempt to get the display size from the PVI barcode values translation file.
+    #
+    get_pvi_barcode_value_from_file ${_DISPLAY_SIZE}
+}
+
+get_display_size_lgd_barcode()
+{
+    # LGD barcodes are of the form AAABBCCCDDDDDEFFF, and the display size is the
+    # the AAA substring.
+    #
+    _DISPLAY_SIZE="`echo $1 | awk '{ print substr($1, 1, 3); }'`"
+
+    # Panel IDs are of the form PPPP_LLL_DD_MMM, and the display size is the
+    # the DD substring.
+    #
+    case ${_DISPLAY_SIZE} in
+
+        060)
+            _DISPLAY_SIZE="60"
+            ;;
+
+        097)
+            _DISPLAY_SIZE="97"
+            ;;
+
+        *)
+            _DISPLAY_SIZE="??"
+            ;;
+
+    esac
+}
+
+get_lot_number_pvi_barcode()
+{
+    # PVI barcodes are of the form AAABBCDDEFFGHHHHHIJ, and the lot number is the
+    # the DD substring.  But we need to transform it from a 2-character field to
+    # 3-digit field based on the high-order character.
+    #
+    _LOT_NUMBER_HI="`echo $1 | awk '{ print substr($1, 7, 1); }'`"
+    _LOT_NUMBER_LO="`echo $1 | awk '{ print substr($1, 8, 1); }'`"
+
+    case ${_LOT_NUMBER_HI} in
+
+        # 00..99 -> 000..099
+        #
+        0|1|2|3|4|5|6|7|8|9)
+            _LOT_NUMBER_HI="0"${_LOT_NUMBER_HI}
+            ;;
+
+        # A0..A9 -> 100..109
+        # Z0..Z9 -> 320..329
+        #
+        # Skip: I, O, and P.
+        #
+        A)
+            _LOT_NUMBER_HI="10"
+            ;;
+        B)
+            _LOT_NUMBER_HI="11"
+            ;;
+        C)
+            _LOT_NUMBER_HI="12"
+            ;;
+        D)
+            _LOT_NUMBER_HI="13"
+            ;;
+        E)
+            _LOT_NUMBER_HI="14"
+            ;;
+        F)
+            _LOT_NUMBER_HI="15"
+            ;;
+        G)
+            _LOT_NUMBER_HI="16"
+            ;;
+        H)
+            _LOT_NUMBER_HI="17"
+            ;;
+        J)
+            _LOT_NUMBER_HI="18"
+            ;;
+        K)
+            _LOT_NUMBER_HI="19"
+            ;;
+        L)
+            _LOT_NUMBER_HI="20"
+            ;;
+        M)
+            _LOT_NUMBER_HI="21"
+            ;;
+        N)
+            _LOT_NUMBER_HI="22"
+            ;;
+        Q)
+            _LOT_NUMBER_HI="23"
+            ;;
+        R)
+            _LOT_NUMBER_HI="24"
+            ;;
+        S)
+            _LOT_NUMBER_HI="25"
+            ;;
+        T)
+            _LOT_NUMBER_HI="26"
+            ;;
+        U)
+            _LOT_NUMBER_HI="27"
+            ;;
+        V)
+            _LOT_NUMBER_HI="28"
+            ;;
+        W)
+            _LOT_NUMBER_HI="29"
+            ;;
+        X)
+            _LOT_NUMBER_HI="30"
+            ;;
+        Y)
+            _LOT_NUMBER_HI="31"
+            ;;
+        Z)
+            _LOT_NUMBER_HI="32"
+            ;;
+
+        # Flag the invalid cases.
+        #
+        *)
+            _LOT_NUMBER_HI="??"
+            ;;
+
+    esac
+
+    case ${_LOT_NUMBER_LO} in
+
+        # Do nothing with the valid cases.
+        #
+        0|1|2|3|4|5|6|7|8|9)
+            ;;
+
+        # Flag the invalid cases.
+        #
+        *)
+            _LOT_NUMBER_LO="?"
+            ;;
+    esac
+
+    _LOT_NUMBER=${_LOT_NUMBER_HI}${_LOT_NUMBER_LO}
+}
+
+get_lot_number_lgd_barcode()
+{
+    # LGD barcodes are of the form AAABBCCCDDDDDEFFF, and the lot number is the
+    # the FFF substring.
+    #
+    _LOT_NUMBER="`echo $1 | awk '{ print substr($1, 15, 3); }'`"
+}
+
+get_platform_pvi_barcode()
+{
+    # PVI barcodes are of the form AAABBCDDEFFGHHHHHIJ, and the platform is the
+    # the C substring.
+    #
+    _PLATFORM="`echo $1 | awk '{ print substr($1, 6, 1); }'`"
+
+    # Panel IDs are of the form PPPP_LLL_DD_MMM, and the platform is the
+    # the PPPP substring.
+    #
+    case ${_PLATFORM} in
+
+        3)
+            _PLATFORM="V100"
+            ;;
+
+        4)
+            _PLATFORM="V110"
+            ;;
+
+        5)
+            _PLATFORM="110A"
+            ;;
+            
+        6)
+            _PLATFORM="V220"
+            ;;
+
+        8)
+            _PLATFORM="220E"
+            ;;
+        
+        *)
+            _PLATFORM="????"
+            ;;
+
+    esac
+}
+
+get_platform_lgd_barcode()
+{
+    # LGD barcodes are of the form AAABBCCCDDDDDEFFF, and the platform is the
+    # the E substring.
+    #
+    _PLATFORM="`echo $1 | awk '{ print substr($1, 14, 1); }'`"
+
+    # Panel IDs are of the form PPPP_LLL_DD_MMM, and the platform is the
+    # the PPPP substring.
+    #
+    case ${_PLATFORM} in
+
+        P)
+            _PLATFORM="V100"
+            ;;
+
+        B|Q)
+            _PLATFORM="V110"
+            ;;
+
+        *)
+            _PLATFORM="????"
+            ;;
+
+    esac
+}
+
+is_lgd_barcode()
+{
+    len=`echo ${#1}`
+
+    if [ $len -eq ${_LGD_BARCODE_LEN} ]; then
+        return $TRUE
+    else
+        return $FALSE
+    fi
+}
+
+get_manufacturer_barcode()
+{
+    if ( is_lgd_barcode $1 ); then
+        get_manufacturer_lgd_barcode $1
+    else
+        get_manufacturer_pvi_barcode $1
+    fi
+}
+
+get_display_size_barcode()
+{
+    if ( is_lgd_barcode $1 ); then
+        get_display_size_lgd_barcode $1
+    else
+        get_display_size_pvi_barcode $1
+    fi
+}
+
+get_lot_number_barcode()
+{
+    if ( is_lgd_barcode $1 ); then
+        get_lot_number_lgd_barcode $1
+    else
+        get_lot_number_pvi_barcode $1
+    fi
+}
+
+get_platform_barcode()
+{
+    if ( is_lgd_barcode $1 ); then
+        get_platform_lgd_barcode $1
+    else
+        get_platform_pvi_barcode $1
+    fi
+}
+
+get_panel_id_barcode()
+{
+    if [ $# -eq 0 ]; then
+        
+        # Get the barcode data from either the driver itself (Luigi-based devices)
+        # or from NOR (Mario-based devices).  We assume NOR if it's not available
+        # from the driver because that's how it originally worked.
+        #
+        if [ -f ${PANEL_ID_SYSF} ]; then
+            _BARCODE_PROC=${PANEL_ID_SYSF}
+        else
+            _BARCODE_PROC=${PANEL_ID_PROC}
+        fi
+        
+        # Note:  PVI barcodes are of the form AAABBCDDEFFGHHHHHIJ and the barcode data
+        # is of the form ZZZYYXWWVVUUUTTSRRRRRRRQQQQQQQQQ.  To convert the PVI barcodes
+        # to panel IDs, we only use the AAA, DD, and C substrings (two of the panel ID
+        # values are encoded in the AAA substring).
+        #
+        # As a result, we can use the barcode data as is because, for panel ID matching
+        # purposes, we just use the ZZZ, WW, and X substrings, which correspond both
+        # in size and space to AAA, DD, and C.
+        #
+        _BARCODE_STRING="`cat ${_BARCODE_PROC}`"
+    else
+        _BARCODE_STRING="$1"
+    fi
+
+    # Extract the platform value from the barcode string.
+    #
+    get_platform_barcode ${_BARCODE_STRING}
+    _BARCODE_PLATFRM=${_PLATFORM}
+
+    # Extract the lot number from the barcode string.
+    #
+    get_lot_number_barcode ${_BARCODE_STRING}
+    _BARCODE_LOTNUM=${_LOT_NUMBER}
+
+    # Extract the display size from the barcode string.
+    #
+    get_display_size_barcode ${_BARCODE_STRING}
+    _BARCODE_DISPSZ=${_DISPLAY_SIZE}
+
+    # Extract the manufacturer from the barcode string.
+    #
+    get_manufacturer_barcode ${_BARCODE_STRING}
+    _BARCODE_MFG=${_MANUFACTURER}
+
+    # Build up the panel id from its components:  PPPP_LLL_DD_MMM
+    #
+    _PANEL_ID=${_BARCODE_PLATFRM}${_FIELD_SEPARATOR}
+    _PANEL_ID=${_PANEL_ID}${_BARCODE_LOTNUM}${_FIELD_SEPARATOR}
+    _PANEL_ID=${_PANEL_ID}${_BARCODE_DISPSZ}${_FIELD_SEPARATOR}
+    _PANEL_ID=${_PANEL_ID}${_BARCODE_MFG}
+
+    _BARCODE_PANELID=${_PANEL_ID}
+
+    # When eInk debugging is enabled, dump out what we found.
+    #
+    if [ ${EINK_DEBUG} -eq 1 ]; then
+        msg "barcode   = ${_BARCODE_STRING}"  I idme
+        msg "panel ID  = ${_BARCODE_PANELID}" I idme
+        msg "platform  = ${_BARCODE_PLATFRM}" I idme
+        msg "lotnumber = ${_BARCODE_LOTNUM}"  I idme
+        msg "disp size = ${_BARCODE_DISPSZ}"  I idme
+        msg "mfg. code = ${_BARCODE_MFG}"     I idme
+    fi
+}
+
+get_barcode_panel_id()
+{
+    get_panel_id_barcode
+    BARCODE_PANEL_ID=${_PANEL_ID}
+}
+
+# Accelerometer offset functions.
+#
+get_accel_offset()
+{
+    ACCEL_OFFSET_STR=`read_nor $ACCEL_OFFSET_SIZE $ACCEL_OFFSET_BASE`
+}

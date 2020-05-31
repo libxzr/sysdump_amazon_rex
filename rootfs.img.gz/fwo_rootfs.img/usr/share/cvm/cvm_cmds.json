@@ -1,0 +1,14 @@
+{
+    "showlog" : "/usr/bin/showlog",
+    "wfm_delete" : "/usr/sbin/wfm_delete",
+    "wfm_update" : "/usr/sbin/wfm_update",
+    "cem" : "/usr/sbin/csp-extract-manifest",
+    "usbnetwork" : "/usr/sbin/usbnetwork",
+    "verbose" : "/usr/sbin/verbose",
+    "freset" : "/bin/sh -c /usr/sbin/factory_reset",
+    "shpm" : "/bin/sh -c /usr/sbin/shipping_mode",
+    "fwRestart" : "/usr/bin/restartFramework.sh",
+    "reboot" : "/sbin/reboot",
+    "loginfo" : "/usr/sbin/loginfo",
+    "changePerfMode" : "/usr/sbin/changePerfMode"
+}

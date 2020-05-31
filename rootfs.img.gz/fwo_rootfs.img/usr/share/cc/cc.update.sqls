@@ -1,0 +1,26 @@
+/*
+ * cc.update.sqls
+ * Copyright (c) 2013 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * PROPRIETARY/CONFIDENTIAL
+ * Use is subject to license terms.
+ *
+ *
+ *
+ * This file contains SQL statements to initialize the Content Catalog database after migration
+ *
+ * Each statement is preceded by a line like:
+ *
+ * Execute:
+ *
+ * --## Execute:1:2
+ *
+ * 'Execute:' says that this updates some columns/backfills in the database.
+ *
+ * '1' says that this updates FROM version 1.
+ *
+ * '2' says that this updates TO version 2.
+ *
+ * Note that you MUST use a new directive for EVERY SQL statement.  Combining multiple
+ * statements will not work correctly.
+ *
+ */

@@ -1,0 +1,15 @@
+# /etc/ppp/peers/peer-4
+
+# TEMPORARY -- enable debug mode
+debug
+
+# don't require peer to authenticate itself
+noauth
+
+# peer doesn't support compression control protocol
+noccp
+
+# TEMPORARY -- use of the "-v" option with the chat scripts
+connect "/usr/sbin/chat -v -f /etc/ppp/chat/connect-4"
+disconnect "/usr/sbin/chat -v -f /etc/ppp/chat/disconnect-4"
+

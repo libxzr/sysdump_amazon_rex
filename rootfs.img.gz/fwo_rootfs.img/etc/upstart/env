@@ -1,0 +1,22 @@
+#
+# exports basic environment variables for use in upstart scripts
+#
+
+umask 002
+
+if [ -z "$DISPLAY" ]; then
+    export DISPLAY=:0.0
+fi
+
+if [ -z "$HOME" ]; then
+    export HOME=/tmp/root
+fi
+
+if [ -e "/var/local/system/locale" ]; then
+    export LANG=`awk -F'=' '/LANG/{print $2}' /var/local/system/locale`
+    export LC_ALL=`awk -F'=' '/LC_ALL/{print $2}' /var/local/system/locale`
+fi
+
+if [ -e "/var/local/system/tzVar" ]; then
+    export KINDLE_TZ=`awk -F'=' '/KINDLE_TZ/{print $2}' /var/local/system/tzVar`
+fi

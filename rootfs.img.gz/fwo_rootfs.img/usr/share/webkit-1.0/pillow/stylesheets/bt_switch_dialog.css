@@ -1,0 +1,25 @@
+/*
+ * bt_switch_dialog.css
+ *
+ * Copyright (c) 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+
+
+
+.bt_switch_main_div {
+    width: 217.25pt;
+    margin: 0;
+    padding: 2pt;
+    padding-top: 4pt;
+    padding-bottom: 5pt;
+    font-size: 10pt;
+    border: none;
+}
+
+
+ 

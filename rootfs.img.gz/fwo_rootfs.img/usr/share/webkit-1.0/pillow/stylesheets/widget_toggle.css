@@ -1,0 +1,81 @@
+/*
+ * widget_toggle.css
+ *
+ * Copyright (c) 2013-2014 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+.slider-frame {
+    position: relative;
+    display: block;
+    vertical-align:middle;
+    margin-right: 7pt;
+    width: 56pt;
+    height: 17pt;
+    font-family:sans-serif;
+    font-size:8pt;
+    font-weight:bold;
+    border-radius: 3pt;
+    border: 1pt solid #000000;
+}
+
+#slider-frame-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.slider-button {
+    position: relative;
+    display: block;
+    vertical-align: middle;
+    top:1pt;
+    width: 10pt;
+    height: 13pt;
+    background: #fff;
+    margin-left: 33pt;
+    border-radius: 3pt;
+    border: 1pt solid #000;
+}
+
+.slider-button-on {
+    margin-left: 44pt;
+    border: 1pt solid #fff;
+}
+
+.slider-button-off {
+    margin-left: 1pt;
+}
+
+.slider-frame-text-on {
+    margin-top: 3pt;
+    margin-left: 3pt;
+    margin-right : 15pt;
+    text-align: center;
+    line-height: 12pt;
+    color : white;  
+}
+
+.slider-frame-text-off {
+    margin-top: 3pt;
+    margin-right: 3pt;
+    margin-left : 13pt;
+    text-align: center;
+    line-height: 12pt;
+    color: black;
+}
+
+.slider-frame-white {
+    background: #fff;
+}
+
+.slider-frame-black {
+    background: #000;
+}

@@ -1,0 +1,59 @@
+#! /bin/sh
+# script for loading touch module.
+
+source /etc/upstart/functions
+
+if [ "$(f_platform)" = "yoshi" ]; then
+	/etc/upstart/zforce
+elif [ "$(f_platform)" = "zelda" ]; then
+	f_modprobe bma2x2
+	/etc/upstart/cyttsp5
+elif [ "$(f_platform)" = "yoshime3" ]; then
+	/etc/upstart/cyttsp
+elif [ "$(f_platform)" = "wario" ]; then
+	if [ "$(f_board)" = "bourbon" ]; then
+		/etc/upstart/zforce2
+	else
+		/etc/upstart/cyttsp && /etc/upstart/haptics
+	fi
+elif [ "$(f_platform)" = "duet" ]; then
+	if [ "$(f_board)" = "whisky" ] ; then
+# TODO: enable touch & accel
+#		f_modprobe gin_keypad
+#		f_modprobe lis3dh_acc_misc
+ 		f_modprobe bma2x2_wario
+		/etc/upstart/cyttsp
+                /etc/upstart/whiskey_button
+	fi
+elif [ "$(f_platform)" = "heisenberg" ]; then
+	/etc/upstart/zforce2_heisenberg
+elif [ "$(f_platform)" = "rex" ]; then
+	# enable regulators for touch device detection
+	f_log I touch detect "enable touch regulators"
+	i2cutil -d /dev/i2c/0 -w 0x4b 0x12 0x44 > /dev/null 2>&1
+	sleep 1
+	f_log I touch detect "detect touch devices"
+	# detect parade touch at i2c addr 0x24
+	i2cutil -d /dev/i2c/1 -r 0x24 0x0 > /dev/null 2>&1
+	PARADE_TOUCH=$?
+	if [ $PARADE_TOUCH -ne 0 ]; then
+		# detect goodix touch at i2c addr 0x5d or 0x14
+		i2cutil -d /dev/i2c/1 -r 0x5d 0x0 > /dev/null 2>&1
+		GOODIX_TOUCH=$?
+		if [ $GOODIX_TOUCH -ne 0 ]; then
+			i2cutil -d /dev/i2c/1 -r 0x14 0x0 > /dev/null 2>&1
+			GOODIX_TOUCH=$?
+		fi
+	fi
+	f_log I touch detect "disable touch regulators"
+	i2cutil -d /dev/i2c/0 -w 0x4b 0x12 0x0 > /dev/null 2>&1
+	if [ $PARADE_TOUCH -eq 0 ]; then
+		f_log I touch detect "install Parade touch driver"
+		/etc/upstart/cyttsp5
+	elif [ $GOODIX_TOUCH -eq 0 ]; then
+		f_log I touch detect "install Goodix touch driver"
+		f_modprobe gt9xx_ts
+	else
+		f_log E touch detect "No touch devices detected"
+	fi
+fi

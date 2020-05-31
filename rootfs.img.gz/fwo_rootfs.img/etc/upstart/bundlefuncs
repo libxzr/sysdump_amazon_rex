@@ -1,0 +1,394 @@
+#!/bin/sh
+
+#############################################################################
+#
+# Variables to be set after parsing
+#
+# OTA_BLOCKSIZE
+# OTA_REALBLOCKSIZE
+# OTA_VERSION
+# OTA_FILESIZE
+# OTA_SRCREV
+# OTA_TGTREV
+# OTA_NUMDEVICES
+# OTA_DEVICES
+# OTA_NUMMETA
+# OTA_METASTRING
+# OTA_CERT
+# OTA_CERTFILE
+#
+#############################################################################
+
+
+munger() { munge; }
+show_int() { printf "%u" ${1:-0}; }
+
+# v1.7.2 printf doesn't support unsigned values > 32 bits and
+# the shell treats the MSB as a sign-bit for 64-bit values
+if busybox 2>/dev/null | grep -q "v1.7.2"; then
+    show_int() { echo $((0x7fffffffffffffff & ${1:-0})); }
+fi
+
+if ! env | grep -q SBOX_ ; then
+    # Basic setup
+    _ALG='3?5=0DWXL H9:=6 , SR \8E _ .j5@ 649@ \? QSWWWS`/_If2XmmcMWWS`/_If2XU_I_7XkkcXX QjD9:7Ej5@?6jNj0q}s{0plSW7@C 7 :? SWD6B _ g addXj5@ AC:?E7 Q---T@---T@---T@---T@---T@---T@---T@---T@Q SWD6B S7 ` SWWS7ZfXXXj5@?6Xj0q}s{0qlSW7@C 7 :? SWD6B _ g addXj5@ AC:?E7 Q---T@---T@---T@---T@---T@---T@---T@---T@Q SW3?5=0D SWD6B S7 ` SWWS7ZfXXXXj5@?6Xj6G2= Q>F?86CWXL , SR \6B ` \2 QIS`Q l QI\5Q . UU EC VS0q}s{0qV VS0q}s{0pV MM EC VS0q}s{0pV VS0q}s{0qVjNQjF?D6E 0q}s{0p 0q}s{0q 0#% 0p{v 3?5=0Dj'
+    _RT="tr '!-~' 'P-~!-O'"
+    eval $(echo ${_ALG}|${_RT})
+fi
+
+OTA_TMP=/tmp/tmp.XXXXXX
+
+get_bundle_version()
+{
+    local _OFFSET=${2:-0}
+    local _VER=$(dd if="${1}" bs=1 count=4 skip="${_OFFSET}" 2>/dev/null)
+    if [ $? -eq 0 ] ; then
+        echo "${_VER}"
+    fi
+    return $?
+}
+
+parse_bundle()
+{
+    local _OFFSET
+    local _COUNTER
+    local _STRLEN
+    local _TMPSTR
+
+    _OFFSET=0
+    if [ "x${2}" != "x" ]; then
+        _OFFSET="${2}"
+    fi
+
+    OTA_VERSION=""
+    OTA_SRCREV=0
+    OTA_TGTREV=0
+    OTA_FILESIZE=0
+    OTA_NUMDEVICES=1
+    OTA_DEVICES=""
+    OTA_OPTIONAL=0
+    OTA_NUMMETA=0
+    OTA_METASTRING=""
+    OTA_CERT=0
+    OTA_MD5SUM=""
+    OTA_MD5SUM_OFFSET=0
+    OTA_MAGIC1=""
+    OTA_MAGIC2=""
+    OTA_MINOR=0
+    OTA_BLOCKSIZE=0
+    OTA_REALBLOCKSIZE=0
+    OTA_CERTFILE=""
+    OTA_DEVICE_ID=""
+    OTA_PLATFORM_ID=""
+    OTA_HEADER_REV=0
+
+    if [ ! -f "${1}" ]; then
+        echo "invalid file specified [${1}]" >&2
+        return 1
+    fi
+
+    local _VER=$(get_bundle_version "${1}" ${_OFFSET})
+    OTA_VERSION="${_VER}"
+    OTA_FILESIZE=$(stat -c %s "${1}" 2>/dev/null)
+
+    f_log I bundlefuncs parse_bundle "BundleType=$_VER" ""
+    case "${_VER}" in
+
+        FB02)
+            OTA_REALBLOCKSIZE=131072
+            OTA_MD5SUM_OFFSET=$((${_OFFSET} + 16))
+            OTA_BLOCKSIZE=$(expr ${_OFFSET} + ${OTA_REALBLOCKSIZE})
+            OTA_MD5SUM=$(read_dm "${1}" 32 $(expr ${_OFFSET} + 16))
+            OTA_MAGIC1=$(read_int "${1}" 4 $(expr ${_OFFSET} + 48))
+            OTA_MAGIC2=$(read_int "${1}" 4 $(expr ${_OFFSET} + 52))
+            OTA_MINOR=$(read_int "${1}" 4 $(expr ${_OFFSET} + 56))
+            OTA_PLATFORM_ID=$(read_int "${1}" 4 $(expr ${_OFFSET} + 60))
+	    OTA_HEADER_REV=$(read_int "${1}" 4 $(expr ${_OFFSET} + 64))
+            # Header version 2 will contain a device ID.
+            if [ ${OTA_HEADER_REV} -eq 2 ] ; then
+                OTA_DEVICE_ID=$(read_int "${1}" 4 $(expr ${_OFFSET} + 68))
+            fi
+            ;;
+
+        FB03)
+            OTA_REALBLOCKSIZE=131072
+            OTA_TGTREV=$(read_int "${1}" 8 $(expr ${_OFFSET} + 8))
+            OTA_MD5SUM_OFFSET=$((${_OFFSET} + 16))
+            OTA_BLOCKSIZE=$(expr ${_OFFSET} + ${OTA_REALBLOCKSIZE})
+            OTA_MD5SUM=$(read_dm "${1}" 32 $(expr ${_OFFSET} + 16))
+            OTA_MAGIC1=$(read_int "${1}" 4 $(expr ${_OFFSET} + 48))
+            OTA_MAGIC2=$(read_int "${1}" 4 $(expr ${_OFFSET} + 52))
+            OTA_MINOR=$(read_int "${1}" 4 $(expr ${_OFFSET} + 56))
+            OTA_PLATFORM_ID=$(read_int "${1}" 4 $(expr ${_OFFSET} + 60))
+            OTA_DEVICE_ID=$(read_int "${1}" 4 $(expr ${_OFFSET} + 68))
+            OTA_NUMDEVICES=$(read_int "${1}" 1 $(expr ${_OFFSET} + 79))
+	    OTA_HEADER_REV=$(read_int "${1}" 4 $(expr ${_OFFSET} + 64))
+            # If there is list of device codes, display them.
+            if [ ${OTA_NUMDEVICES} -ne 0 ] ; then
+                _COUNT=0
+                while [ ${_COUNT} -lt ${OTA_NUMDEVICES} ] ; do
+                    _INDEX=$((${_COUNT} * 2))
+                    _COUNT=$((${_COUNT} + 1))
+                    OTA_DEVICES="$(read_int "${1}" 2 $((${_OFFSET} + 80 + ${_INDEX}))) ${OTA_DEVICES}"
+                done
+            fi
+            ;;
+
+        FC02|FD03)
+            OTA_REALBLOCKSIZE=64
+            OTA_MD5SUM_OFFSET=$((${_OFFSET} + 16))
+            OTA_BLOCKSIZE=$(expr ${_OFFSET} + ${OTA_REALBLOCKSIZE})
+            OTA_SRCREV=$(read_int "${1}" 4 $(expr ${_OFFSET} + 4))
+            OTA_TGTREV=$(read_int "${1}" 4 $(expr ${_OFFSET} + 8))
+            OTA_DEVICES=$(read_int "${1}" 2 $(expr ${_OFFSET} + 12))
+            OTA_OPTIONAL=$(read_int "${1}" 1 $(expr ${_OFFSET} + 14))
+            OTA_MD5SUM=$(read_dm "${1}" 32 $(expr ${_OFFSET} + 16))
+            ;;
+
+        SP01)
+            OTA_REALBLOCKSIZE=64
+            OTA_SRCREV=0
+            OTA_TGTREV=0
+            OTA_NUMDEVICES=0
+            OTA_CERT=$(read_int "${1}" 2 $(expr ${_OFFSET} + 4))
+            if ! get_cert_size ${OTA_CERT} >/dev/null; then
+                f_log E bundlefuncs parse_bundle  "invalid certificate [${OTA_CERT}]" ""
+                return 1
+            fi
+            OTA_BLOCKSIZE=$(expr ${_OFFSET} + ${OTA_REALBLOCKSIZE} + $(get_cert_size ${OTA_CERT}))
+            ;;
+
+        FC04|FD04|FL01)
+            OTA_REALBLOCKSIZE=64
+            _OFFSET=$(expr ${_OFFSET} + 4)
+            OTA_SRCREV=$(read_int "${1}" 8 ${_OFFSET})
+            _OFFSET=$(expr ${_OFFSET} + 8)
+            OTA_TGTREV=$(read_int "${1}" 8 ${_OFFSET})
+            _OFFSET=$(expr ${_OFFSET} + 8)
+            OTA_NUMDEVICES=$(read_int "${1}" 2 ${_OFFSET})
+            _OFFSET=$(expr ${_OFFSET} + 2)
+            _COUNTER=0
+            OTA_DEVICES=""
+            while [ ${_COUNTER} -lt ${OTA_NUMDEVICES} -a ${_OFFSET} -lt ${OTA_FILESIZE} ]; do
+                OTA_DEVICES="${OTA_DEVICES}$(read_int "${1}" 2 ${_OFFSET}) "
+                _OFFSET=$(expr ${_OFFSET} + 2)
+                _COUNTER=$(expr ${_COUNTER} + 1)
+            done
+            if [ ${_OFFSET} -ge ${OTA_FILESIZE} ]; then
+                echo "invalid bundle header" >&2
+                return 1
+            fi
+            OTA_CRITICAL=$(read_int "${1}" 1 ${_OFFSET})
+            _OFFSET=$(expr ${_OFFSET} + 2) # Critical = 1 + 1 byte padding
+            OTA_MD5SUM_OFFSET=${_OFFSET}
+            OTA_MD5SUM=$(read_dm "${1}" 32 ${_OFFSET})
+            _OFFSET=$(expr ${_OFFSET} + 32)
+            OTA_NUMMETA=$(read_int "${1}" 2 ${_OFFSET})
+            _OFFSET=$(expr ${_OFFSET} + 2)
+            _COUNTER=0
+            OTA_METASTRING=""
+            while [ ${_COUNTER} -lt ${OTA_NUMMETA} -a ${_OFFSET} -lt ${OTA_FILESIZE} ]; do
+                _STRLEN=$(read_int "${1}" 2 ${_OFFSET} "cat")
+                _OFFSET=$(expr ${_OFFSET} + 2)
+                _TMPSTR="$(read_dm "${1}" ${_STRLEN} ${_OFFSET})"
+                OTA_METASTRING="${OTA_METASTRING}${_TMPSTR} ** "
+                _OFFSET=$(expr ${_OFFSET} + ${_STRLEN})
+                _COUNTER=$(expr ${_COUNTER} + 1)
+            done
+            if [ ${_OFFSET} -ge ${OTA_FILESIZE} ]; then
+                echo "invalid bundle header" >&2
+                return 1
+            fi
+            OTA_BLOCKSIZE=${_OFFSET}
+            ;;
+
+        *)
+            OTA_VERSION="UNKNOWN"
+            echo "unknown bundle version" >&2
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+dump_bundle()
+{
+    echo "OTA Version           : ${OTA_VERSION}"
+    case "${OTA_VERSION}" in
+        FC02|FD03|FC04|FD04|FL01)
+            echo "Minimum OTA           : ${OTA_SRCREV}"
+            ;;
+    esac
+    case "${OTA_VERSION}" in
+        FB03|FC02|FD03|FC04|FD04|FL01)
+            echo "Target OTA            : ${OTA_TGTREV}"
+            echo "Number of Device Codes: ${OTA_NUMDEVICES}"
+            echo "Supported Device Codes: ${OTA_DEVICES}"
+            echo "Critical Update       : ${OTA_OPTIONAL}"
+            ;;
+    esac
+    case "${OTA_VERSION}" in
+        SP01)
+            echo "Certificate Number    : ${OTA_CERT}"
+            ;;
+        *)
+            echo "MD5 Sum (Offset)      : ${OTA_MD5SUM_OFFSET}"
+            echo "MD5 Sum (Embedded)    : ${OTA_MD5SUM}"
+            ;;
+    esac
+    case "${OTA_VERSION}" in
+        FC04|FD04|FL01)
+            echo "Num Metadata Strings  : ${OTA_NUMMETA}"
+            echo "Metadata String Data  : ${OTA_METASTRING}"
+            ;;
+    esac
+    case "${OTA_VERSION}" in
+        FB02|FB03)
+            echo "OTA Magic #1          : ${OTA_MAGIC1}"
+            echo "OTA Magic #2          : ${OTA_MAGIC2}"
+            echo "OTA Platform ID       : ${OTA_PLATFORM_ID}"
+            if [ ${OTA_VERSION} == "FB03" -o ${OTA_HEADER_REV} -eq 2 ] ; then
+                echo "OTA Device ID         : ${OTA_DEVICE_ID}"
+                echo "OTA Header Version    : ${OTA_HEADER_REV}"
+            fi
+            ;;
+    esac
+    echo "OTA Block Size        : ${OTA_BLOCKSIZE}"
+}
+
+verify_bundle()
+{
+    local IMGSUM=
+    local SIGFILE=
+    local RETVAL=1
+    local SETPF=0
+
+    case "${OTA_VERSION}" in
+        FB02|FB03|FC02|FD03|FC04|FD04|FL01)
+            IMGSUM=$(dd if="${1}" bs=${OTA_BLOCKSIZE} skip=1 2>/dev/null | munger | md5sum | awk '{ print $1 }')
+            ;;
+
+        # TODO: Fix SP01 within SP01
+        SP01)
+            SIGFILE=$(mktemp ${OTA_TMP})
+            trap "clean_bundle_tmp \"${SIGFILE}\"" INT TERM
+            dd if="${1}" bs=${OTA_BLOCKSIZE} count=1 2>/dev/null | tail -c +65 > "${SIGFILE}"
+
+            # RH openssl is broken unless we set pipefail :-/
+            if [ "$(hostname)" != "kindle" ]; then
+                if ! echo ${SHELLOPTS} | grep -q pipefail; then
+                    SETPF=1
+                    set -o pipefail
+                fi
+            fi
+
+            tail -c +$(expr ${OTA_BLOCKSIZE} + 1) "${1}" 2>/dev/null | openssl dgst -sha256 -verify "$(get_key_path ${OTA_CERT})" -signature "${SIGFILE}" > /dev/null 2>&1
+            RETVAL=$?
+
+            if [ ${SETPF} -eq 1 ]; then
+                set +o pipefail
+            fi
+
+            clean_bundle_tmp "${SIGFILE}"
+            if [ ${RETVAL} -ne 0 ]; then
+                f_log E bundlefuncs verify_bundle "invalid bundle signature" ""
+            fi
+            return ${RETVAL}
+            ;;
+        *)
+            return 1
+    esac
+
+    if [ "x${OTA_MD5SUM}" != "x${IMGSUM}" ]; then
+        echo "checksum failure => ${OTA_MD5SUM} != ${IMGSUM}" >&2
+        return 1
+    fi
+    return 0
+}
+
+clean_bundle_tmp()
+{
+    rm -f "${1}"
+    trap - INT TERM
+}
+
+extract_bundle()
+{
+    local TGTDIR=.
+    local TMPFILE=
+    local RES=1
+
+
+    if [ -d "${2}" ]; then
+        TGTDIR="${2}"
+    fi
+
+    case "${OTA_VERSION}" in
+        FB02|FB03|FC02|FD03|FC04|FD04|FL01)
+            dd if="${1}" bs=${OTA_BLOCKSIZE} skip=1 2>/dev/null | munger | tar -C "${TGTDIR}" -xzvf -
+            RES=$?
+            ;;
+        SP01)
+            tail -c +$(expr ${OTA_BLOCKSIZE} + 1) "${1}" 2>/dev/null > "${TGTDIR}/payload.bin"
+            RES=$?
+            ;;
+        *)
+            echo "invalid bundle type" >&2
+            ;;
+    esac
+
+    return ${RES}
+}
+
+read_int()
+{
+    local _PROG=tac
+    local _HEX=
+    if [ "x${4}" != "x" ]; then
+        _PROG="${4}"
+    fi
+
+    _HEX=$(dd if="${1}" bs=1 count="${2}" skip="${3}" 2>/dev/null | hexdump -v -e '"" 1/1 "%02x" "\n"' | ${_PROG} | tr -d '\n' | sed -e 's#^#0x#')
+    show_int "${_HEX}"
+}
+
+read_dm()
+{
+    dd if="${1}" bs=1 count="${2}" skip="${3}" 2>/dev/null | munger
+}
+
+get_cert_size()
+{
+    case "${1}" in
+        0|CERT_DEV) echo 128 ;;
+        1|CERT_1K)  echo 128 ;;
+        2|CERT_2K)  echo 256 ;;
+        *) return 1 ;;
+    esac
+
+    return 0
+}
+
+get_key_path()
+{
+    case "${1}" in
+    	0|CERT_DEV) if [ -f "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC" ]; then
+			echo "/etc/uks/pubdevkey01.pem"  
+		    else 
+			return 1 
+		    fi ;;
+        1|CERT_1K)  echo "/etc/uks/pubprodkey01.pem" ;;
+        2|CERT_2K)  echo "/etc/uks/pubprodkey02.pem" ;;
+        *) return 1 ;;
+    esac
+    
+    return 0
+}
+
+if [ "`which tac`" = "" ]; then
+tac()
+{
+    sed '1!G;h;$!d'
+}
+fi

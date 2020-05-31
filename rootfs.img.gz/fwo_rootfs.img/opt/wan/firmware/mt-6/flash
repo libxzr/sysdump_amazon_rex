@@ -1,0 +1,112 @@
+#!/bin/sh
+
+. /etc/rc.d/functions
+
+FW_DIR="$1"
+TMP_DIR=/var/volatile
+FW_CS=${FW_DIR}/firmware.md5
+VER_DAT=${FW_DIR}/version.dat
+FW_FILE_ZIP=
+FW_FILE=
+FW_UPDATE_TRY_COUNT=3
+RET=0
+
+modprobe cdc_acm
+echo 1 > /proc/wan/usb_en
+
+if [ ! -f ${FW_CS} ] ; then
+	msg "could not find \"${FW_CS}\"" E "nofwcs"
+	exit 1
+fi
+
+LC=`cat ${FW_CS} | wc -l`
+I=0
+while [ ${I} -lt ${LC} ]; do
+	read L
+	if [ -n "${L}" ]; then
+		F=`echo ${L} | awk '{ print $2 }'`
+		if [ -n "${F}" ]; then
+			FW_FILE_ZIP=${F}
+			break;
+		fi
+	fi
+	I=$((${I} + 1))
+done <${FW_CS}
+
+if [ ! -f ${FW_DIR}/${FW_FILE_ZIP} ]; then
+	msg "could not find \"${FW_FILE_ZIP}\"" E "nofwzf"
+	exit 1
+fi
+
+# prepare ramfs
+if [ ! -d ${TMP_DIR} ]; then
+	mkdir ${TMP_DIR}
+fi
+mount -t tmpfs ramfs ${TMP_DIR}
+
+msg "unzip firmware files" I "uzfwf"
+tar xf ${FW_DIR}/${FW_FILE_ZIP} -C ${TMP_DIR}
+
+LC=`cat ${VER_DAT} | wc -l`
+I=0
+while [ ${I} -lt ${LC} ]; do
+	read L
+	if [ -n "${L}" ]; then
+		F=`echo ${L}`
+		if [ -n "${F}" -a -f ${TMP_DIR}/${F}_NAND.fls ]; then
+			FW_FILE="${TMP_DIR}/${F}_NAND.fls"
+			break;
+		fi
+	fi
+	I=$((${I} + 1))
+done <${VER_DAT}
+
+if [ -f ${FW_FILE} ]; then
+	cd ${FW_DIR}
+
+	while [ ${FW_UPDATE_TRY_COUNT} -gt 0 ]; do
+		msg "beginning update process" I "bup"
+
+		./DownloadTool --force-reset --library=./libDownloadTool.so ${FW_FILE} |
+		(
+			res=99
+			while read line; do
+				echo $line | logger -t DownloadTool
+				case "$line" in
+					*Success!*)
+						res=0
+					;;
+					*'Error> Communication error 260. Line 1066'*)
+						sleep 2
+						break
+					;;
+				esac
+			done
+			exit $res
+		)
+
+		RET=$?
+
+		if [ $RET -eq 0 ]; then
+			msg "update process complete" I "upc"
+			break
+		else
+			msg "update process failure" E "upf"
+		fi
+
+		FW_UPDATE_TRY_COUNT=$((${FW_UPDATE_TRY_COUNT} - 1))
+
+		killall DownloadTool
+		sleep 2
+	done
+else
+	msg "could not find \"${FW_FILE}\"" E "nofwf"
+	RET=1
+fi
+
+rm -f "${TMP_DIR}/*_NAND.fls"
+
+# remove ramfs
+umount ${TMP_DIR}
+
+exit $RET

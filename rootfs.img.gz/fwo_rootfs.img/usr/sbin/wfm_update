@@ -1,0 +1,127 @@
+#!/bin/sh
+
+_WFM_DIR=/mnt/wfm
+WFM_PATH="${_WFM_DIR}/waveform_to_use"
+WFM_DIRTY_FLAG="${_WFM_DIR}/WFM_DIRTY_FLAG"
+
+source /etc/upstart/functions
+source /etc/upstart/bundlefuncs
+DATA_PATH=$1
+
+lock=/var/lock/wfm_update_lock                                         
+                                                                                                     
+exec 200> $lock                                                        
+I=0; while [ $I -lt 60 ] && ! flock -n 200; do sleep 1 ; let I++ ; done
+RET=$?                                                                                               
+                                                                            
+if [ "${I}" -eq "60" ]; then                                                                         
+   f_log E waveform update "acquirelockfailed" "acquire lock failed"    
+   return 1                                                                 
+fi     
+
+if parse_bundle "${DATA_PATH}" ; then
+   if [ "${OTA_VERSION}" != "SP01" ] ; then
+         f_log E waveform update "signature_check_failed" "${DATA_PATH} is not signed, removing file"
+         rm -f "${DATA_PATH}"
+         return 1
+   fi
+   wrf_name=`basename "${DATA_PATH}" ".bin"`.wrf.gz
+   wrf_path=`dirname "${DATA_PATH}"`/"${wrf_name}"
+   rm -rf "${wrf_path}"
+   if verify_bundle "${DATA_PATH}" "${OTA_BLOCKSIZE}" ; then
+	_OFFSET="${OTA_BLOCKSIZE}"
+	_VER=$(get_bundle_version "${DATA_PATH}" "${_OFFSET}")
+	if [ "${_VER}" -ne "WF01" ] ; then
+           rm -rf "${wrf_path}"
+           f_log E waveform update "Unsupported bundle version"
+	fi
+	_OFFSET=$(expr ${_OFFSET} + 4)
+	_MD5SUM=$(dd if="${DATA_PATH}" bs=1 count=32 skip="${_OFFSET}" 2>/dev/null)
+	echo $MD5SUM
+	_OFFSET=$(expr ${_OFFSET} + 32)
+        dd if="${DATA_PATH}" bs=${_OFFSET} skip=1 of="${wrf_path}"
+        RET=$?
+        if [ "${RET}" -ne "0" ] ;then
+           rm -rf "${wrf_path}"
+           f_log E waveform update "Extracting waveform from signed packed failed"
+        fi
+    fi
+fi
+
+
+if [ ! -e "${wrf_path}" ] ; then
+  f_log E waveform update "File not exist" "${wrf_path}"
+  exit 1
+fi
+
+#mount the waveform partition
+if ! wfm_mount ; then
+  f_log E wavefrom update "Failed to mount waveform storage area!"
+  exit 1
+fi
+
+_BACKUP_PATH=""
+if [ "$(ls -A ${WFM_PATH}/*.wrf.gz 2>/dev/null)" ];then
+    _BACKUP_PATH="/tmp/waveform.$$.tar"
+    tar -cf "${_BACKUP_PATH}" "${WFM_PATH}" "${_WFM_DIR}"/DONT_ERASE_WFM
+fi
+
+#restores the backup waveform if availble
+restore_backup_and_exit()
+{
+    rm "${DATA_PATH}"
+    rm "${WFM_PATH}"/*
+    rm "${_WFM_DIR}"/DONT_ERASE_WFM
+    
+    if [ -f "${_BACKUP_PATH}" ] ; then
+        tar -xf "${_BACKUP_PATH}" -C / 
+        rm "${_BACKUP_PATH}"
+    fi
+    
+    #This is a safe failure. So remove the dirty flag
+    rm "${WFM_DIRTY_FLAG}"
+    
+    sync
+    wfm_umount
+    exit 1
+}
+
+#Marking dirty flag
+touch "${WFM_DIRTY_FLAG}"
+fsync "${WFM_DIRTY_FLAG}"
+
+rm "${WFM_PATH}"/*
+mkdir -p "${WFM_PATH}"
+cp "${wrf_path}" "${WFM_PATH}"
+res=$?
+
+if [ "${res}" -ne "0" ] ; then
+    f_log E waveform update "copy to waveform partion failed"
+    restore_backup_and_exit
+fi
+
+f_log I waveform update "Copy to waveform success"
+
+_OUTMD5SUM=$(md5sum ${WFM_PATH}"/"${wrf_name} | awk '{printf "%s" $1}')
+
+if [ "${_MD5SUM}" != "${_OUTMD5SUM}" ]; then
+    f_log E waveform update "Failed to validate checksum"
+    restore_backup_and_exit
+fi
+
+touch "${_WFM_DIR}"/DONT_ERASE_WFM
+
+#force sync
+fsync "${_WFM_DIR}"/DONT_ERASE_WFM
+fsync "${WFM_PATH}"/"${wrf_name}"
+
+#waveform update completed succesfully.
+rm "${WFM_DIRTY_FLAG}"
+sync
+wfm_umount
+
+rm "${DATA_PATH}"
+rm "${wrf_path}"
+if [ -f "${_BACKUP_PATH}" ] ; then
+    rm "${_BACKUP_PATH}"
+fi

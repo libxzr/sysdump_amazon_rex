@@ -1,0 +1,30 @@
+#!/bin/sh
+
+print_usage () {
+    echo "usage: cvm-dumpstack"
+    echo ""
+    echo "cvm-dumpstack sends a signal to CVM process, two times about 2 "
+    echo "minutes apart to dump thread stack"
+}
+
+CVM=cvm
+
+if [ x$1 == "x--help" -o x$1 == "x-h" ]; then
+	print_usage
+	exit 1
+fi
+
+echo "cvm-dumpstack: sending signal to cvm process to dump thread stack.."
+
+killall -QUIT ${CVM} >/dev/null 2>/dev/null && sleep 1
+
+echo "cvm-dumpstack: sleeping for 2 minutes.."
+
+sleep 120
+
+echo "cvm-dumpstack: sending signal to cvm process to dump thread stack.."
+
+killall -QUIT ${CVM} >/dev/null 2>/dev/null && sleep 1
+
+echo "cvm-dumpstack: done."
+echo "cvm-dumpstack: Check /var/log/messages or appropriate log file for stack dump"

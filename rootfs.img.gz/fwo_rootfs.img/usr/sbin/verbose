@@ -1,0 +1,129 @@
+#!/bin/sh
+# setVerbose switches the syslog-ng based logging of the target between verbose
+# levels.
+
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+LIPCREGISTERED="com.lab126.wan com.lab126.powerd com.lab126.volumd com.lab126.audio com.lab126.framework com.lab126.system"
+SYSLOGD=/etc/init.d/syslog-ng
+
+getCurrentLevel()
+{
+	echo `cat $MSG_CUR_LVL`
+}
+
+setLipc()
+{
+	msg "Issuing lipc logLevel setProps" D
+	for i in $LIPCREGISTERED; do
+		lipc-set-prop $i logLevel $1
+	done
+}
+
+setLipcMask()
+{
+	msg "Issuing lipc logMask setProps" D
+	for i in $LIPCREGISTERED; do
+		lipc-set-prop $i logMask $1
+	done
+}
+
+setSyslog()
+{
+	msg "Syslog magic may go here down the road" D
+	#	do some symlink magic here: see 	/etc/init.d/syslog-ng for explainations
+	$SYSLOGD reload
+
+}
+
+usage()
+{
+	echo "Usage: `basename $0` <VERBOSELEVEL <SUBLEVEL> >"
+	echo ""
+	echo " Arguments:"
+	echo "    VERBOSELEVEL  Sets the syslog-ng logging to VERBOSELEVEL"
+	echo "    SUBLEVEL      Used to refine the VERBOSELEVEL by specifying a "
+	echo "                      SUBLEVEL"
+	echo ""  
+	echo " Examples:"
+	echo "    `basename $0` debug 3"
+	echo "        will set the verbose level of lipc-registered components to"
+	echo "        debug3 and force syslog-ng to inline debug 0 to 3 messages in."
+	echo "    `basename $0` info"  
+	echo "        will set the verbose level of lipc-registered components to"
+	echo "        info."
+	echo "    `basename $0`"
+	echo "        will write to stdout the current system wide verbose level"
+	exit 0
+}
+
+vlflag=0
+slflag=0
+syslevel="info"
+lipclevel="info"
+lipcsub=
+
+if [ $# -gt 0 ]
+then
+	case "$1" in
+        debug)
+			vlflag=1;
+			syslevel="debug";
+			lipclevel="debug";
+			shift;;
+        info)
+			vlflag=1;
+			syslevel="info";
+			lipclevel="info";
+			shift;;
+        perf)
+			vlflag=2;
+			lipcmask="0x20";
+			shift;;
+#		warning|warn)  
+#			vlflag=1;
+#			syslevel="warn";
+#			lipclevel="warning";
+#			shift;;
+#        error|err)  
+#			vlflag=1;
+#			syslevel="err";
+#			lipclevel="error";
+#			shift;;
+#        critical|crit)
+#			vlflag=1;
+#			syslevel="crit";
+#			lipclevel="critical";
+#			shift;;
+		help|-h|--help)
+			usage
+			;;
+    esac
+else
+	getCurrentLevel
+	exit 0;
+fi
+
+if [ $vlflag -eq 1 ]
+then
+	if [ $# -gt 0 ]
+	then
+		case "$1" in
+	        0|1|2|3|4|5|6|7|8|9)  
+				slflag=1;
+				lipcsub=$1;
+				;;
+	    esac
+	fi	
+	setLipc $lipclevel$lipcsub
+	setSyslog $syslevel
+fi
+
+if [ $vlflag -eq 2 ]
+then
+	setLipcMask $lipcmask
+fi
+
+exit 0;
+

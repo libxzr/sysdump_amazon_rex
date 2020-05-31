@@ -1,0 +1,12 @@
+# /etc/fstab: static file system information.
+#
+# <file system>   <mount pt>    <type> <options>                                         <dump>  <pass>
+/dev/mmcblk0p1    /             ext3   suid,exec,auto,nouser,async,rw,noatime,nodiratime 0      1
+proc              /proc         proc   defaults                                          0      0
+sysfs             /sys          sysfs  defaults                                          0      0
+devpts            /dev/pts      devpts defaults,gid=5,mode=620                           0      0
+usbfs             /proc/bus/usb usbfs  defaults                                          0      0
+/dev/loop/0       /mnt/base-us  vfat   defaults,noatime,nodiratime,utf8,noexec,uid=0,gid=0,umask=0,shortname=mixed              0      0
+/dev/mmcblk1p1    /mnt/base-mmc vfat   defaults,noatime,nodiratime,utf8,noexec,shortname=mixed              0      0
+fsp#/mnt/base-us  /mnt/us       fuse   allow_other,umask=0,uid=0,gid=0,rw,max_write=65536,max_readahead=65536,noatime,noexec,nosuid,nodev,nonempty,hard_remove     0      0
+fsp#/mnt/base-mmc /mnt/mmc      fuse   rw,max_write=65536,max_readahead=65536,noatime,exec,nosuid,nodev,nonempty     0      0

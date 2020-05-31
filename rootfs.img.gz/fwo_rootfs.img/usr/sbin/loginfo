@@ -1,0 +1,317 @@
+#!/bin/sh
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+_FUNCTIONS=/etc/upstart/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+
+_MNTLOG=/etc/sysconfig/mntlog
+[ -f $_MNTLOG ] && . $_MNTLOG
+
+UPTIME=`sed -e "s/ [0-9].*//;s/\([0-9]*\)\..*/\1/" < /proc/uptime`
+DEADZONE=30
+loginfo_memusedump()
+{
+	msg "`uptime`" I "uptime"
+
+	vmstat | while read line; do
+		msg "$line" I "vmstat"
+	done
+
+	ps axo stat,ppid,pid,rss,pcpu,bsdtime,comm hww |
+
+	# Removing init and kthreadd (ppid=0)
+	# Removing kernel processes (ppid=2)
+	# Read in a message only if the resident size > 1024 KB.
+	# Always log pppd
+	awk '$2 != 0 && $2 != 2 && $4 > 1024 || /pppd/\
+		{ print "I loginfo:psinfo:"\
+				"stat="$1\
+				",ppid="$2\
+				",pid="$3\
+				",rss="$4\
+				",pcpu="$5\
+				",bsdtime="$6\
+				",args="$7":";\
+		}' |
+
+	# Pipe all of the psinfo into a single instance of logger
+	/usr/bin/logger -s -p ${MSG_SLNUM_I} -t "system" 2>&1
+}
+
+is_powerd_uninterruptible()
+{
+	uninterruptible=0
+
+	item=`ps axo stat,comm hww | grep powerd`
+	stat=`echo $item | awk '/^/ { print $1 }'`;
+	args=`echo $item | awk '/^/ { print $2 }'`;
+
+	if [ "$args" == "powerd" ]; then
+		echo "$stat" | grep D 2>&1 >/dev/null
+		if [ "$?" == "0" ]; then
+			uninterruptible=1
+		fi
+	fi
+}
+
+loginfo_checkpowerd()
+{
+	is_powerd_uninterruptible
+
+	if [ "$uninterruptible" == "1" ] ; then
+		sleep 5
+
+		is_powerd_uninterruptible
+		if [ "$uninterruptible" == "1" ] ; then
+			msg "powerd is $stat, purposefully rebooting" C "DslReboot"
+			reboot
+			exit 0
+		fi
+	fi
+}
+
+loginfo_mounts()
+{
+	df | tail -n+2 | awk '{ print "I mntinfo:mounts:dev=" $1 ", total=" $2 ", used=" $3 ", mount=" $6 ":" }' | logger
+}
+
+loginfo_tmpfs()
+{
+	freekilo=`df /var/tmp | grep tmpfs | awk '/^/ { print $4 }'`;
+	msg "tmpfsFreeSpace=${freekilo}kB:" I
+}
+
+loginfo_tmpfsmetrics()
+{
+	findResult=$(find /var -path '/var/local' -prune -o -size +1024k -print)
+	if [ ! -z "$findResult" ] ; then
+		# Shows the files that are more than 1 MB in /var except /var/local partition
+		echo "Large files in /var except /var/local( > 1MB )" | logger
+		ls -alh $findResult | logger
+	fi
+}
+
+loginfo_localVars()
+{
+	freekilo=`df ${MNTLOG_MP} | grep ${MNTLOG_DEV} | awk '/^/ { print $4 }'`;
+	msg "localVarsFreeSpace=${freekilo}kB:" I
+}
+
+loginfo_userstore()
+{
+	freekilo=`df | grep /mnt/us | awk '/^/ { print $4 }'`;
+	msg "UserStoreFreeSpace=${freekilo}kB:" I
+
+}
+
+loginfo_cvmtotmem()
+{
+	msg "memSize=$1:" W cvmtotmem
+	loginfo_cvmreset
+}
+
+loginfo_cvmreset()
+{
+	msg "Purposefully restarting CVM" E killtoolargecvm
+	killall -9 cvm
+}
+
+loginfo_processtoobig()
+{
+	msg "memSize=$2:" W $1toolarge
+	lipc-send-event com.lab126.hal processTooLarge -s $1
+}
+
+loginfo_systotmem()
+{
+	msg "memSize=$1:" W systemtoolarge
+	loginfo_cvmreset
+}
+
+loginfo_sysloadavg()
+{
+	msg "timeframe=$1,value=$2:" I loadAverage
+}
+
+loginfo_keycount()
+{
+	msg ":logging keys count" I logKeyCount; sleep 1
+	echo "keycnt" > /proc/keypad
+}
+
+loginfo_essentials()
+{
+    # HW info
+    if [ -f /PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC ] ; then
+        f_board=`f_board`
+    else
+        f_board="<private>"
+    fi
+	msg "boardID=`cat /proc/board_id | sed 's/\(....\).*/\1/'`:$f_board device - rev `f_rev`" I devhw
+
+	# SW info
+    if [ -f /PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC ] ; then
+	    msg ":Original `cat /etc/version.txt`" I devsworig
+    else
+        msg ":Original `head -2 /etc/version.txt | sed 's#\([^-]*\)-.*-\(.*\)#\1-<private>-\2'#`" I devsworig
+    fi
+
+	msg ":OTA  `cat /etc/prettyversion.txt`" I devswota
+
+	# time related stuff
+	lto=`lipc-get-prop com.lab126.wan localTimeOffset`
+	ret=$?
+	if [ "x$ret" == "x0" ]; then
+		if  [ "x$lto" == "x-1" ]; then
+			msg "retrieved local time offset but wand is yet to yield a meaningful value running" W ltoisnotsetyet
+		else
+			msg "lto=$lto: local time offset has been read" I ltoget
+		fi
+	elif [ "x$ret" == "x3" ]; then
+		msg "cannot retrieve local time offset - wand not running" W ltofailwandoff
+	else
+		msg "cannot retrieve local time offset - unknown error " E ltofailunknowerror
+	fi
+}
+
+loginfo_kitchensink()
+{
+	loginfo_memusedump
+	loginfo_tmpfs
+	loginfo_localVars
+	loginfo_userstore
+	loginfo_essentials
+	loginfo_mounts
+
+	lipc-probe -av | logger -t "lipc-props: I lipc-props:prop:"
+}
+
+loginfo_lightintensity()
+{
+	if [ "$(devcap-get-feature -a frontlight)" -eq "1" ]; then
+		intensity=`lipc-get-prop com.lab126.powerd flIntensity`
+		msg "frontLightIntensity=${intensity}" I frontlight
+	fi
+}
+
+loginfo_dbdata()
+{
+	# Log db information if db size greater than 10 MB
+	logthreshold=10485760
+	ccdbsize=$(stat -c%s "/var/local/cc.db")
+	if [ $ccdbsize -gt $logthreshold ]; then
+		echo "******* cc.db size greater than 10 MB. Printing cc.db content information. *******"
+		# Number of record entries in Entries table based on App-defined type.
+		p_type_entries="select p_type,count(*) as count from Entries group by p_type;"
+		# Number of record entries in Entries table based on Archived or not and Content state.
+		archived_content_count="select p_isArchived,p_contentState,count(*) as count from Entries group by p_isArchived,p_contentState;"
+		# Number of record entries in Collections table.
+		collection_count="select count(*) as collections_count from Collections;"
+		echo "${p_type_entries} ${archived_content_count} ${collection_count}" | sqlite3 -header -column -cmd ".width 30" /var/local/cc.db
+	fi
+	wsyncdbsize=$(stat -c%s "/var/local/wsync.db")
+	if [ $wsyncdbsize -gt $logthreshold ]; then
+		echo "******* wsync.db size greater than 10 MB. Printing wsync.db content information. *******"
+		# Number of record entries in SyncRecords based on record type.
+		wsync_record_type="select Substr(record_id,0,10) as recordType, count(*) as count from SyncRecords group by recordType;"
+		echo $wsync_record_type | sqlite3 -header -column -cmd ".width 30" /var/local/wsync.db
+	fi
+}
+
+loginfo_varlocalmetrics()
+{
+	# Shows the amount of disk space used in /var/local
+	echo " /var/local disk usage" | logger
+	df -h /var/local | logger
+
+	# Shows the files that are more than 1 MB in /var/local
+	echo "Large files in /var/local( > 1MB )" | logger
+	findResult="$(find /var/local -size +1024k)"
+	if [ "x$findResult" != "x" ] ; then
+		ls -lh $findResult | logger
+	fi
+
+	# Print type and count of records in cc.db and wsync.db
+	loginfo_dbdata | logger
+}
+
+# Bailing out when kicked off to close to boot time
+if [ $UPTIME -lt $DEADZONE ]; then
+	if ! [ "x$2" = "x--force" ]; then
+		exit 1;
+	fi
+fi
+
+case "$1" in
+
+	memusedump)
+		loginfo_memusedump
+		exit 0
+		;;
+	tmpfs)
+		loginfo_tmpfs
+		exit 0
+		;;
+	localVars)
+		loginfo_localVars
+		exit 0
+		;;
+	userstore)
+		loginfo_userstore
+		exit 0
+		;;
+	cvmtotmem)
+		loginfo_cvmtotmem $2
+		exit 0
+		;;
+	processtoobig)
+		loginfo_processtoobig $2 $3
+		exit 0
+		;;
+	systotmem)
+		loginfo_systotmem $2
+		exit 0
+		;;
+	sysloadavg)
+		loginfo_sysloadavg $2 $3
+		exit 0
+		;;
+	keycount)
+		loginfo_keycount
+		exit 0
+		;;
+	essentials)
+		loginfo_essentials
+		exit 0
+		;;
+	powerdcheck)
+		loginfo_checkpowerd
+		exit 0
+		;;
+	mounts)
+		loginfo_mounts
+		exit 0
+		;;
+	kitchensink)
+		loginfo_kitchensink
+		exit 0
+		;;
+	lightintensity)
+		loginfo_lightintensity
+		exit 0
+		;;
+	varlocalmetrics)
+		loginfo_varlocalmetrics
+		exit 0
+		;;
+	tmpfsmetrics)
+		loginfo_tmpfsmetrics
+		exit 0
+		;;
+	*)
+		exit 1
+		;;
+
+esac

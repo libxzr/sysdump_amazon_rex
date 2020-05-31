@@ -1,0 +1,183 @@
+#!/bin/sh
+
+# Source the config
+_CONFFILE=/etc/updater.conf
+[ -f ${_CONFFILE} ] && . ${_CONFFILE}
+
+_POWERD_SOURCE="com.lab126.powerd"
+_SUSPENDING_EVENT="suspending"
+_USER_SHUTDOWN_EVENT="userShutdown"
+_RESUMING_EVENT="resuming"
+_SUSPEND_GRACE_PROP="suspendGrace"
+_OUT_OF_SCREEN_SAVER_EVENT="outOfScreenSaver"
+_CHARGING_EVENT="charging"
+_POWERD_EVENTS="${_SUSPENDING_EVENT},${_USER_SHUTDOWN_EVENT},${_RESUMING_EVENT},${_OUT_OF_SCREEN_SAVER_EVENT},${_CHARGING_EVENT}"
+_POWERD_SUSPEND_GRACE=20
+
+start_ota_update() {
+	msg "Starting OTA update" I
+	telinit ${_UPDATE_RUNLEVEL} 
+	exit 0
+}
+
+start_full_update() {
+	msg "Starting full update - rebooting system" I
+	/sbin/reboot 
+	exit 0
+}
+
+is_full_update() {
+	VER=`dd if=$1 bs=1 count=2 | xargs`
+	if [ "$VER" == "FB" ]; then
+		return 1
+	else
+		return 0
+	fi
+}
+	
+# This function checks the battery for level and
+# starts the update by switching to update runlevel.
+# If the update is successfully called, this script
+# does not return
+start_update () {
+	get_batt_percent
+	BATT=$?
+	if [ -s "$BATT" ]; then
+		msg "Failed to read battery.  Not starting update" W
+		return $_ERROR_BATT_FAILED
+	fi
+
+	if [ $BATT -ge ${_MIN_BATT} ]; then
+		msg "Battery sufficient for update (${BATT}%)" I
+
+		# Make sure update is still available
+		if [ ! -f ${_UPDATE_FILE} ]; then
+			msg "Update file not found. Aborting update" E
+			exit ${_ERROR_NO_UPDATE_FILE}
+		fi
+
+		IS_FULL_UPDATE=0
+		
+		# Walk the update_file list.  Check each file to see if is a 
+		# full update
+		for LINE in `cat ${_UPDATE_FILE}`; do
+			is_full_update $LINE
+			IS_FULL_UPDATE=$?
+			[ $IS_FULL_UPDATE == 1 ] && break
+		done
+
+		# Kill powerd to ensure device does not suspend while waiting for 
+		# cvm to exit
+		stop_powerd
+
+		# Kill the framework but leave the screen as is
+		shutdown_framework $SHUTDOWN_FRAMEWORK_SCREEN_ASIS
+		
+		# For full (restart) updates, put up the reboot screen.  Otherwise,
+		# start the OTA-update process with the initial software-update
+		# screen, sleeping the screen first to prevent any extraneous
+		# screen-updates from occurring.
+		#
+		# Note:  In order to ensure that the initial software-update screen
+		#		 doesn't come up multiple times (otaup calls it, too), we
+		#		 let ourselves know that we're in software-update mode by
+		#		 calling platform_software_update_begin.  But we call
+		#		 platform_software_update_end first to ensure a clean slate
+		#		 here, just in case a failed update didn't properly complete.
+		if [ $IS_FULL_UPDATE == 1 ]; then
+			start_full_update
+		else
+			platform_software_update_end
+			display_update_screen_initial
+			sleep_screen
+			
+			platform_software_update_begin
+			start_ota_update
+		fi
+
+	else
+		msg "Battery too low for update. Not starting update" E
+		return $_ERROR_BATT_LOW
+	fi
+}
+
+set_powerd_grace_timeout() {
+	# Tell powerd to wait for a few seconds before suspending to give us
+	# a chance to switch run levels
+	lipc-set-prop ${_POWERD_SOURCE} ${_SUSPEND_GRACE_PROP} ${_POWERD_SUSPEND_GRACE}
+	if [ $? -ne 0 ]; then
+		msg "Failed to set suspend grace timeout property of powerd ($?). Aborting update" E
+		exit 1
+	fi
+}
+
+wait_for_idle() {
+
+	while [ 1 ]; do
+
+		WAIT_PARAM=""
+
+		# Are we charging?  If we are charging, wait a few minutes and initiate the update
+		if [ `cat ${_SYS_CHARGING_FILE}` == "1" ]; then
+			WAIT_PARAM=" -s ${_MAX_SC_WAIT_SECS}"
+		fi
+
+		msg "Waiting for device to be idle to apply update" I
+		EVENT=`lipc-wait-event ${_POWERD_SOURCE} ${_POWERD_EVENTS}  ${WAIT_PARAM}`
+		RET=$?
+		if [ $RET == 255 ]; then
+			# 255 is returned when lipc-wait-event exits because of timeout
+			msg "Spent ${_MAX_SC_WAIT_SECS}s in screen saver. Starting update" I
+			start_update
+			exit 0
+		fi
+
+
+		EVENT=`echo $EVENT | awk '{print $1;}'`
+
+		case $EVENT in
+		$_SUSPENDING_EVENT)
+						msg "powerd suspending event" I
+						start_update
+						;;
+		$_USER_SHUTDOWN_EVENT)
+						msg "powerd user shutdown event" I
+						# Touch a file to indicate the user wants to shutdown
+						mkdir -p `dirname ${_SHUTTING_DOWN_FILE}`
+						if [ $? -ne 0 ]; then
+							msg "Failed to create shutdown file.  System will not shutdown" W
+						else
+							touch $_SHUTTING_DOWN_FILE
+						fi
+						start_update
+						;;
+		$_CHARGING_EVENT)
+						msg "powerd charging event; restart loop" I
+						;;
+		$_RESUMING_EVENT)
+						# Resuming event might happen if we fail to update the
+						# system and let it go to suspend.  We will set
+						# grace timeout in powerd and try to update at next suspend
+						set_powerd_grace_timeout
+						;;
+		${_OUT_OF_SCREEN_SAVER_EVENT})
+						# We are going out of screen saver.  Cancel the wait.  Framework will
+						# call us again when system goes to screen saver
+						msg "Going out of screen saver.  Exiting"
+						exit 0
+						;;
+		esac
+	done
+}
+
+############ START OF SCRIPT ################
+
+set_powerd_grace_timeout
+
+if [ "$1" == "-i" ]; then
+	start_update
+else
+	wait_for_idle
+fi
+
+exit 0

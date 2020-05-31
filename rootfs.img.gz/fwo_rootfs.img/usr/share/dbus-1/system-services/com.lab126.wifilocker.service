@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=com.lab126.wifilocker
+Exec=/usr/bin/wifilocker
+User=framework

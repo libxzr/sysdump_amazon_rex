@@ -1,0 +1,15 @@
+{
+  "languages": "zh-Hans",
+  "type": "font",
+  "uniqueIdentifier": "zh-Hans",
+  "files": "zh-Hans.font",
+  "zh-Hans.font.md5": "e6b0aa678941d37dfd97f72f89a60651",
+  "STKaiMedium.ttf.md5": "dfb6eeed3cb37be187b42f041035fcb4",
+  "STKaiBold.ttf.md5": "35b7727cba6493fcb0d98ae70f58d6d8",
+  "STYuanMedium.ttf.md5": "77a6c8607be476113e3f2198b08104c0",
+  "STYuanBold.ttf.md5": "b75b486b7e98baabdefe2c242badb148",
+  "version": 20181023,
+  "fonts.zh-Hans": "stkai,styuan",
+  "font.stkai.display": "\u6977\u4f53",
+  "font.styuan.display": "\u5706\u4f53"
+}

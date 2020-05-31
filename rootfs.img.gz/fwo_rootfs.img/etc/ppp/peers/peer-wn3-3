@@ -1,0 +1,14 @@
+# /etc/ppp/peers/peer-3
+
+# don't require peer to authenticate itself
+noauth
+
+# peer doesn't support compression control protocol
+noccp
+
+#ask peer for dns servers
+usepeerdns
+
+connect "/usr/sbin/chat -f /etc/ppp/chat/connect-3"
+disconnect "/usr/sbin/chat -f /etc/ppp/chat/disconnect-3"
+

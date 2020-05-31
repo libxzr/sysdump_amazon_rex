@@ -1,0 +1,5 @@
+#!/bin/sh
+
+source /etc/upstart/shutdown_modes
+
+start shutdown SHUTDOWN_MODE=$SHUTDOWN_MODE_USERSTORE_RESET

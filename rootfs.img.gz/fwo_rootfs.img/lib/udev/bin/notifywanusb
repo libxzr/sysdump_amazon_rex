@@ -1,0 +1,12 @@
+#!/bin/sh
+
+SYS_USB_POWER_WAKEUP=/sys/devices/soc0/soc/2100000.aips-bus/2184200.usb/ci_hdrc.1/usb1/1-1/power/wakeup
+SYS_USB_POWER_CTRL=/sys/devices/soc0/soc/2100000.aips-bus/2184200.usb/ci_hdrc.1/usb1/1-1/power/control
+
+if [ "$ACTION" = "add" ] ; then
+    /bin/echo enabled >${SYS_USB_POWER_WAKEUP}
+    /bin/echo auto >${SYS_USB_POWER_CTRL}
+fi
+
+exit 0
+

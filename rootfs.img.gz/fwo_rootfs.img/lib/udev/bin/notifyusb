@@ -1,0 +1,32 @@
+#!/bin/sh
+FLAG_NO_TRANSITIONS=`kdb get system/driver/filesystem/NO_TRANSITIONS`
+FLAG_IG_USB_SYSFS=`kdb get system/driver/filesystem/IG_USB_SYSFS`
+FLAG_FONT_UPDATE=`kdb get system/driver/filesystem/FONT_UPDATE`
+
+if [ "$ACTION" = "add" ] ; then
+	/usr/bin/lipc-send-event -r 3 com.lab126.hal usbPlugIn
+else
+	if [ "$ACTION" = "remove" ] ; then
+		/usr/bin/lipc-send-event -r 3 com.lab126.hal usbPlugOut
+	else
+		if [ "$ACTION" = "online" ] ; then
+			if [ -f ${FLAG_NO_TRANSITIONS} -o -f ${FLAG_FONT_UPDATE} ] ; then
+				touch ${FLAG_IG_USB_SYSFS}
+			else 
+				/usr/bin/lipc-send-event -r 3 com.lab126.hal usbConfigured
+			fi
+		else
+			if [ "$ACTION" = "offline" ] ; then
+				rm -f ${FLAG_IG_USB_SYSFS}
+				if [ -n "$UNPLUG" ] ; then
+                                        /usr/bin/lipc-send-event -r 3 com.lab126.hal usbUnconfigured  -s $UNPLUG
+                                else
+                                        /usr/bin/lipc-send-event -r 3 com.lab126.hal usbUnconfigured
+                                fi
+			fi
+		fi
+	fi
+fi
+
+exit 0
+

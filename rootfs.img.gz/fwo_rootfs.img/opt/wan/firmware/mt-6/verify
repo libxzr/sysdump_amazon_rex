@@ -1,0 +1,40 @@
+#!/bin/sh
+
+. /etc/rc.d/functions
+
+FW_DIR="$1"
+FW_CS=${FW_DIR}/firmware.md5
+RET=1
+
+if [ ! -f ${FW_CS} ] ; then
+	msg "could not find \"${FW_CS}\"" E "nofwcs"
+	exit 1
+fi
+
+LC=`cat ${FW_CS} | wc -l`
+I=0
+while [ ${I} -lt ${LC} ]; do
+	read L
+	if [ -n "${L}" ]; then
+		F=`echo ${L} | awk '{ print $2 }'`
+		if [ -n "${F}" ]; then
+			M=`echo ${L} | awk '{ print $1 }'`
+			FW_FILE="${FW_DIR}/${F}"
+			if [ -f ${FW_FILE} ]; then
+				FM=`md5sum "${FW_FILE}" | cut -d ' ' -f 1`
+				if [ "${FM}" == "${M}" ]; then
+					RET=0
+				else
+					msg "checksum error for \"${FW_FILE}\"" E "ceff"
+					exit 1
+				fi
+			else
+				msg "missing file - \"${FW_FILE}\"" E "ceff"
+				exit 1
+			fi
+		fi
+	fi
+	I=$((${I} + 1))
+done <${FW_CS}
+
+exit $RET

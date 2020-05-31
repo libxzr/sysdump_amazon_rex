@@ -1,0 +1,31 @@
+style "haptic-range-widget"
+{
+  GtkRange::slider-width = 50
+  text[NORMAL] = { 0.0, 0.0, 0.0 }
+  fg[NORMAL] = { 1.0, 1.0, 1.0 }
+  bg[NORMAL] = { 0, 0, 0 }
+}
+
+style "haptic-button"
+{
+  GtkButton::child-displacement-x = 0
+  GtkButton::child-displacement-y = 0
+  GtkButton::default-border = {0,0,0,0}
+  GtkButton::default-outside-border = {0,0,0,0}
+  GtkButton::displace-focus = 0 
+  GtkButton::inner-border = {0,0,0,0} 
+  GtkButton::button-relief = GTK_RELIEF_NONE
+  bg[NORMAL] = { 1.0, 1.0, 1.0 }
+  bg[SELECTED] = { 1.0, 1.0, 1.0 }
+  bg[PRELIGHT] = { 1.0, 1.0, 1.0 }
+  bg[ACTIVE] = { 0.0, 0.0, 0.0 }
+}
+
+style "haptic-checkbox"
+{
+  GtkCheckButton::indicator-size = 40
+}
+
+class "GtkRange" style "haptic-range-widget"
+class "GtkButton" style "haptic-button"
+class "GtkCheckButton" style "haptic-checkbox"

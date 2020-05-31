@@ -1,0 +1,4 @@
+var UpdatingFontsConfig = {
+    title: "\u6b63\u5728\u66f4\u65b0\u5b57\u4f53",
+    message: "Kindle \u6b63\u5728\u66f4\u65b0\u5b57\u4f53\uff0c\u53ef\u80fd\u9700\u8981\u4e00\u6bb5\u65f6\u95f4\u2026"
+};

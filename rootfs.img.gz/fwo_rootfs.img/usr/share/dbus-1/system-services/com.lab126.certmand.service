@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=com.lab126.certmand
+Exec=/usr/bin/certmand
+User=framework

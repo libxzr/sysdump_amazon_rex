@@ -1,0 +1,116 @@
+<stylesheet>
+
+<style>
+<rule attr="min-scale" value="100" />
+<rule attr="baseline-expand" value="25"/>
+<rule attr="tracking" value="30" />
+<rule attr="zoomable" value="true" />
+</style>
+
+<style _tag="link">
+<rule attr="display" value="inline" />
+</style>
+
+<style _tag="page">
+<rule attr="display" value="block" />
+<rule attr="layout" value="reflow" />
+</style>
+
+<style _tag="page" _after_type="copyrt" _after_same_type="false">
+<rule attr="new-page" value="true"/>
+</style>
+
+<style _tag="page" type="copyrt" _after_same_type="false">
+<rule attr="new-page" value="true"/>
+</style>
+
+<style _tag="empty">
+<rule attr="new-page" value="true" />
+</style>
+
+<style _tag="region">
+<rule attr="display" value="block" />
+</style>
+
+<style type="vertical">
+<rule attr="display" value="block" />
+</style>
+
+<style type="suppress">
+<rule attr="display" value="none" />
+</style>
+
+<style type="chapterheading">
+<rule attr="new-page" value="true" />
+</style>
+
+<style _tag="page" type="fflap">
+<rule attr="display" value="none" />
+</style>
+
+<style _tag="page" type="bflap">
+<rule attr="display" value="none" />
+</style>
+
+<style _tag="page" type="fface">
+<rule attr="display" value="none" />
+</style>
+
+<style _tag="page" type="bface">
+<rule attr="display" value="none" />
+</style>
+
+<style _tag="word">
+<rule attr="display" value="inline" />
+</style>
+
+<style type="packed">
+<rule attr="///pack" value="condense" />
+</style>
+
+<style type="header">
+<rule attr="display" value="none" />
+</style>
+
+<style type="footer">
+<rule attr="display" value="none" />
+</style>
+
+<style _tag="page" type="suppress">
+<rule attr="display" value="none" />
+</style>
+
+<style _tag="page" type="spine">
+<rule attr="display" value="none" />
+</style>
+
+<style type="footnote">
+<rule attr="display" value="popup" />
+</style>
+
+<style _tag="extratokens">
+<rule attr="display" value="if-relative" />
+</style>
+
+<style _tag="word_semantic" type="LOCATION_INFORMATION">
+<rule attr="display" value="none" />
+</style>
+
+<style _tag="_span">
+<rule attr="display" value="inline" />
+</style>
+
+<style type="chapterheading">
+<rule attr="zoomable" value="false" />
+</style>
+
+<style type="insert">
+<rule attr="background" value="220 220 220" />
+</style>
+
+<style type="sidebar">
+<rule attr="display" value="iconify" />
+<rule attr="icon-image" value="insert" />
+</style>
+
+</stylesheet>

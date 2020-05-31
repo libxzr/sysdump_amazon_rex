@@ -1,0 +1,73 @@
+#!/bin/sh
+
+if [ -z "$1" ]; then
+	cmd="--help"
+else
+	cmd="$1"
+fi
+
+usbnet_line=`grep usbnet /proc/cmdline`
+
+if [ -n "$usbnet_line" ]; then
+	usbnet="true"
+else
+	usbnet="false"
+fi
+
+if grep -q '.* root=/dev/mmc' /proc/cmdline
+then
+	netboot="false"
+else
+	netboot="true"
+fi
+
+hardware_line=`grep Hardware /proc/cpuinfo`
+
+case "$hardware_line" in
+	*ADS* )
+		board="ADS"
+		enet="cs89x0"
+		;;
+
+	*Mario* )
+		board="Mario"
+		enet="smc911x"
+		;;
+
+	*Turing*)
+		board="Turing"
+		enet=""
+		;;
+
+	*Nell*)
+		board="Nell"
+		enet=""
+		;;
+
+	* )
+		board="Unknown"
+		enet="Unknown"
+		;;
+esac
+
+case "$cmd" in
+
+	board )		echo $board		;;
+	enet )		echo $enet		;;
+	netboot )	echo $netboot		;;
+	usbnet )	echo $usbnet		;;
+	
+	--help )
+
+		echo "Usage: feature <selector>" > /dev/stderr
+		echo "  where 'selector' is 'board', 'enet', or 'usbnet'" > /dev/stderr
+		exit 1
+		;;
+	* )
+
+		echo "Unknown feature: '$cmd'" > /dev/stderr
+		exit 2
+		;;
+esac
+
+exit 0

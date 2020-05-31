@@ -1,0 +1,10 @@
+# filesystem configuration control
+
+# root settings
+RA_ROOT_DEV=mmcblk0
+RA_ROOT_SIZE=4
+
+# card settings
+RA_SLOT_DEV=mmcblk1
+RA_SLOT_SIZE=4
+

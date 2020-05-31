@@ -1,0 +1,145 @@
+/*
+ * language_picker.css
+ *
+ * Copyright 2012-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+.langListDiv2 {
+    float: right;
+    margin-right: 14pt;
+    border-bottom: 1px solid;
+}
+
+.langListDiv1 {
+    float: left;
+    margin-left: 14pt;
+    border-bottom: 1px solid;
+}
+
+.languageDiv {
+    font-family: dialog;
+    font-weight: bold;
+    padding-left: 2pt;
+    height: 26pt;
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.languageParentDiv {
+    padding-top: 2pt;
+    padding-bottom: 2pt;
+    border-top: 1px solid;
+    display: table;
+    width: 107pt;
+}
+
+.languageSecondMenuParentDiv {
+    padding-top: 2pt;
+    padding-bottom: 2pt;
+    border-top: 1px solid;
+    display: table;
+    width: 212pt;
+}
+
+.lang_picker {
+    font-size: 8pt;
+    vertical-align: middle;
+    display: table-cell;
+}
+
+.demo_lang_picker {
+    font-size: 8pt;
+    margin-top: 30pt;
+    display: table-cell;
+    vertical-align: text-top;
+}
+
+.lang_picker_wrapper {
+    display: table;
+    margin-top: 24pt;
+    height: 233pt;
+    width: 260pt;
+}
+
+.demo_lang_picker_wrapper {
+    display: table-cell;
+    height: 210.24pt;
+    width: 303.41pt;
+    vertical-align: middle;
+}
+
+#secondMenuHeaderBody {
+    font-family: dialog;
+    display: none;
+    font-size: 7.92pt;
+    text-align: left;
+    margin-top: 0pt;
+    margin-bottom: 13.2pt;
+    margin-left: 10.08pt;
+    margin-right: auto;
+    height: 10.08pt;
+}
+
+.secondMenuHeaderTitle {
+    font-family: dialog;
+    display: none;
+    font-size: 10.08pt;
+    font-weight: bold;
+    text-align: left;
+    margin-top: 27.36pt;
+    margin-bottom: 2.88pt;
+    margin-left: 10.08pt;
+    margin-right: auto;
+    height: 12pt;
+}
+
+.demoMenuHeaderTitle {
+    font-family: dialog;
+    display: none;
+    font-size: 10.08pt;
+    font-weight: bold;
+    text-align: left;
+    margin-top: 27.36pt;
+    margin-bottom: 14.16pt;
+    margin-left: 13.92pt;
+    margin-right: 79.44pt;
+    height: 24pt;
+    width: 164.16pt;
+}
+
+body {
+    margin-left: 0pt;
+    margin-right: 0pt;
+    height: 347.52pt;
+    -webkit-user-select: none;
+}
+
+
+.nextButtonWrapper {
+    height: 26.88pt;
+    margin-top: 32.4pt;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.demoNextButtonWrapper {
+    margin-top: 13.68pt;
+}
+
+.normalNextButton {
+    font-family: dialog;
+    display: none;
+    font-size: 9.12pt;
+    margin-top: 1.92pt;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 5.04pt 7.68pt 5.04pt 7.68pt;
+    border-radius: 0.96pt;
+    border: 0.96pt solid;
+    box-sizing: border-box;
+    background-color: white;
+    outline: none;
+}

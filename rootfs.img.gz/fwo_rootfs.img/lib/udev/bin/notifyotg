@@ -1,0 +1,21 @@
+#!/bin/sh
+# Emit the events only if the feature is supported on the device
+
+_LOG="/usr/bin/logger -s -t $(basename $0)"
+
+if [ 0 -eq $(devcap-get-feature -a usbaudio) ] ; then
+    ${_LOG} "I $(basename $0):usbaudio not supported!"
+    exit 0
+fi
+
+if [ "$ACTION" = "add" ] ; then
+    /usr/bin/lipc-send-event -r 3 com.lab126.hal usbaudioConnected
+else
+    if [ "$ACTION" = "remove" ] ; then
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal usbaudioDisconnected
+        # Any running aplay processes must be terminated on unplugging OTG 
+        killall mplay
+    fi
+fi
+
+exit 0

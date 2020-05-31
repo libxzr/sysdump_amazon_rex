@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=com.lab126.pillow
+Exec=/usr/bin/pillow_launch_helper.sh

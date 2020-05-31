@@ -1,0 +1,457 @@
+#!/bin/sh
+#
+# Copyright (c) 2013-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# PROPRIETARY/CONFIDENTIAL
+#
+# Use is subject to license terms.
+#
+
+#
+# common functions used by scripts for content pack.
+#
+
+# paths, file extensions, etc.
+readonly FONTDIR="/var/local/font/mnt"
+readonly FONTPROPPATH="/var/local/system/font.properties"
+readonly FONTPROPNEWPATH="/var/local/system/font.properties.new"
+readonly FONTIMGDIR="/mnt/us/system/fonts"
+readonly FCACHEDESTDIR="/var/local/font/cache"
+readonly FONTCONFDESTDIR="/var/local/font/conf.d"
+readonly FONTMNTDIRSUFFIX="_font"
+readonly FCACHEDIRINIMG="caches"
+readonly FONTDIRINIMG="fonts"
+readonly FONTIMGEXT="font"
+readonly FCACHEEXT="cache-3"
+readonly TEMP_FILE_PREFIX="csp_tmp"
+# keyboard
+readonly KBIMGDIR="/var/local/keyboard"
+readonly KBIMGEXT="ldb"
+# manifest
+readonly MANIFESTPREFIX="manifest_"
+readonly MANIFESTINBUNDLE="manifest"
+readonly TYPEKEYINMANIFEST="type"
+readonly FONTMANIFDIR="/var/local/font/manifests"
+readonly FONTMANIFDIR_RF="/usr/lib/font/manifests"
+readonly KBMANIFDIR="/var/local/keyboard/manifests"
+readonly MANIF2PROPCMD="/usr/sbin/manif2prop"
+# bundle
+readonly BUNDLEDOWNLOADDIR="/mnt/us/system/fonts"
+readonly BUNDLEEXT="bin"
+# signed bundle
+readonly PAYLOADFILE="payload.bin"
+readonly SPBUNDLEEXT="sp"
+readonly SPBUNDLEVER="SP01"
+# security keys
+readonly PUBKEYPATH="/etc/uks/pubdevkey01.pem"
+
+# status
+readonly CSP_SUCCESS=0
+readonly CSP_HARD_ERROR=1
+readonly CSP_RETRIABLE_ERROR=2
+readonly CSP_NEW_BUNDLE_FOUND=3
+readonly CSP_REBOOT=4
+
+readonly CSP_NO_ERROR_FOUND=6
+
+__status=$CSP_SUCCESS
+
+get_severity() {
+    case "$1" in
+        $CSP_SUCCESS)
+            echo 0;;
+        $CSP_NO_ERROR_FOUND)
+            echo 1;;
+        $CSP_RETRIABLE_ERROR)
+            echo 2;;
+        $CSP_HARD_ERROR)
+            echo 3;;
+        $CSP_REBOOT)
+            echo 4;;
+        *)
+            csp_log_err "get_severity: unknown status value \"$1\"."
+            echo 0;;
+    esac
+}
+
+set_status() {
+    # following logic is to determine the status the script should return.
+    # currently it works as recording the most important status while
+    # the script runs. the most important status is roughly the worst error type.
+
+    _curseverity=`get_severity "$__status"`
+    _newseverity=`get_severity "$1"`
+
+    if [ "$_newseverity" -gt "$_curseverity" ]; then
+        __status="$1"
+    fi
+}
+
+get_status() {
+    echo $__status
+}
+
+csp_log_args() {
+    logger $@
+}
+
+csp_log() {
+    _lev="$1"
+    _msg="$2"
+    _procnam=`basename "$0"`
+    _tag="$_procnam[$$]"
+    _faci="daemon"
+
+    if [ $CSP_DEBUG ]; then
+        echo $@ >&2
+    fi
+
+    if [ $# -eq 2 ]; then
+        _pri="${_faci}.${_lev}"
+        logger -t $_tag -p $_pri $_msg
+    else
+        # simply log args
+        csp_log_args $@
+    fi
+}
+
+csp_log_err() {
+    csp_log "err" "$@"
+}
+
+csp_log_info() {
+    csp_log "info" "$@"
+}
+
+csp_log_debug() {
+    csp_log "debug" "$@"
+}
+
+csp_verify_bundle() {
+    _bundle_path="$1"
+    parse_bundle "$_bundle_path" && verify_bundle "$_bundle_path" $OTA_BLOCKSIZE
+}
+
+csp_extract_bundle() {
+    _bundle_path="$1"
+    _work_dir="$2"
+
+    parse_bundle "$_bundle_path" && extract_bundle "$_bundle_path" "$_work_dir"
+}
+
+check_bundle_version() {
+    _bundle="$1"
+    _vertotest="$2"
+
+    if [ -z "$_vertotest" ]; then
+        csp_log_err "null bundle version is specified"
+        return 1
+    fi
+
+    _bundlever=`get_bundle_version "$_bundle"`
+    _ret=$?
+    if [ "$_ret" -ne 0 ]; then
+        return "$_ret"
+    fi
+
+    test "$_bundlever" = "$_vertotest"
+}
+
+verify_img() {
+    csp_log_info "Verifying bundle \"$1\"..."
+    parse_bundle "$1" && verify_bundle "$1" $OTA_BLOCKSIZE
+}
+
+expand_spimg() {
+    _img="$1"
+    _work_dir="$2"
+
+    if [ ! -f "$_img" ]; then
+        csp_log_err "expand_spimg: image \"$_img\" doesn't exist."
+        return 1
+    fi
+
+    if [ ! -d "$_work_dir" ]; then
+        csp_log_err "expand_spimg: directory \"$_work_dir\" doesn't exist."
+        return 1
+    fi
+
+    # remove any temp files that were left behind by a previous incomplete
+    # run of this function.
+    rm -f "$_work_dir"/"$TEMP_FILE_PREFIX".*
+
+    _originalpath="$_img"
+    _temporarypath=`mktemp -p "$_work_dir" "$TEMP_FILE_PREFIX".XXXXXXXXXX`
+    _expandpath="${_work_dir}/${PAYLOADFILE}"
+
+    # rename original file before expanding it
+    mv "$_originalpath" "$_temporarypath"
+    if [ $? -ne 0 ]; then
+        csp_log_err "expand_spimg: can't rename \"$_originalpath\""
+        return 1
+    fi
+
+    # expand signed file
+    csp_extract_bundle "$_temporarypath" "$_work_dir"
+    _ret=$?
+    rm -f "$_temporarypath"		# remove tmp file anyway
+    if [ $_ret -eq 0 ] ; then
+        # rename expanded file to original
+        mv "$_expandpath" "$_originalpath"
+        if [ $? -ne 0 ]; then
+            csp_log_err "expand_spimg: can't rename expanded file \"$_expandpath\" to \"$_originalpath\"."
+            rm -f "$_expandpath"
+            return 1
+        fi
+    else
+        csp_log_err "expand_spimg: failed to expand signed image: \"$_img\""
+        rm -f "$_expandpath"
+        return 1
+    fi
+
+    return 0
+}
+
+verify_and_expand_spimg() {
+    _spimg="$1"
+
+    # process file on the same directory. if the file is already on a
+    # user-unaccessible location, this process should be user-unacessible
+    # as well.
+    _workdir=`dirname "$1"`
+    if [ ! -d "$_workdir" ]; then
+        csp_log_err "Can't determine directory from image path \"$_spimg\"."
+        return 1
+    fi
+
+    verify_img "$_spimg"
+    if [ $? -ne 0 ]; then
+        csp_log_err "Failed to verify image \"$_spimg\"."
+        return 1
+    fi
+
+    expand_spimg "$_spimg" "$_workdir"
+    if [ $? -ne 0 ]; then
+        csp_log_err "Failed to expand signed image \"$_spimg\"."
+        return 1
+    fi
+}
+
+# note: obviously not a full JSON parser. limited use only.
+get_json_value() {
+    _file="$1"
+    _key="$2"
+
+    if [ ! -e "$_file" ]; then
+        csp_log_err "JSON file doesn't exist."
+        echo ""
+    fi
+
+    awk -F "[\"]" -v key="$_key" '{ if ($2 == key) {print $4} }' "$_file"
+}
+
+has_extension() {
+    echo "$1" | grep "\.${2}$" > /dev/null
+}
+
+is_mounted() {
+    mount | grep "$1" 1>/dev/null 2>&1
+}
+
+check_manifest_md5() {
+    _basename=`basename "$1"`
+    _manif="$2"
+
+    _md5key="${_basename}.md5"
+
+    if [ ! -e "$_manif" ]; then
+        csp_log_err "Can't find manifest at $_manif"
+        return 1
+    fi
+
+    _md5manif=`get_json_value "$_manif" "$_md5key"`
+    if [ ! -n "$_md5manif" ]; then
+        csp_log_err "Can't find md5 for $1."
+        return 1
+    fi
+
+    _md5now=`md5sum "$1" | awk '{print $1}'`
+    if [ ! -n "$_md5now" ]; then
+        csp_log_err "Can't calculate md5 for $_basename."
+        return 1
+    fi
+
+    csp_log_debug "Checksums for $1: manifest $_md5manif, real $_md5now"
+
+    test "$_md5manif" = "$_md5now"
+}
+
+get_font_manifest_names() {
+    _namelist=""
+    for _manifpath in "$FONTMANIFDIR"/* "$FONTMANIFDIR_RF"/*
+    do
+        if [ ! -f "$_manifpath" ]; then
+            continue
+        fi
+
+        _name=`basename "$_manifpath" | sed "s/$MANIFESTPREFIX//"`
+        if [ -n "$_name" ]; then
+            _namelist="$_namelist $_name"
+        fi
+    done
+
+    # remove duplicates (manifest of a name can exist both in FONTMANIFDIR and
+    # in FONTMANIFDIR_RF but we don't need duplicated entries).
+    # see get_font_manifest_ath() also for how manifest is chosen.
+    echo `echo "$_namelist" | sed 's/\s/\n/g' | sort | uniq`
+}
+
+get_font_manifest_path() {
+    _name="$1"
+
+    _manifbase="${MANIFESTPREFIX}${_name}"
+    # search FONTMANIFDIR (/var/local/...) and FONTMANIFDIR_RF (/usr/lib/...)
+    # in this order. The first file found is returned.
+    for _path in "$FONTMANIFDIR/$_manifbase" "$FONTMANIFDIR_RF/$_manifbase"
+    do
+        if [ -f "$_path" ] ; then
+            csp_log_info "manifest found at \"$_path\""
+            echo "$_path"
+            return
+        fi
+    done
+
+    echo ""
+}
+
+get_font_mount_dir() {
+    _name="$1"
+    echo "${FONTDIR}/${_name}${FONTMNTDIRSUFFIX}"
+}
+
+get_mounted_font_names() {
+    _mntprefix=`echo $FONTDIR | sed 's%/%\\\\/%g'`
+    df -P | awk '$6~/'"$_mntprefix"'/ {printf "%s ", $6}' | sed 's/'"$_mntprefix"'\/\([^ ]*\)'"$FONTMNTDIRSUFFIX"'/\1/g'
+}
+
+get_font_img_name() {
+    _file="$1"
+    _name=""
+
+    if has_extension "$_file" "$FONTIMGEXT"; then
+        _name=`basename "$_file" ".$FONTIMGEXT"`
+    fi
+
+    echo $_name
+}
+
+get_font_img_path() {
+    _name="$1"
+    echo "${FONTIMGDIR}/${_name}.${FONTIMGEXT}"
+}
+
+_install_file_check() {
+    if [ $# -ne 2 ] || [ "$1" = "" ] || [ "$2" = "" ]; then
+        csp_log_err "install_file_check: argument error"
+        return 1
+    fi
+
+    if [ ! -f "$1" ]; then
+        csp_log_err "install_file_check: the source file \"$1\" not found."
+        return 1
+    fi
+}
+
+# copy a file (create the dest dir if it doesn't exist)
+install_file() {
+    _install_file_check $@
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+
+    _srcf="$1"
+    _destf="$2"
+
+    _destdir=`dirname "$_destf"`
+    ensure_directory "$_destdir"
+    if [ $? -ne 0 ]; then
+        csp_log_err "install_file: dest dir \"$_destdir\" is unavailable."
+        return 1
+    fi
+
+    # copy file to destination first
+    cp "$_srcf" "$_destf"
+    if [ $? -ne 0 ]; then
+        csp_log_err "install_file: can't copy \"$_srcf\" to \"$_destf\"."
+        uninstall_file "$_destf"
+        return 1
+    fi
+
+    # if file is singed, verify and expand it on the same directory
+    check_bundle_version "$_destf" "$SPBUNDLEVER"
+    if [ $? -eq 0 ]; then
+        csp_log_info "install_file: file \"$_destf\" is signed."
+        csp_log_info "install_file: verifying and expanding \"$_destf\"..."
+        # verify and expand signed file
+        verify_and_expand_spimg "$_destf"
+        if [ $? -ne 0 ]; then
+            csp_log_err "install_file: failed to expand signed file \"$_destf\"."
+            uninstall_file "$_destf"
+            return 1
+        fi
+    fi
+}
+
+# install file only if the file is signed
+install_signed_file() {
+    _install_file_check $@
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+
+    # accept only signed file (bundle)
+    check_bundle_version "$1" "$SPBUNDLEVER"
+    if [ $? -ne 0 ]; then
+        csp_log_err "install_signed_file: file \"$1\" is not signed."
+         return 1
+    fi
+
+    install_file "$1" "$2"
+}
+
+uninstall_file() {
+    rm -f "$1"
+    if [ -e "$1" ]; then
+        csp_log_err "Can't remove file \"$1\"."
+        return 1
+    fi
+
+    return 0
+}
+
+ensure_directory() {
+    if [ -z "$1" ]; then
+        csp_log_err "ensure_directory: empty directory name specified."
+        return 1
+    fi
+
+    if [ -f "$1" ]; then
+        rm -f "$1"
+        if [ $? -ne 0 ]; then
+            csp_log_err "ensure_directory: failed to remove plain file \"$1\"."
+            return 1
+        fi
+    fi
+
+    if [ ! -d "$1" ]; then
+        mkdir -p "$1"
+        if [ $? -ne 0 ]; then
+            csp_log_err "ensure_directory: failed to create directory \"$1\"."
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+# end.

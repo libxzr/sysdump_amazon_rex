@@ -1,0 +1,59 @@
+/* Copyright (c) 2014 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ * PROPRIETARY/CONFIDENTIAL
+ * Use is subject to license terms.
+ * Each statement is preceded by a line like:
+ *
+ * --## Create: Entries:1
+ *
+ * The '--##' says that this is a directive.
+ *
+ * The 'Create:' says that this is creates some object in the database.
+ *
+ * The 'Entries' says that this is for the Entries object (which happens to be a table).
+ *
+ * The '1' says that this will start Entries at version 1.
+ *
+ * Updates:
+ *
+ * --## Update: Entries:1:2
+ *
+ * 'Update:' says that this updates some object in the database.
+ *
+ * 'Entries' says this updates the Entries object.
+ *
+ * '1' says that this updates FROM version 1.
+ *
+ * '2' says that this updates TO version 2.
+ *
+ *
+ * Note that you MUST use a new directive for EVERY SQL statement.  Combining multiple
+ * statements will not work correctly.
+ */
+
+--## Create: DeviceContentEntry:1
+CREATE TABLE DeviceContentEntry
+(
+    p_uuid,                --Content UUID
+    p_location,            --Content Absolute path
+    p_thumbnail,           --Content Thumbnail path
+    p_cdeKey,              --Content Key
+    p_cdeType,             --Content Type
+    p_modificationTime,    --Modification time
+    p_isVisibleInHome,     --Is content visible
+    p_diskUsage,           --Bytes on disk (int)
+    p_contentIndexedState, --The state of indexing the content
+    p_referenceCount,      --Number of profiles using this Entry
+    p_version,             --Content version (string)
+    p_guid,                --Content GUID (string)
+    p_contentSize,         --Human-perceived length (int)
+    p_ownershipType,       --Ownership type
+    p_mimeType,            --Mime type (string, mime type)
+    p_type                 --App-defined type (string)
+)
+
+--## Create: EntryUserAssociation:1
+CREATE TABLE EntryUserAssociation
+(
+    p_uuid,       --Content UUID
+    p_profileId   --Profile who owns the content
+)

@@ -1,0 +1,39 @@
+#!/bin/sh
+
+_WFM_DIR=/mnt/wfm
+WFM_PATH="${_WFM_DIR}/waveform_to_use"
+
+source /etc/upstart/functions
+
+lock=/var/lock/wfm_delete_lock                                         
+                                                                                                     
+exec 200> $lock                                                        
+I=0; while [ $I -lt 60 ] && ! flock -n 200; do sleep 1 ; let I++ ; done
+RET=$?                                                                                               
+                                                                            
+if [ "${I}" -eq "60" ]; then                                                                         
+    f_log E waveform delete "acquirelockfailed" "acquire lock failed"    
+    return 1                                                                 
+fi     
+#mount the waveform partition
+if ! wfm_mount ; then
+    f_log E wavefrom delete "Failed to mount waveform storage area!"
+    exit 1
+fi
+    
+rm -f "${WFM_PATH}"/*
+RET=$?
+if [ "${RET}" -ne "0" ] ;then
+    f_log E waveform delete "Failed to delete waveforms"
+    wfm_umount
+    exit 1
+fi
+rm -f "${_WFM_DIR}"/DONT_ERASE_WFM
+RET=$?
+if [ "${RET}" -ne "0" ] ;then
+    f_log E waveform delete "Failed to delete DONT_ERASE_WFM flag"
+    wfm_umount
+    exit 1
+fi
+sync
+wfm_umount

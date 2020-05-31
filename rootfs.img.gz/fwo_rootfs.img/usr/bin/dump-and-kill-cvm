@@ -1,0 +1,74 @@
+#!/bin/sh
+
+# dumps java and native thread stacks for CVM process.
+
+# for msg() and wait_framework_done()
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+print_usage () {
+    echo "usage: $0"
+    echo "-h|--help print this help"
+    echo ""
+    echo "dumps java and native threads for CVM process"
+}
+
+if [ "x$1" == "x--help" -o "x$1" == "x-h" ]; then
+	print_usage
+	exit 1
+fi
+
+#-- main ---------------------------------------------------------
+PROCESS=cvm
+PROCESS_PID=`pidof ${PROCESS} | awk '{print $1}'`
+DUMPSTACK=/usr/bin/dump-stack
+
+SCRIPT_NAME=`basename $0`
+LOGGER() { logger -p local4.info -t "system: I ${SCRIPT_NAME}:psinfo:"; }
+
+# put up "please wait" screen
+/usr/sbin/eips -c
+sleep 1
+/usr/sbin/eips 5 5  "Collecting information.  May take a min.."
+/usr/sbin/eips 5 10 "Will restart when done.."
+/usr/sbin/eips 5 15 "Please wait.."
+
+# dump process state information for all processes
+msg ": begin process state info ==========================================================" I psinfo
+ps aux | logger -p local4.info -t "system: I ${SCRIPT_NAME}:psinfo:";
+msg ": end process state info ============================================================" I psinfo
+
+if [ -z "${PROCESS_PID}" ]; then
+    msg "pid=${PROCESS_PID}: no cvm process alive ============================================" I ${PROCESS}
+    exit 2
+fi
+
+# dump native threads
+if [ -x ${DUMPSTACK} ]; then
+     ${DUMPSTACK} ${PROCESS_PID}
+else
+	msg "pid=${PROCESS_PID}: no ${DUMPSTACK}, skipping native threads ========================" I ${PROCESS}
+fi
+
+# send sigquit to dump java threads
+msg "pid=${PROCESS_PID}: begin java threads ==============================================" I ${PROCESS}
+kill -QUIT ${PROCESS_PID}
+sleep 25
+
+# sometimes thread dumps end up being truncated, do it once more as a backup
+msg "pid=${PROCESS_PID}: dump java threads one more time (as a backup) ===================" I ${PROCESS}
+kill -QUIT ${PROCESS_PID}
+sleep 25
+
+msg "pid=${PROCESS_PID}: end java threads ================================================" I ${PROCESS}
+
+msg "pid=${PROCESS_PID}: killing CVM =====================================================" I ${PROCESS}
+stop x
+sleep 2
+
+# rotate log files
+/usr/sbin/tinyrot --force
+
+start x
+
+exit 0

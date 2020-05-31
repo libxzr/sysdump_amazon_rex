@@ -1,0 +1,10 @@
+#!/bin/sh
+if [ "$DRIVER" == "bd71827" ]; then
+    lipc-send-event com.lab126.hal powerButtonPressed
+elif [ "$DRIVER" == "hall_sensor" ]; then
+    if [ "$HALLSENSOR" == "opened" ]; then
+        lipc-send-event com.lab126.hal magSensorOpened
+    elif [ "$HALLSENSOR" == "closed" ]; then
+        lipc-send-event com.lab126.hal magSensorClosed
+    fi
+fi

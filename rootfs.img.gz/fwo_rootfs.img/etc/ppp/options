@@ -1,0 +1,17 @@
+# /etc/ppp/options
+#
+# default common options for peers
+
+/dev/ttyACM0 230400
+crtscts
+modem
+lock
+novj
+ipcp-max-failure 70
+
+# For whistler forcing LCP restart interval to 5 secs to avoid race condition between host & modem
+lcp-restart 5
+
+# Increase IPCP timeout (from 30 seconds to 50 seconds) to do not send lcp term req to the modem when the modem did not get an acceptance from the network for 1st PDP activation request try.
+# Refer JNINEOFIVE-85 for more details.
+ipcp-restart 5

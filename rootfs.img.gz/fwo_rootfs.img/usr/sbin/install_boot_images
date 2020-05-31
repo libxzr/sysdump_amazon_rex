@@ -1,0 +1,49 @@
+#!/bin/sh
+
+source /etc/upstart/functions
+
+RU_SCREEN_DIR=/mnt/wfm/images
+EINK_LINK_DIR=/var/local/eink
+EINK_LINK_FILE=$EINK_LINK_DIR/images
+USER_SCREEN_DIR=$1
+
+if [ ! -d "$USER_SCREEN_DIR" ]; then
+    echo "Screen directory '$USER_SCREEN_DIR' is invalid"
+    exit 1
+fi
+
+if ! wfm_mount ; then 
+    exit 1
+fi 
+
+rm -rf $EINK_LINK_FILE
+rm -rf $RU_SCREEN_DIR
+
+mkdir -p $EINK_LINK_DIR
+mkdir -p $RU_SCREEN_DIR
+
+for img in `ls $USER_SCREEN_DIR/*.png`
+do
+  outname=`basename $img .png`
+
+  # convert png image to raw framebuffer image 
+  # the order of the eips parameters matters! See JTWO-321 for details.
+if [ "$(f_platform)" = "zelda" ]; then
+  # Zelda/Cognac don't need inverting images.
+  eips -t -g $img "$RU_SCREEN_DIR/$outname.raw"
+else
+  eips -t -v -g $img "$RU_SCREEN_DIR/$outname.raw"
+fi
+  gzip "$RU_SCREEN_DIR/$outname.raw"
+done
+
+for img in `ls $USER_SCREEN_DIR/*.raw.gz`
+do
+  outname=`basename $img`
+  cp $img $RU_SCREEN_DIR/$outname
+
+done
+wfm_umount
+
+# link images directory
+ln -s $USER_SCREEN_DIR $EINK_LINK_FILE 

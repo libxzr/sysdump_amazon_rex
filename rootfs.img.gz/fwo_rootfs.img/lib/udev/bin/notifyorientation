@@ -1,0 +1,49 @@
+#!/bin/sh
+
+case "$1" in
+        'up')
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal orientationUp
+        ;;
+
+        'down')
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal orientationDown
+        ;;
+
+        'left')
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal orientationLeft
+        ;;
+
+        'right')
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal orientationRight
+        ;;
+
+        'face_down')
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal orientationFaceDown
+        ;;
+
+        'face_up')
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal orientationFaceUp
+        ;;
+
+        'free_fall')
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal orientationFreeFall
+        ;;
+
+        'tap')
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal orientationTap
+        ;;
+
+        'shake')
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal orientationShake
+        ;;
+
+        'double_wave')
+        /usr/bin/lipc-send-event -r 3 com.lab126.hal orientationDoubleWave
+        ;;
+
+        *)
+        logger "ERROR: Unkown orientation event"
+        ;;
+
+esac
+

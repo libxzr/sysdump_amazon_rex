@@ -1,0 +1,98 @@
+#! /bin/sh
+# script for loading zforce module and updating zforce (neonode) firwmare.
+# There is no way to know if it's really connected, so failure just unloads
+# the module and returns "true"
+
+source /etc/upstart/functions
+
+# don't load on boards w/out touch
+
+FWDIR=/lib/firmware/zforce
+UP=/usr/sbin/ihbslupdater
+UART=/dev/ttymxc2
+SYS=/sys/devices/platform/zforce.0
+EMPTY_VERS=0.0b0r0
+
+# find firmware specific to board or generic to arch
+# sub-shell to avoid changing cwd
+
+getfw() {
+ local b=$(f_board) p=$(f_platform)
+ (
+   cd $FWDIR
+   local P= B= F=
+   for i in *; do
+     case "$i" in
+       ${b}_*) B="$B $i" ;;	# e.g. finkle_*
+       ${p}_*) P="$P $i" ;;	# e.g. yoshi_*
+     esac
+   done
+
+# prefer board specific to platform specific, and take the last (newest)
+
+   if [ -n "$B" ]; then
+     set $B ; eval echo \$$#
+     return 0
+   elif [ -n "$P" ]; then
+     set $P ; eval echo \$$#
+     return 0
+   else
+     return 1
+   fi
+ )
+}
+
+modprobe zforce && true
+
+#TODO remove that next exit 0 (replace it with exit 1) when dropping Finkle support
+# see if we have /sys available
+[ -d $SYS ] || exit 0
+
+# Get reported firmware version
+
+S_VERS=$(cat $SYS/version)
+
+# Empty version reported, first flash with empty password
+
+if [ "$S_VERS" = "$EMPTY_VERS" ]; then
+	PASS=-p;
+else
+	PASS= ;
+fi
+
+f_log I zforce start version=$S_VERS
+
+# find firmware on disk, or we're done
+
+FW=$(getfw)
+
+[ -z "$FW" ] && exit 0
+
+# isolate version (strip off leading *_ and (possible) trailing .hex)
+F_VERS=${FW##*_}
+F_VERS=${F_VERS%.hex}
+
+# if the version is the same, we're done
+
+[ "$S_VERS" = "$F_VERS" ] && exit 0
+ 
+f_log I zforce update "from=$S_VERS,to=$F_VERS"
+
+# all righty - let's try updating it.  If it fails, we'll remove the module
+
+echo 1 > $SYS/bslreset
+
+if $UP -N -v $PASS -d $UART -f $FWDIR/$FW ; then
+  modprobe -r zforce
+  modprobe zforce
+  N_VERS=$(cat $SYS/version)
+  f_log I zforce updated "version=$N_VERS"
+  if [ "$F_VERS" != "$N_VERS" ]; then
+    f_log W zforce mismatch "file=$F_VERS,driver=$N_VERS" "will continue to update on every reboot"
+  fi
+else
+  f_log I zforce not_present
+  modprobe -r zforce
+fi
+
+exit 0

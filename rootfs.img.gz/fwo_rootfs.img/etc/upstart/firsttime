@@ -1,0 +1,55 @@
+#!/bin/sh
+
+#
+# stuff that happens once on first boot, so we don't mount "/" RW every time.
+# N.B. - runs in a *very* limited startup environment, but can depend
+# on /proc, /sys, /var, /tmp and minimal /dev being there.
+#
+
+source /etc/upstart/functions
+source /etc/profile
+
+# remount RW if required
+
+RW=
+mount_rw() {
+  if [ -z "$RW" ]; then
+    f_log I firsttime mount_rw time=$(f_ms) "Mounting root RW for first boot"
+    echo -n fi00 > /proc/bd/boot_milestone
+    RW=yes
+    mount -o rw,remount /
+  fi
+}
+
+# rcS.d modifications
+# TODO - move to build, not runtime
+
+[ -d /lost+found ] && mount_rw && (f_log I firsttime lostfound "Removing lost+found" && rm -rf /lost+found)
+[ -d /usr/local -a $(stat -c %G /usr/local) != "javausers" ] && mount_rw && (f_log I firsttime usrlocal "Changing ownership for usr local" && chgrp -hR javausers /usr/local && chmod -R g=u /usr/local && find /usr/local -type d -exec chmod g+s '{}' \; && chmod u+s /usr/local/sbin/rootExecutor)
+[ ! -L /etc/mtab ] && mount_rw && (f_log I firsttime mtab "Linking mtab" && ln -sf /proc/mounts /etc/mtab)
+[ ! -L /etc/resolv.conf ] && mount_rw && (f_log I firsttime dns "Linking DNS resolv.conf" && ln -sf /var/run/resolv.conf /etc/resolv.conf)
+[ ! -L /tmp ] && mount_rw && (f_log I firsttime mtab "Linking /var/tmp" && ln -sf /var/tmp /tmp)
+[ ! -L /etc/kdb ] && mount_rw && (f_log I firsttime mtab "Linking Kindle Registry" && ln -sf /etc/kdb.src/$(f_platform) /etc/kdb)
+[ ! -L /etc/xorg.conf ] && mount_rw && (f_log I firsttime xorgconf "Linking xorg.conf" && ln -sf /var/local/xorg.conf /etc/xorg.conf)
+[ ! -e /lib/modules/$(uname -r)/modules.dep ] && mount_rw && depmod -ae
+
+# Symlink the xorg cursor to the empty one
+[ ! -L /usr/share/fonts/X11/misc/cursor.pcf ] && \
+    mount_rw && (f_log I firsttime cursor "Linking Xorg cursor" && \
+                 ln -sf /usr/share/fonts/X11/misc/emptycursor.pcf \
+                        /usr/share/fonts/X11/misc/cursor.pcf)
+
+# rc5.d modifications
+
+if [ -x /usr/local/sbin/dropbear -a ! -f /usr/local/etc/dropbear/dropbear_rsa_host_key ]; then
+  mount_rw
+  f_log I firsttime ssh "Generating rsa keys"
+  mkdir -p /usr/local/etc/dropbear
+  /usr/local/bin/dropbearkey -t rsa -f /usr/local/etc/dropbear/dropbear_rsa_host_key >/dev/null 2>&1
+fi
+
+# make sure we're back to read-only
+
+[ -n "$RW" ] && mount -o ro,remount / && f_log I firsttime mount_ro time=$(f_ms) "Mounting root RO"  && echo -n fi99 > /proc/bd/boot_milestone
+
+exit 0

@@ -1,0 +1,94 @@
+#!/bin/sh
+
+FRAMEWORK_STARTED=/proc/bd/framework_started
+FRAMEWORK_RUNNING=/proc/bd/framework_running
+FRAMEWORK_STOPPED=/proc/bd/framework_stopped
+
+is_Framework_Stopped()
+{
+	framework_stopped=`cat ${FRAMEWORK_STOPPED}`
+	
+	if [ $framework_stopped -eq 1 ]; then
+		return $TRUE
+	else
+		return $FALSE
+	fi
+}
+
+is_Framework_Running()
+{
+	framework_started=`cat ${FRAMEWORK_STARTED}`
+	framework_running=`cat ${FRAMEWORK_RUNNING}`
+
+	if [ $framework_started -eq 1 ] || [ $framework_running -eq 1 ]; then
+		return $TRUE
+	else
+		return $FALSE
+	fi
+}
+
+is_Framework_Up()
+{
+	framework_started=`cat ${FRAMEWORK_STARTED}`
+	framework_stopped=`cat ${FRAMEWORK_STOPPED}`
+	framework_running=`cat ${FRAMEWORK_RUNNING}`
+	
+	if [ $framework_started -eq 0 ] && [ $framework_stopped -eq 0 ] && [ $framework_running -eq 1 ]; then
+		return $TRUE
+	else
+		return $FALSE
+	fi
+}
+
+ACCELEROMETER_STATE=/proc/accelerometer
+FIVEWAY_STATE=/proc/fiveway
+KEYPAD_STATE=/proc/keypad
+
+is_Framework_Sleeping()
+{
+	accelerometer_state=""
+	fiveway_state=""
+	keypad_state=""
+	
+	if [ -f ${ACCELEROMETER_STATE} ]; then
+		accelerometer_state="`cat ${ACCELEROMETER_STATE}`"
+	fi
+	
+	if [ -f ${FIVEWAY_STATE} ]; then
+		fiveway_state="`cat ${FIVEWAY_STATE}`"
+	fi
+	
+	if [ -f ${KEYPAD_STATE} ]; then
+		keypad_state="`cat ${KEYPAD_STATE}`"
+	fi
+	
+	if [ "$accelerometer_state" == "orientationUnknown" ] || [ "$fiveway_state" == "fiveway is locked" ] || [ "$keypad_state" == "keypad is locked" ]; then
+		return $TRUE
+	else
+		return $FALSE
+	fi
+}
+
+POWERD_STATE="lipc-get-prop com.lab126.powerd state"
+
+is_PowerD_Sleeping()
+{
+	powerd_state="`${POWERD_STATE}`"
+	
+	if [ "$powerd_state" == "screenSaver" ] || [ "$powerd_state" == "suspended" ] ; then
+		return $TRUE
+	else
+		return $FALSE
+	fi
+}
+
+is_PowerD_Active()
+{
+	powerd_state="`${POWERD_STATE}`"
+	
+	if [ "$powerd_state" == "active" ]; then
+		return $TRUE
+	else
+		return $FALSE
+	fi
+}

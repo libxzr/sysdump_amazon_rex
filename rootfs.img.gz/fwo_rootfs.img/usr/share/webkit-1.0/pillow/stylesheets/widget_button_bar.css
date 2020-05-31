@@ -1,0 +1,200 @@
+/*
+ * widget_button_bar.css
+ *
+ * Copyright 2012-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+.button-bar {
+    -webkit-box-sizing: border-box;
+    position: relative;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-align: end;
+    -webkit-box-pack: end;
+    padding-left: 12pt;
+    padding-right: 12pt;
+    padding-bottom: 7.2pt;
+    padding-top: 14.5pt;
+}
+
+.landscape .button-bar {
+    padding-top: 0pt;
+}
+
+.button-bar > button {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    font-family: dialog;
+    font-size: 8.7pt;
+    height: 26.44pt;
+    background: transparent;
+    padding-left: 8.64pt;
+    padding-right: 8.64pt;
+    margin-left: 2.48pt;
+    border-radius: 1pt;
+    min-width: 26.88pt;
+    border: none;
+}
+
+.button-bar > button:focus {
+    outline: none;
+}
+
+.button-bar > button:nth-of-type(1) {
+    -webkit-box-ordinal-group: 1;
+    margin-left:0pt;
+}
+
+.button-bar > button:nth-of-type(2) {
+    -webkit-box-ordinal-group: 3;
+}
+
+.button-bar > button:nth-of-type(3) {
+    -webkit-box-ordinal-group: 5;
+}
+
+.button-bar.even-split > button {
+    width: 1px;
+    -webkit-box-flex: 1;
+}
+
+.button-bar.uneven-split > button,
+.landscape .button-bar.stacked-or-split > button {
+    width: 1px;
+    -webkit-box-flex: 2;
+}
+
+.button-bar.uneven-split > button:nth-of-type(1),
+.button-bar.uneven-split > button:nth-of-type(3),
+.button-bar.stacked > button:nth-of-type(1),
+.button-bar.stacked > button:nth-of-type(3),
+.button-bar.stacked-or-split > button:nth-of-type(1),
+.button-bar.stacked-or-split > button:nth-of-type(3) {
+    width: 1px;
+    -webkit-box-flex: 1;
+}
+
+.button-bar.stacked,
+.portrait .button-bar.stacked-or-split {
+    height: 55.2pt;
+}
+
+.button-bar.stacked > button:nth-of-type(2),
+.portrait .button-bar.stacked-or-split > button:nth-of-type(2) {
+    position: absolute;
+    left: 6.8pt;
+    right: 6.8pt;
+    top: 0;
+}
+
+.button-bar > .separator:nth-of-type(1) {
+    -webkit-box-ordinal-group: 2;
+}
+
+.button-bar > .separator:nth-of-type(2) {
+    -webkit-box-ordinal-group: 4;
+}
+
+.button-bar.stacked > .separator:nth-of-type(2),
+.portrait .button-bar.stacked-or-split > .separator:nth-of-type(2) {
+    display: none;
+}
+
+
+.button-bar:before {
+    top: 0;
+}
+
+.button-bar.stacked:after,
+.portrait .button-bar.stacked-or-split:after {
+    top: 27.6pt;
+}
+
+/**
+ * XOR
+ */
+
+.button-bar > button.xor {
+    background-color: #000000;
+}
+
+/**
+ * Button text
+ */
+.button-bar > button > .button-text {
+    display: block;
+    overflow: hidden;
+}
+
+.button-bar > button.xor > .button-text {
+    -webkit-font-smoothing: none;
+    color: #FFFFFF;
+}
+
+/** 
+* The bottom line for listed button layout.
+*/
+.button-bar > .liner{
+    height: 1px;
+    background-color: #808080;
+    -webkit-box-flex: 1;
+    position: absolute;
+    left:12pt;
+    right:12pt;
+}
+
+/**
+* Ordering the separator line for listed button layout.
+*/
+.button-bar > .liner:nth-of-type(1) {
+    -webkit-box-ordinal-group: 4;
+    top:27pt;
+}
+
+.button-bar > .liner:nth-of-type(2) {
+    -webkit-box-ordinal-group: 2;
+    top:54.44pt;
+}
+
+.button-bar.listed {
+    top: 14.5pt;
+    bottom: 7.2pt;
+    height: 104pt;
+    -webkit-box-flex: 1;
+}
+
+.button-bar.listed > button > .button-text {
+    text-align: left;
+    padding-left: 10.38pt;
+}
+
+.button-bar.listed > button{
+    padding-left: 0;
+    margin-left: 0;
+    left: 12pt;
+    right: 12pt;
+    position: absolute;
+}
+
+/**
+* Ordering the button postion in the listed button layout.
+*/
+.button-bar.listed > button:nth-of-type(1) {
+     -webkit-box-ordinal-group: 1;
+    top: 0;
+}
+
+.button-bar.listed > button:nth-of-type(2) {
+ -webkit-box-ordinal-group: 3;
+    top: 28pt;
+}
+
+.button-bar.listed > button:nth-of-type(3) {
+ -webkit-box-ordinal-group: 5;
+    top: 56pt;
+}

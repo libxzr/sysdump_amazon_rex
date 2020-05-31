@@ -1,0 +1,615 @@
+#!/bin/sh
+
+#
+# Copyright (c) 2013 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# PROPRIETARY/CONFIDENTIAL
+#
+# Use is subject to license terms.
+#
+
+# csp-instbundle
+#     installs the bundle contents
+#
+# usaage: csp-instbundle [path_to_bundle_1] [path_to_bundle_2] ...
+#
+# if the bundle path is not specified, it scans the download directory
+#
+
+. /etc/upstart/bundlefuncs
+. /usr/lib/contentpack/csp_functions
+
+###############################################################################
+
+mount_directory() {
+    _devfile="$1"
+    _mountdir="$2"
+    _ret=0
+    _mounted=0
+
+    if [ -d "$_mountdir" ]; then
+        csp_log_info "Mount directory \"$_mountdir\" already exists."
+
+        if is_mounted "$_mountdir"; then
+            _mounted=1
+            # try umount first (can fail)
+            csp_log_info "Directory \"$_mountdir\" already mounted."
+            csp_log_info "Trying to unmount it first (it may fail but ok)..."
+            umount -d "$_mountdir"
+            _ret=$?
+            if [ $_ret -eq 0 ]; then
+                _mounted=0
+            else
+                csp_log_info "umount command returned $_ret"
+            fi
+        fi
+    fi
+
+    if [ $_mounted -eq 0 ]; then
+        # make a new mount point if necessary
+        ensure_directory "$_mountdir"
+        if [ $? -ne 0 ]; then
+            csp_log_err "Can't create mount point at \"$_mountdir\"."
+            return 1
+        fi
+
+        get_free_loop_device
+        loopNum=$?
+        if [ "$loopNum" -eq 0 ] ; then
+            _ret=1
+            csp_log_err "Could not find a free loop device $_ret"
+        else
+            # mount the image finally. Image could be cramfs or squashfs
+            mount -o loop=/dev/loop/"$loopNum",norelatime,nodiratime,noatime "$_devfile" "$_mountdir"
+            _ret=$?
+            if [ $_ret -ne 0 ]; then
+               csp_log_info "mount command returned $_ret"
+            fi
+        fi
+
+    else
+        csp_log_info "\"$_mountdir\" already mounted."
+    fi
+
+    return $_ret
+}
+
+# set up manifests under FONTMANIFDIR (/var/local/...)
+# if manifest is found only under FONTMANIFDIR_RF (/usr/lib/...),
+# it is copied to FONTMANIFDIR.
+_setup_manifests() {
+    for _imgpath in "$FONTIMGDIR"/*."$FONTIMGEXT"
+    do
+        if [ -f "$_imgpath" ]; then
+            # these functions guarantee the condition in the above comment
+            _imgname=`get_font_img_name "$_imgpath"`
+            _manifpath=`get_font_manifest_path "$_imgname"`
+            case "$_manifpath" in
+                "$FONTMANIFDIR_RF"/*)
+                    csp_log_info "Copying manifest \"$_manifpath\" to \"$FONTMANIFDIR\"..."
+                    _manifdest="$FONTMANIFDIR"/`basename "$_manifpath"`
+                    install_file "$_manifpath" "$_manifdest"
+                    if [ $? -ne 0 ]; then
+                        csp_log_err "Failed to copy \"$_manifpath\" as \"$_manifdest\""
+                        set_status $CSP_HARD_ERROR
+                    fi
+                    ;;
+            esac
+        fi
+    done
+}
+
+check_font_img_with_manifest() {
+    _img="$1"
+
+    _name=`get_font_img_name "$_img"`
+    _manifestpath=`get_font_manifest_path "$_name"`
+
+    if [ -n "$_img" ] && [ -n "$_manifestpath" ]; then
+        check_manifest_md5 "$_img" "$_manifestpath"
+    else
+        csp_log_err "Invalid arguments for checking md5."
+        csp_log_err "image file: \"$_img\" manifest: \"$_manifestpath\""
+        return 1
+    fi
+}
+
+check_font_directory() {
+    _fontdir="$1"
+    _name="$2"
+
+    if [ ! -d "$_fontdir" ]; then
+        csp_log_err "Font directory not found at \"$_fontdir\""
+        return 1
+    fi
+
+    _cachedir="$_fontdir/$FCACHEDIRINIMG"
+    if [ ! -d "$_cachedir" ]; then
+        csp_log_err "cache directory not found at \"$_cachedir\""
+        return 1
+    fi
+
+    _fontsubdir="$_fontdir/$FONTDIRINIMG"
+    if [ ! -d "$_fontsubdir" ]; then
+        csp_log_err "font subdirectory not found at \"$_fontsubdir\""
+        return 1
+    fi
+
+    return 0
+}
+
+uninstall_font_manifest() {
+    _name="$1"
+
+    _manifpath=`get_font_manifest_path "$_name"`
+    if [ -n "$_manifpath" ] && [ -f "$_manifpath" ]; then
+        # remove the file if not in the rootfs (rootfs is read only)
+        if echo "$_manifpath" | grep -v "$FONTMANIFDIR_RF" > /dev/null; then
+            csp_log_info "Removing manifest \"$_manifpath\""
+            rm -f "$_manifpath"
+        fi
+    else
+        csp_log_err "Font manifest path for name \"$_name\" not found."
+    fi
+}
+
+uninstall_tampered_file() {
+    _file="$1"
+    _name="$2"
+    _mountdir="$3"
+    _retval=0
+
+    # remove file
+    rm -f "$_file"
+    if [ -e "$_file" ]; then
+        csp_log_err "Cannot remove file \"$_file\" "
+        _retval=1
+    fi
+    # remove manifest
+    uninstall_font_manifest "$_name"
+    if [ $? -ne 0 ]; then
+        csp_log_err "Cannot remove font manifest with name \"$_name\" "
+        _retval=1
+    fi
+    # unmount
+    if is_mounted "$_mountdir"; then
+        csp_log_info "Unmounting \"$_mountdir\"..."
+        umount -d "$_mountdir"
+        if [ $? -eq 0 ]; then
+            csp_log_info "Successfully unmounted \"$_mountdir\""
+        else
+            csp_log_err "Unmounting \"$_mountdir\" returned $?"
+            _retval=1
+        fi
+    fi
+
+    return $_retval
+}
+
+mount_only() {
+    _fontimglist=""
+    _retval=$CSP_SUCCESS
+
+    if [ $# -gt 0 ]; then
+        for _imgpath in $@
+        do
+            # validate path using manifest
+            _name=`get_font_img_name "$_imgpath"`
+            _manifpath=`get_font_manifest_path "$_name"`
+            if [ -f "$_manifpath" ]; then
+                _fontimglist="$_fontimglist $_imgpath"
+            else
+                csp_log_info "The path \"$_imgpath\" doesn't look a valid font image. Skipping."
+                _retval=$CSP_HARD_ERROR
+            fi
+        done
+    else
+        # create list of font images from manifests
+        _manifnames=`get_font_manifest_names`
+        for _name in $_manifnames
+        do
+            _imgpath=`get_font_img_path "$_name"`
+            if [ -f "$_imgpath" ]; then
+                _fontimglist="$_fontimglist $_imgpath"
+
+            # TODO/NOTE: currently our logic is not symmetric;
+            # file w/o manifest is an error, but manifest w/o file is
+            # not an error. accordingly the code is not symmetric and
+            # we don't handle 'else' here.
+            fi
+        done
+    fi
+
+    if [ ! -n "$_fontimglist" ]; then
+        csp_log_info "No font images to mount found (manifests + files)."
+    fi
+
+    for _img in $_fontimglist
+    do
+        _name=`get_font_img_name "$_img"`
+        _mountdir=`get_font_mount_dir "$_name"`
+
+        is_mounted "$_mountdir"
+        if [ $? -eq 0 ]; then
+            csp_log_info "Font image \"$_img\" is already mounted. Skipping."
+            continue
+        fi
+
+        csp_log_info "Mounting \"$_img\" on \"$_mountdir\"..."
+        mount_directory "$_img" "$_mountdir"
+        if [ $? -ne 0 ]; then
+            csp_log_err "Failed to mount image \"$_img\" on \"$_mountdir\"."
+            _retval=$CSP_HARD_ERROR
+        fi
+    done
+
+    return $_retval
+}
+
+setup_tmp_mount() {
+    _imgf="$1"
+
+    csp_log_info "Setting up temporary mount for \"$_imgf\"..."
+
+    _base=`basename "$_imgf"`
+    _tmpmntdir=`mktemp -d "/tmp/${_base}.XXXXXX"`
+    if [ $? -ne 0 ]; then
+        csp_log_err "setup_tmp_mount: can't create mount directory."
+        return 1
+    fi
+
+    mount_directory "$_imgf" "$_tmpmntdir" > /dev/null
+    if [ $? -ne 0 ]; then
+        csp_log_err "setup_tmp_mount: can't mount image \"$_imgf\"."
+        return 1
+    fi
+
+    echo "$_tmpmntdir"
+
+    return 0
+}
+
+usage() {
+    echo "csp-instbundle [-m|--mount-only] [-C|--skip-checksum] [-f|--force-update] [path_to_image] ..." >&2
+}
+
+###############################################################################
+
+export LC_ALL=C
+
+fullscan=0
+fontsubdirs=""
+tmpfontdirs=""
+manifpaths=""
+numinstfontchanges=0
+mountonly=0
+skipchecksum=0
+forceupdate=0
+
+eval set -- `getopt -q -o Cfm -l skip-checksum,force-update,mount-only -- "$@"`
+while true
+do
+    case $1 in
+        --skip-checksum|-C)
+            skipchecksum=1
+            shift
+            ;;
+        --force-update|-f)
+            forceupdate=1
+            shift
+            ;;
+        --mount-only|-m)
+            mountonly=1
+            shift
+            ;;
+        -h)
+            usage; exit 1
+            ;;
+        --)
+            shift; break
+            ;;
+        *)
+            usage; exit 1
+        ;;
+    esac
+done
+
+# mount-only mode
+if [ $mountonly -eq 1 ]; then
+    mount_only $@
+    exit $?
+fi
+
+if [ $# -gt 0 ]; then
+    fontimagelist="$@"
+else
+    if [ $skipchecksum -eq 1 ]; then
+        fullscan=0
+        csp_log_info "Starting scan (no checksum verifications)."
+    else
+        fullscan=1
+        csp_log_info "Starting full scan."
+    fi
+
+    if [ ! -d  "$FONTIMGDIR" ]; then
+        csp_log_err "Error: font image directory \"$FONTIMGDIR\" not found."
+        set_status $CSP_HARD_ERROR
+    else
+        csp_log_info "Scanning $FONTIMGDIR:"
+        fontimagelist="$FONTIMGDIR"/*.$FONTIMGEXT
+    fi
+fi
+
+# check mounted fonts and font images
+mountnamelist=`get_mounted_font_names`
+for mntname in $mountnamelist
+do
+    csp_log_debug "mntname = $mntname"
+    fontimg=`get_font_img_path "$mntname"`
+    if [ ! -f "$fontimg" ]; then
+        csp_log_err "Font with name \"$mntname\" is mounted, but the image is missing."
+        csp_log_err "Cleaing up \"$mntname\"..."
+        fontmountdir=`get_font_mount_dir "$mntname"`
+        uninstall_tampered_file "" "$mntname" "$fontmountdir"
+        if [ $? -eq 0 ]; then
+            # successfully unmounted tampered image
+            numinstfontchanges=`expr $numinstfontchanges + 1`
+        else
+            csp_log_err "Fatal: failed to unmount tampered font image with name \"$mntname\""
+            set_status $CSP_REBOOT
+        fi
+    fi
+done
+
+# check manifest files and font images
+manifestnamelist=`get_font_manifest_names`
+for manifname in $manifestnamelist
+do
+    csp_log_debug "manifname = $manifname"
+    fontimg=`get_font_img_path "$manifname"`
+    if [ ! -f "$fontimg" ]; then
+        csp_log_err "Font manifest with name \"$manifname\" exists, but the image is missing."
+        csp_log_err "Cleaning up font manifest with name \"$manifname\"..."
+        fontmountdir=`get_font_mount_dir "$manifname"`
+        uninstall_tampered_file "" "$manifname" "$fontmountdir"
+        if [ $? -ne 0 ]; then
+            set_status $CSP_HARD_ERROR
+        fi
+    fi
+done
+
+# check through font images
+for file in $fontimagelist
+do
+    csp_log_debug "Checking \"$file\"..."
+
+    if [ ! -f "$file" ]; then
+        csp_log_info "Font image non-existent: \"$file\". Skipping."
+        continue
+    fi
+
+    name=`get_font_img_name "$file"`
+    if [ ! -n "$name" ]; then
+        csp_log_err "Can't get font name. Removing font file."
+        rm -f "$file"
+        if [ -e "$file" ]; then
+            csp_log_err "Can't remove file \"$file\"."
+        fi
+        set_status $CSP_HARD_ERROR
+        continue
+    fi
+
+    mountdir=`get_font_mount_dir "$name"`
+
+    if [ $fullscan -eq 1 ]; then
+        check_font_img_with_manifest "$file"
+        if [ $? -ne 0 ]; then
+            csp_log_err "Failed to verify with manifest. Removing file \"$file\"."
+            mounted=0
+            is_mounted "$mountdir"
+            if [ $? -eq 0 ]; then
+                mounted=1
+            fi
+            uninstall_tampered_file "$file" "$name" "$mountdir"
+            if [ $? -eq 0 ]; then
+                if [ $mounted -eq 1 ]; then
+                    # successfully unmounted tampered image
+                    numinstfontchanges=`expr $numinstfontchanges + 1`
+                fi
+            else
+                csp_log_err "Clean up of tampered file \"$file\" was incomplete."
+                is_mounted "$mountdir"
+                if [ $? -eq 0 ]; then
+                    csp_log_err "Fatal: image \"$file\" seems tampered, but still mounted."
+                    set_status $CSP_REBOOT
+                fi
+                if [ -f "$file" ]; then
+                    # weird state...
+                    csp_log_err "File \"$file\" still exists, though it didn't pass the verificaition thus should be removed."
+                fi
+
+                set_status $CSP_HARD_ERROR
+            fi
+            continue
+        fi
+    fi
+
+    was_mounted=0
+    is_mounted=0
+    is_mounted "$mountdir"
+    if [ $? -eq 0 ]; then
+        was_mounted=1
+        is_mounted=1
+
+        if [ $forceupdate -eq 1 ]; then
+            csp_log_info "Setting CSP_REBOOT as \"$file\" is mounted in force update mode."
+            set_status $CSP_REBOOT
+
+            # original mount directory is stale at this point.
+            # setup temp mount directory to process fresh files.
+            _tmpmntdir=`setup_tmp_mount "$file"`
+            if [ $? -eq 0 ]; then
+            # set working mount directory to temp mount directory,
+            # then files will be installed from temp mount directory
+                tmpfontdirs="$tmpfontdirs $_tmpmntdir"
+                mountdir="$_tmpmntdir"
+            else
+                csp_log_err "Can't setup temporary mount for \"$file\"".
+            fi
+        fi
+    else
+        csp_log_info "Mounting image..."
+        mount_directory "$file" "$mountdir"
+        if [ $? -eq 0 ]; then
+            csp_log_info "Successfully mounted file \"$file\" on \"$mountdir\""
+            is_mounted=1
+        else
+            csp_log_err "Failed to mount file \"$file\" on \"$mountdir\""
+            set_status $CSP_HARD_ERROR
+        fi
+    fi
+
+    if [ $is_mounted -eq 1 ]; then
+        fontdirok=0
+        if [ $skipchecksum -eq 1 -o $forceupdate -eq 1 ]; then
+            # pass font directory check
+            fontdirok=1
+        else
+            check_font_directory "$mountdir" "$name"
+            if [ $? -eq 0 ]; then
+                fontdirok=1
+            fi
+        fi
+
+        # check existence of manifest
+        has_manif=0
+        if [ $fontdirok -eq 1 ]; then
+            manif=`get_font_manifest_path "$name"`
+            if [ -f "$manif" ]; then
+                has_manif=1
+            fi
+        fi
+
+        # finally successful
+        if [ $has_manif -eq 1 ]; then
+            csp_log_info "File \"$file\" was successfully mounted."
+            manifpaths="$manifpaths $manif"
+            fontsubdirs="$fontsubdirs $mountdir"
+            if [ $was_mounted -eq 0 -o $forceupdate -eq 1 ]; then
+                numinstfontchanges=`expr $numinstfontchanges + 1`
+            fi
+            continue
+        fi
+    fi
+
+    # reaching here means font image was verified but could't mount it.
+    # typically mount point was removed in USB drive mode and it was
+    # unrecoverable (needs reboot for recovery).
+    # so, set error status but don't remove the font image.
+    csp_log_err "Error while mounting \"$file\""
+    set_status $CSP_HARD_ERROR
+done
+
+# copy font cache files from mounted images to system dir
+ensure_directory "$FCACHEDESTDIR"
+if [ $? -ne 0 ]; then
+    csp_log_err "Can't create font cache directory at \"$FCACHEDESTDIR\"."
+    set_status $CSP_RETRIABLE_ERROR
+fi
+
+if [ -d "$FCACHEDESTDIR" ]; then
+    csp_log_info "Copying font caches..."
+    for dir in $fontsubdirs
+    do
+        fcachesrcdir="$dir"/"$FCACHEDIRINIMG"
+        for cachef in "$fcachesrcdir"/*."$FCACHEEXT"
+        do
+            cp "$cachef" "$FCACHEDESTDIR"
+            if [ $? -ne 0 ]; then
+                csp_log_err "Failed to copy font cache. file: \"$cachef\" directory: \"$FCACHEDESTDIR\""
+                set_status $CSP_RETRIABLE_ERROR
+            fi
+        done
+    done
+else
+    csp_log_err "Error: directory \"$FCACHEDESTDIR\" not writable."
+    set_status $CSP_HARD_ERROR
+fi
+
+# copy font-config conf files from mounted images to system dir
+ensure_directory "$FONTCONFDESTDIR"
+if [ $? -ne 0 ]; then
+    csp_log_err "Can't create directory for installing font-config conf files"
+    set_status $CSP_RETRIABLE_ERROR
+fi
+
+if [ -d "$FONTCONFDESTDIR" ]; then
+    csp_log_info "Copying font-config conf files..."
+    for dir in $fontsubdirs
+    do
+        # copy font-config config file to system
+        cp "$dir"/*.conf "$FONTCONFDESTDIR"
+        if [ $? -ne 0 ]; then
+            csp_log_err "Failed to copy font-config conf file."
+            set_status $CSP_RETRIABLE_ERROR
+        fi
+    done
+else
+    csp_log_err "Error: directory \"$FONTCONFDESTDIR\" not writable."
+    set_status $CSP_HARD_ERROR
+fi
+
+# clean up temporary font directories for force update mode
+csp_log_info "Cleaning up temporary font directories..."
+for tmpfontdir in $tmpfontdirs
+do
+    umount -d "$tmpfontdir"
+    rm -rf "$tmpfontdir"
+done
+
+# process manifest files -> font properties file
+if [ $fullscan -eq 1 ]; then
+    rm -f "$FONTPROPPATH"
+    if [ $? -ne 0 ]; then
+        csp_log_err "Can't clear font properties file \"$FONTPROPPATH\""
+        set_status $CSP_RETRIABLE_ERROR
+    fi
+else
+    if [ -f "$FONTPROPPATH" -a ! -f "$FONTPROPNEWPATH" ]; then
+        cp "$FONTPROPPATH" "$FONTPROPNEWPATH"
+        if [ $? -ne 0 ]; then
+            csp_log_err "Can't duplicate font properties file \"$FONTPROPPATH\""
+            set_status $CSP_RETRIABLE_ERROR
+        fi
+    fi
+fi
+
+csp_log_info "Integrating manifest files and converting to font properties file..."
+
+for manif in $manifpaths
+do
+    csp_log_info "Processing manifest \"$manif\"..."
+    $MANIF2PROPCMD -o "$FONTPROPNEWPATH" "$manif"
+    if [ $? -ne 0 ]; then
+        csp_log_err "Command \"$MANIF2PROPCMD\" failed."
+        set_status $CSP_HARD_ERROR
+    fi
+done
+
+_setup_manifests
+
+if [ $numinstfontchanges -gt 0 ]; then
+    csp_log_info "The number of installed font change(s) = ${numinstfontchanges}."
+else
+    csp_log_info "No additions or deletions to mounted fonts."
+    status=`get_status`
+    if [ "$status" -eq $CSP_SUCCESS ]; then
+        set_status $CSP_NO_ERROR_FOUND
+    fi
+fi
+
+current_status=`get_status`
+csp_log_info "Exiting with status = $current_status"
+exit $current_status
+
+# end.

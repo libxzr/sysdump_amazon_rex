@@ -1,0 +1,21 @@
+# lists the special shutdown modes to be included by relevant programs
+
+SHUTDOWN_MODE_SHIP="shipping_mode"
+SHUTDOWN_MODE_SHIP_RESTART="shipping_mode_restart"
+SHUTDOWN_MODE_CRITBATT="critical_battery"
+SHUTDOWN_MODE_FACTORY_RESET="factory_reset"
+SHUTDOWN_MODE_SETTINGS_RESET="settings_reset"
+SHUTDOWN_MODE_USERSTORE_RESET="userstore_reset"
+SHUTDOWN_MODE_USERSTORE_CLEAN="userstore_clean"
+SHUTDOWN_MODE_CUST_SERVICE="cust_service"
+
+# keep this in sync with the above
+SHUTDOWN_MODE_LIST="\
+    $SHUTDOWN_MODE_SHIP \
+    $SHUTDOWN_MODE_SHIP_RESTART \
+    $SHUTDOWN_MODE_CRITBATT \
+    $SHUTDOWN_MODE_FACTORY_RESET \
+    $SHUTDOWN_MODE_SETTINGS_RESET \
+    $SHUTDOWN_MODE_USERSTORE_RESET \
+    $SHUTDOWN_MODE_USERSTORE_CLEAN \
+    $SHUTDOWN_MODE_CUST_SERVICE"

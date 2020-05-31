@@ -1,0 +1,135 @@
+#!/bin/sh
+
+# dumps native thread stacks for a process.
+
+# for msg()
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+print_usage () {
+    echo "usage: $0 <pid>"
+    echo "-h|--help print this help"
+    echo ""
+    echo "Attempts to send native stack traces for a process to the log."
+}
+
+if [ "x$1" = "x--help" -o "x$1" = "x-h" -o -z "$1" ]; then
+	print_usage
+	exit 0
+fi
+#-- main ---------------------------------------------------------
+BUILD_INFO=$(echo $(cat /etc/version.txt) | cut -f4 -d' '| sed 's#/#_#g')
+PROCESS_PID=$1
+PROCESS=$2
+CURRENT_TID=$3
+PROCESS_EXE=$(readlink /proc/${PROCESS_PID}/exe)
+if [ "$PROCESS" == "" -o "$PROCESS" == "NULL" ]; then
+    PROCESS=$(basename ${PROCESS_EXE})
+fi
+LOGGER() { logger -p local4.info -t "system: I dumpstack:${PROCESS}:pid=${PROCESS_PID}"; }
+
+PATH=/usr/local/bin:/bin:/usr/bin:/usr/sbin:/sbin
+GDB=$(type -p gdb)
+
+COREDUMP_MASK_FILE=/mnt/us/COREDUMP_MASK
+DOCOREDUMP=true
+
+source /usr/bin/record_device_metric.sh;
+
+# Check whether the mask file is present.
+if [ -e "$COREDUMP_MASK_FILE" ]; then
+    # Get each Process name from the mask file and check if mask is needed
+    output=$(grep -wi ${PROCESS} $COREDUMP_MASK_FILE)
+
+    if [[ ! -z "${output}" ]]; then
+        limit=$(echo ${output} | awk -F ' ' '{print $2}')
+        count=$(ls /mnt/us/${PROCESS}*.core 2>/dev/null | wc -l)
+
+        if [ "${limit}" -eq 0 ]; then
+            msg "${PROCESS}:pid=${PROCESS_PID}:CoreDump mask detected. Skipping coredump for this process."
+            DOCOREDUMP=false
+        elif [ "${limit}" -le "${count}" ]; then
+            tail_limit=$(expr $count - $limit + 1)
+
+            # delete old coredump files to maintain the retention count.
+            ls -t ${PROCESS}*.core | tail -n $tail_limit | xargs rm
+        fi
+    fi
+fi
+
+if [ -z "${PROCESS_EXE}" -o -z "${PROCESS}" ]; then
+    msg "pid=$1:Could not find process" E dumpstack
+    exit 1
+fi
+
+
+if [ -x "${GDB}" ]; then
+    # kill gdb if it doesn't finish in 180s, and send SIGCONT to the process
+    (
+        sleep 180;
+        GDB_PIDS=$(ps --ppid $$ | grep gdb | awk '{ print $1 }');
+        if [ -n "${GDB_PIDS}" ]; then
+	    msg "gdb timedout. killing gdb." I dumpstack
+            kill -KILL ${GDB_PIDS} 2>/dev/null >/dev/null
+            kill -CONT ${PROCESS_PID}
+        fi
+    ) &
+
+    if [ "${CURRENT_TID}" != "" ] && [ "$(echo "$CURRENT_TID" | grep '^[0-9]*$')" != "" ]; then
+         msg "${PROCESS}:tid=${CURRENT_TID}:backtrace of signalled thread ========================" I dumpstack
+         ${GDB} --quiet \
+           --se "${PROCESS_EXE}" \
+           --pid ${CURRENT_TID} \
+           --batch \
+           -ex "bt" \
+           -ex detach \
+         | LOGGER
+         msg "${PROCESS}:tid=${CURRENT_TID}:backtrace of signalled thread ends =========================" I dumpstack
+    fi
+    msg "${PROCESS}:pid=${PROCESS_PID}:begin native threads ==============================" I dumpstack
+
+    if [ -e "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC" ] && [ ! -e "/mnt/us/DISABLE_CORE_DUMP" ] && [ $DOCOREDUMP = true ]; then
+
+        PARTFILE="${PROCESS}_${PROCESS_PID}_${BUILD_INFO}.part"
+        COREFILE="${PROCESS}_${PROCESS_PID}_${BUILD_INFO}.core"
+        LOGFILE="${PROCESS}_${PROCESS_PID}_${BUILD_INFO}_crash_"
+
+        if [ ! -e "/mnt/us/DISABLE_CORE_DUMP_ALERT" ]; then
+    		lipc-set-prop com.lab126.pillow pillowAlert '{"clientParams":{"alertId":"collectingDebugInfoAlert","show":true, "replySrc":"com.lab126.system","customStrings":[{"matchStr":"1","replaceStr":"'${PROCESS}'"}]}}'
+        fi
+
+        ${GDB} --quiet \
+               --se "${PROCESS_EXE}" \
+               --pid ${PROCESS_PID} \
+               --batch \
+               -ex "t a a bt" \
+               -ex "generate-core-file /mnt/us/${PARTFILE}" \
+               -ex detach \
+            | LOGGER
+
+        # Renaming .part file to .core, to indicate completion of core-dump
+        mv /mnt/us/${PARTFILE} /mnt/us/${COREFILE}
+        msg "${PROCESS}:pid=${PROCESS_PID}:Completed core dump generation" I dumpstack
+    else
+        ${GDB} --quiet \
+               --se "${PROCESS_EXE}" \
+               --pid ${PROCESS_PID} \
+               --batch \
+               -ex "t a a bt" \
+               -ex detach \
+            | LOGGER
+    fi
+
+    msg "${PROCESS}:pid=${PROCESS_PID}:end native threads ================================" I dumpstack
+    msg "${PROCESS}:pid=${PROCESS_PID}:begin proc maps ================================" I dumpstack
+    cat "/proc/${PROCESS_PID}/maps" | LOGGER
+    msg "${PROCESS}:pid=${PROCESS_PID}:end proc maps    ================================" I dumpstack
+    record_device_metric stackdump dump-stack ${PROCESS} 1 '' $METRIC_PRIORITY_HIGH $METRIC_TYPE_COUNTER || true;
+
+    dmcc.sh "${LOGFILE}" "${COREFILE}"
+else
+    msg "${PROCESS}:pid=${PROCESS_PID}:no gdb; skipping native threads" I dumpstack
+fi
+
+# rotate log files -- in case someone does a 15s hold right after this.
+/usr/sbin/tinyrot --force

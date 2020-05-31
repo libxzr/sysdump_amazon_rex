@@ -1,0 +1,14 @@
+# root device definition and partition layout
+
+source /etc/upstart/functions
+
+ROOT=$(cat /proc/cmdline)
+ROOT=${ROOT##*root=/dev/}
+ROOT=${ROOT%p[0-9]*}
+
+case "$(f_platform)" in
+  luigi) ROOT_P=p1 ; LOCAL_P=p2 ; DIAG_P=p3 ; USER_P=p4 ;;
+  zelda) ROOT_P=p5 ; LOCAL_P=p6 ; DIAG_P=p5 ; USER_P=p7 ; KEYS_P=p3 ;;
+  rex)   ROOT_P=p8 ; LOCAL_P=p9 ; DIAG_P=p8 ; USER_P=p10 ; KEYS_P=p3 ;;
+  *) ROOT_P=p1 ; LOCAL_P=p3 ; DIAG_P=p2 ; USER_P=p4 ;;
+esac

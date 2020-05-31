@@ -1,0 +1,12 @@
+#!/bin/sh
+
+_FUNCTIONS=/etc/upstart/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+update_content_packages()
+{
+	f_log I "update_content_packages" "Invoking LocalizationService"
+	lipc-set-prop com.lab126.LocalizationServices updateContentPack -i 1
+}
+
+update_content_packages

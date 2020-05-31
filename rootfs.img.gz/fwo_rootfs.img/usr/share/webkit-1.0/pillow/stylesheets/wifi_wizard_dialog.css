@@ -1,0 +1,426 @@
+/*
+ * wifi_wizard_dialog.css
+ *
+ * Copyright 2012-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+.dialog {
+    /**
+     * Override the default width of dialogs.
+     */
+    width: auto;
+}
+
+#netNameAndPasswordPopup,
+#advancedPopup,
+#wifiWizardMainDiv,
+#errorPopup {
+    /**
+     * Increased width to cover up some confusing things in the background in
+     * OOBE.
+     */
+    width: 235pt;
+}
+
+#learnMoreLabel {
+    display: inline-block;
+    color: black;
+    background-color: transparent;
+    border-bottom: 1px solid black;
+    padding-top: 2pt;
+    padding-right: 2pt;
+    padding-left: 2pt;
+    padding-bottom: 0;
+    margin: 0;
+}
+
+#learnMoreLabel.xor {
+    display: inline-block;
+    color: white;
+    background-color: black;
+    border-bottom: 1px solid white;
+    padding-top: 2pt;
+    padding-right: 2pt;
+    padding-left: 2pt;
+    padding-bottom: 0;
+    margin: 0;
+}
+
+#wifiWizardMainDiv {
+    /**
+     * This is a calculated height based on:
+     * 1. The height of the dialog title
+     * 2. The height of the button bar
+     * 3. The height of 6 scan list items
+     */
+    height: 250.5pt;
+    overflow: hidden;
+    font-size: 7.3pt; 
+}
+
+#wifiWizardListViewCmdBar {
+    padding-top: 0pt;
+}
+
+#userGuide {
+    font-size: 9pt;
+    height:23.44pt;
+    padding-top: 6.72pt;
+    padding-right: 12pt;
+    padding-left: 12pt;
+    padding-bottom: 17.28pt;
+}
+
+#userGuide p {
+    display: inline;
+}
+
+#userGuide img {
+    height: 9pt;
+}
+
+/**
+ * Disabled state
+ */
+
+#noNetworks {
+    position: absolute;
+    top: 0;
+    margin-top: 4.74pt;
+    margin-left: 12pt;
+    margin-right: 12pt;
+    font-size: 10pt;
+}
+
+#networksAndButtons {
+    position: relative;
+}
+
+#networksAndButtons.disabled:after {
+    display: block;
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0.5;
+    background-color: #FFFFFF;
+    z-index: 500;
+}
+
+#networksAndButtons.disabled button:disabled {
+    color: #000000;
+}
+
+
+#popupsArea {
+    overflow: hidden;
+    font-size: 7.3pt;
+}
+
+#netNameAndPasswordEntryDiv {
+    margin-top: 3.45pt;
+    margin-left: 12pt;
+    margin-right: 12pt;
+}
+
+#advancedButtonBar {
+    padding-top: 0pt;
+}
+form {
+    margin: 0;
+    padding: 0;
+}
+
+.wifiInputWithLabel, .wifiCheckboxWithLabel, .wifiInputGroup {
+    margin-bottom: 6.47pt;
+}
+
+.wifiInputGroup > * {
+    margin-bottom: 0;
+}
+
+.wifiCheckboxWithLabel {
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-align: center;
+}
+
+.checkbox{
+    background-image: url('../assets/checkbox.png');
+    background-repeat: no-repeat;
+    margin-top: 2.16pt;
+    margin-right: 2.59pt;
+    width:13.61pt;
+    height:13.61pt;
+}
+
+.checkboxChecked{
+    background-image: url('../assets/checkbox_check.png');
+    background-repeat: no-repeat;
+    margin-top: 2.16pt;
+    margin-right: 2.59pt;
+    width:13.61pt;
+    height:13.61pt;
+}
+
+.checkboxLabel,
+.checkboxLabelDisabled{
+    margin-top: 2.16pt;
+}
+
+.passwordEntryDiv {
+    width: 70%;
+}
+
+#netNameRow {
+    height: 17.25pt;
+    width: 100%;
+}
+
+#passwordEntryRow {
+    height: 17.25pt;
+    width: 100%;
+}
+
+.wifiWizardPopup {
+    font-size: 8.2pt;
+}
+
+/**
+ * Advanced mode
+ */
+
+#wifiAdvancedEntryScrollContainer,
+.wifiAdvancedEntryMainArea{
+    height: 126.6pt;
+}
+
+#wifiAdvancedEntryScrollContainer {
+    overflow: hidden;
+}
+
+#wifiAdvancedEntryScrollBox{
+    position: relative;
+    left: 0;
+    top: 0;
+    overflow: hidden;
+}
+
+.wifiAdvancedEntryMainArea{
+    margin-top: 4.74pt;
+    margin-left: 12pt;
+    margin-right: 12pt;
+}
+
+#advancedScrollbarContainer {
+   position:absolute;
+   top: 23.71pt;
+   right: 0;
+   width:8.62pt;
+   height:114.68pt;
+   margin:5.60pt 0 5.60pt 0; 
+}
+
+.wifiWizardInput {
+    width: 100%;
+    border: 1px solid #000000;
+    padding-top: 4.31pt;
+    padding-bottom: 5.60pt;
+    padding-left: 5.17pt;
+    padding-right: 5.17pt;
+    font-size: 8.2pt;
+    outline: none;
+}
+
+.wifiWizardInput:disabled {
+    border: 1px solid #999999;
+}
+
+.wifiLabel {
+    color: #000000;
+    margin-bottom: 1.29pt;
+    font-weight: bold;
+}
+
+.wifiLabelContainer{
+    color: #000000;
+    margin-bottom: 4.31pt;
+    overflow:visible;
+    white-space: normal;
+}
+
+#advancedDescriptionText {
+    font-weight: normal;
+}
+
+.wifiLabelDisabled {
+    color: #999999;
+    margin-bottom: 1.29pt;
+}
+
+/**
+ * "Net Name and Password Popup"
+ * Also known as "Enter Wi-Fi Password" or "Wi-Fi Login" or "Join".
+ */
+
+.simple #netNameLabel {
+    display: inline;
+}
+
+.simple #netNameLabel:after {
+    content: ':';
+}
+
+.simple #networkName {
+    display: inline;
+}
+
+.simple #networkNameEntryInput {
+    display: none;
+}
+
+.simple ~ #wifiWizardManualButtonBar,
+.simple ~ #wifiWizardWpsButtonBar {
+    display: none;
+}
+
+.simple.wps ~ #wifiWizardManualButtonBar,
+.simple.wps ~ #wifiWizardSimpleButtonBar {
+    display: none;
+}
+
+.simple.wps ~ #wifiWizardWpsButtonBar {
+    display: -webkit-box;
+}
+
+.manual #networkName {
+    display: none;
+}
+
+.manual ~ #wifiWizardSimpleButtonBar,
+.manual ~ #wifiWizardWpsButtonBar {
+    display: none;
+}
+
+/**
+ * These classes tweak the padding between input controls
+ * in advanced mode.
+ */
+
+.advancedPad2 {
+    padding-top: 9.49pt;
+}
+
+.advancedPad3 {
+    padding-top: 1.29pt;
+}
+
+/**
+ * LANDSCAPE
+ */
+
+.landscape #netNameAndPasswordPopup .button-bar {
+    width: 214pt;
+}
+
+.landscape .wifiInputWithLabel,
+.landscape .wifiCheckboxWithLabel,
+.landscape .wifiInputGroup {
+    margin-bottom: 4.31pt;
+}
+
+.landscape .wifiInputGroup > * {
+    margin-bottom: 0;
+}
+
+.landscape .wifiInputWithLabel {
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-align: center;
+}
+
+.landscape .wifiInputWithLabel .wifiLabel,
+.landscape .wifiInputWithLabel .wifiLabelDisabled {
+    width: 75.45pt;
+    text-align: right;
+    padding-right: 4.31pt;
+}
+
+.landscape .wifiInputWithLabel form {
+    -webkit-box-flex: 1;
+    padding-right: 6.47pt;
+}
+
+.landscape .wifiCheckboxWithLabel {
+    padding-left: 79.76pt;
+}
+
+.landscape #wifiAdvancedEntryScrollContainer,
+.landscape .wifiAdvancedEntryMainArea {
+    height: 94.2pt;
+}
+
+.landscape #advancedScrollbarContainer {
+    height: 84.50pt;
+}
+
+.landscape .simple #netNameLabel,
+.landscape .manual #netNameLabel {
+    display: block;
+    width: 75.45pt;
+    text-align: right;
+    padding-right: 4.31pt;
+}
+
+.landscape .simple #netNameLabel:after {
+    display: none;
+}
+
+.landscape .simple #networkName {
+    display: block;
+    -webkit-box-flex: 1;
+    padding-right: 6.47pt;
+    text-align: left;
+}
+
+.landscape #netNameAndPasswordPopup > .button-bar {
+    position: relative;
+    left: 80pt;
+}
+
+.landscape #netNameAndPasswordPopup > .button-bar.stacked-or-split {
+    width: 290pt;
+    left: 0;
+}
+
+.landscape #netNameAndPasswordPopup,
+.landscape #advancedPopup {
+    width: 300.07pt;
+}
+
+.landscape #wifiWizardMainDiv,
+.landscape #errorPopup{
+    width: 213.84pt;
+}
+
+.landscape .advancedPad2 {
+    padding-top: 10.35pt;
+}
+
+.landscape .advancedPad3 {
+    padding-top: 4.31pt;
+}
+
+.landscape #advancedPopup .lab126SelectorContainer {
+    width: 197.25pt;
+}
+
+input {
+    font-family : dialog;
+}

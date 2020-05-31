@@ -1,0 +1,11 @@
+# /etc/ppp/peers/peer-3
+
+# don't require peer to authenticate itself
+noauth
+
+# peer doesn't support compression control protocol
+noccp
+
+connect "/usr/sbin/chat -f /etc/ppp/chat/connect-generic"
+disconnect "/usr/sbin/chat -f /etc/ppp/chat/disconnect-generic"
+

@@ -1,0 +1,49 @@
+#!/bin/sh
+
+# choose first valid argument
+for var in "$@"
+do
+	if  $(echo $var | grep -e ^[0-9]*$ > /dev/null); then
+		newtime=$var
+		break
+	fi
+done
+
+oldtime=`date +%s`
+let delta=$newtime-$oldtime
+
+. /etc/rc.d/functions   # just for msg()
+
+set -e  # just in case one sneaks past
+
+# If no change (or close enough, given time for the request to get here via
+# LIPC), take a shortcut and skip logging anything:
+if [ $delta -eq 0 -o $delta -eq 1 ]; then
+	msg "old=$oldtime,new=$newtime,delta=$delta:" I skipchange
+	exit 0
+fi
+
+# sanity check vs. arbitrary minimum (set at build time):
+epochtime=`date -u -D "%Y-%m-%d %H:%M%Z" +%s -d "$(cat /etc/epoch.txt)"`
+if [ $newtime -ge "$epochtime" ]; then
+
+	msg "old=$oldtime,new=$newtime,delta=$delta:" I prechange
+
+	if ! date -s @$newtime; then
+		msg "new=$newtime,ret=$?:" E datefail
+		exit 2
+	fi
+	if ! hwclock -u -w; then
+		msg "new=$newtime,ret=$?:" E hwclockfail
+		exit 3
+	fi
+	lipc-send-event -r 30 com.lab126.time timeChanged -i $delta
+
+	msg "old=$oldtime,new=$newtime,delta=$delta:" I postchange
+
+else
+	msg "old=$oldtime,new=$newtime,delta=$delta:" E badchange
+	exit 1
+fi
+
+exit 0

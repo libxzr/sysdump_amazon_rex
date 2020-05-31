@@ -1,0 +1,10 @@
+# disconnect script
+
+TIMEOUT 15
+
+"NO CARRIER" "\dATH E1"
+"OK" "AT"
+"OK" ""
+
+SAY "disconnected"
+

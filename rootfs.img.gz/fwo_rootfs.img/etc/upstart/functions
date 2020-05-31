@@ -1,0 +1,585 @@
+# support for upstart scripts
+
+INTERNAL_FLAG_FILE=/INTERNAL_FEATURES_ENABLED__DO_NOT_RELEASE
+
+# configuration information:
+
+# f_platform - architecture (e.g. luigi or yoshi)
+# f_board - specific device (e.g. finkle)
+# f_rev - revision - decoded decimal number for comparison (not literal string)
+
+# configuration tests, e.g. they return shell true or false
+
+# f_wan - do we have a WAN?
+# f_wifi - do we have WIFI?
+
+# utility functions
+
+# f_milestone - put high res time and a marker in /tmp/milestones for boot timing
+# f_ms - provide (monotonic) ms resolution time
+# f_log - create parsable log (and console) entries
+
+
+f_ms() {
+  awk '{print int($1*1000)}' /proc/uptime
+}
+
+# f_log - create parsable lines
+#
+# lines (the part we control) are of the form:
+# domain [CEWIDP] source:event:metadata:comment
+#
+# the domain is taken from the "-t" field, it was previously "system"
+# levels are Critical,Error,Warning,Info,Debug,Performance
+
+# inputs are
+# $# >= 3 -> level source event [metadata [comment ...]]
+# $# == 1 -> "the whole shebang" (native logging)
+
+# output is to syslog and to the console for non-debug
+
+# Examples - let's use events/metadata and try to minimize the commentary:
+# f_log I userstore mount_okay
+# f_log E userstore mount_fail "status=$status"
+# f_log I volumd loaded "module=$LOADED" "gadget already loaded"
+
+
+f_log() {
+
+# allow some flexibility on level, e.g. I, info, INFO, Info
+
+  local slevel=info llevel=I
+
+  case "$1" in
+    c*|C*) slevel=crit ; llevel=C ;;
+    e*|E*) slevel=err ; llevel=E ;;
+    w*|W*) slevel=warn ; llevel=W ;;
+    i*|I*) slevel=info ; llevel=I ;;
+    d*|D*) slevel=debug ; llevel=D ;;
+    p*|P*) slevel=perf ; llevel=P ;;
+  esac
+
+  if [ $# -eq 1 ]; then     # native format
+    logger -t system -p local4.$slevel "$1"
+    case "$1" in D*|d*) ;; *) echo "system: $1" >/dev/console ;; esac
+    return
+  fi
+  
+  if [ $# -lt 3 ] ; then
+    logger -t system -- "$0 did bad log call ($*)"
+    return 1
+  fi
+
+  shift     # lose level, we've got that
+  local source="$1" ; shift
+  local event="$1" ; shift
+  local meta="$1" ;
+
+  logger -t system -p local4.$slevel "$llevel $source:$event:$meta:$*"
+  case $level in debug) ;; *) echo "$slevel $source:$event:$meta:$*" >/dev/console ;; esac
+}
+
+# TATTOO decode - dddRR*
+# ddd == device (e.g. 004 is finkle)
+# RR - HW revision (shouldn't be 0)
+
+# until we know otherwise, the best guesses are:
+_v_wan=1
+_v_wifi=1
+
+_v_width=600
+_v_height=800
+
+# given a TATTOO ID, set _v_rev
+# _v_rev is determined based on the version of PSN used in the device
+
+# Version #2 PSNs start with 'P' and have hardware revision in substring [6:8) in Base-10 format.
+# They are used in Eanab and newer devices
+
+# Version #1 (Legacy) PSNs start with '0' and have hardware revision in substring [3:5) in hex format
+# They are used in devices released before Eanab
+
+_f_do_rev() {
+  case "${1:0:1}" in
+  # Version #2 PSN
+      P) _v_rev=${1:6:2} ;;
+  # Version #1 (Legacy) PSN
+      [0-9A-F]) _v_rev=${1:3:2} ;;
+  esac
+}
+
+
+# decoder ring - everything else is based on the variables
+# TODO - cache the decoded variables and use that if available
+# TODO - sort out logging for board ID decoding issues
+
+# _v_id=${1:-$(cat /proc/board_id)}     # allow parameter for testing
+_v_id=$(cat /proc/board_id)
+
+case "$_v_id" in
+
+# TATTOO ids
+
+  000*) _v_platform=yoshi ; _v_board=yoshi ; _f_do_rev $_v_id ;;
+  001*) _v_platform=yoshi ; _v_board=primer ; _f_do_rev $_v_id ;;   # deprecated
+  002*) _v_platform=yoshi ; _v_board=harv ; _f_do_rev $_v_id ;;
+  003*) _v_platform=yoshi ; _v_board=tequila ; _f_do_rev $_v_id ; _v_wan=0 ;;
+  004*) _v_platform=yoshi ; _v_board=finkle ; _f_do_rev $_v_id ;;
+
+# whitney has a wifi-only variant
+
+  005*) _v_platform=yoshi ; _v_board=whitney ; _f_do_rev $_v_id ;;
+  006*) _v_platform=yoshi ; _v_board=whitney ; _f_do_rev $_v_id ; _v_wan=0 ;;
+
+# yoshime
+  00703*) _v_platform=yoshime3 ; _v_board=yoshime3 ; _f_do_rev $_v_id ;;
+  007*) _v_platform=yoshime ; _v_board=yoshime ; _f_do_rev $_v_id ;;
+
+# celeste has a wifi-only variant
+    
+  009*) _v_platform=yoshime3 ; _v_board=celeste ; _f_do_rev $_v_id ;;
+  00A*) _v_platform=yoshime3 ; _v_board=celeste ; _f_do_rev $_v_id ; _v_wan=0 ;;
+  015*) _v_platform=yoshime3 ; _v_board=celeste ; _f_do_rev $_v_id ;;
+  016*) _v_platform=yoshime3 ; _v_board=celeste ; _f_do_rev $_v_id ; _v_wan=0 ;;
+
+# icewine (yoshime)
+  01A*) _v_platform=yoshime3 ; _v_board=icewine ; _f_do_rev $_v_id ;;
+  01B*) _v_platform=yoshime3 ; _v_board=icewine ; _f_do_rev $_v_id ; _v_wan=0 ;;
+
+# wario
+  01908*) _v_platform=wario ; _v_board=bourbon ; _f_do_rev $_v_id ; _v_wan=0 ;;
+  019*) _v_platform=wario ; _v_board=wario ; _f_do_rev $_v_id ; _v_wan=0 ;;
+
+# icewine (wario)
+  025*) _v_platform=wario ; _v_board=icewine ; _f_do_rev $_v_id ;;
+  047*) _v_platform=wario ; _v_board=icewine ; _f_do_rev $_v_id ;;
+  026*) _v_platform=wario ; _v_board=icewine ; _f_do_rev $_v_id ; _v_wan=0 ;;
+  048*) _v_platform=wario ; _v_board=icewine ; _f_do_rev $_v_id ; _v_wan=0 ;;
+
+# pinot
+  027*) _v_platform=wario ; _v_board=pinot ; _f_do_rev $_v_id ; _v_wan=0 ;;
+  02E*) _v_platform=wario ; _v_board=pinot ; _f_do_rev $_v_id ; _v_wan=0 ;;
+  02A*) _v_platform=wario ; _v_board=pinot ; _f_do_rev $_v_id ;;
+  02F*) _v_platform=wario ; _v_board=pinot ; _f_do_rev $_v_id ;;
+
+# bourbon
+  051*) _v_platform=wario ; _v_board=bourbon ; _f_do_rev $_v_id ; _v_wan=0 ;;
+  062*) _v_platform=wario ; _v_board=bourbon ; _f_do_rev $_v_id ; _v_wan=0 ;;
+
+#muscat 
+  067*) _v_platform=wario ; _v_board=muscat ; _f_do_rev $_v_id ; _v_wan=0 ;; 
+  13G*) _v_platform=wario ; _v_board=muscat ; _f_do_rev $_v_id ; _v_wan=0 ;; 
+  068*) _v_platform=wario ; _v_board=muscat ; _f_do_rev $_v_id ; _v_wan=1 ;;
+
+# whisky 
+  079*) _v_platform=duet; _v_board=whisky ; _f_do_rev $_v_id ; _v_wan=0 ;; 
+  078*) _v_platform=duet; _v_board=whisky ; _f_do_rev $_v_id ; _v_wan=1 ;;
+         
+# woody
+  07F*) _v_platform=duet ; _v_board=woody ; _f_do_rev $_v_id ; _v_wan=0 ;;
+
+  P*) # PSN V2 start with "P" and tattoo code is 4-6
+    case $(echo $_v_id | cut -c4-6) in
+# eanab
+      118) _v_platform=heisenberg ; _v_board=eanab ; _f_do_rev $_v_id ; _v_wan=0 ;;
+
+
+# stinger
+      1C7) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1C8) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1K0) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1K1) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1L1) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1L2) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1M3) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1M4) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1NC) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1ND) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1NP) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1NQ) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1NT) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1PL) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1PM) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1QJ) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1QK) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1RW) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1RX) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1C9) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1CB) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1JJ) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1JK) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1K3) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1K4) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1KE) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1KF) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1L0) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1M1) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1M2) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1MS) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1MT) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1NB) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1PN) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1PP) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1QL) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1QM) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1S1) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1S2) _v_platform=zelda ; _v_board=stinger ; _f_do_rev $_v_id ; _v_wan=1 ;;
+
+
+# cognac
+      13H) _v_platform=zelda ; _v_board=cognac ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      13J) _v_platform=zelda ; _v_board=cognac ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      176) _v_platform=zelda ; _v_board=cognac ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      16G) _v_platform=zelda ; _v_board=cognac ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      177) _v_platform=zelda ; _v_board=cognac ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      195) _v_platform=zelda ; _v_board=cognac ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      198) _v_platform=zelda ; _v_board=cognac ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      199) _v_platform=zelda ; _v_board=cognac ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      197) _v_platform=zelda ; _v_board=cognac ; _f_do_rev $_v_id ; _v_wan=1 ;;
+
+# moonshine
+      15R) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1AD) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1AE) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1F2) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1F3) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1G8) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      15S) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1AF) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1EA) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1EQ) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1F1) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1F4) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1F5) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=1 ;;
+      1G9) _v_platform=rex ; _v_board=moonshine ; _f_do_rev $_v_id ; _v_wan=1 ;;
+
+
+# jaeger
+      1C2) _v_platform=rex ; _v_board=jaeger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1EU) _v_platform=rex ; _v_board=jaeger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1EV) _v_platform=rex ; _v_board=jaeger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1JR) _v_platform=rex ; _v_board=jaeger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1JQ) _v_platform=rex ; _v_board=jaeger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1JT) _v_platform=rex ; _v_board=jaeger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1JS) _v_platform=rex ; _v_board=jaeger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1M7) _v_platform=rex ; _v_board=jaeger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+      1M8) _v_platform=rex ; _v_board=jaeger ; _f_do_rev $_v_id ; _v_wan=0 ;;
+
+
+# for new development boards, default to a wario until someone adds the
+# specific TATTOO decode.  Give the poor H/W folks a chance :-)
+      *)
+        _v_platform=wario ; _v_board=wario ; _f_do_rev $_v_id
+        f_log C hardware bad_id "id=$_v_id" "bad board ID V2, defaulting to $_v_platform !!!!!!"
+        ;;
+    esac
+    ;;
+
+  *) 
+    _v_platform=wario ; _v_board=wario ; _f_do_rev $_v_id
+    f_log C hardware bad_id "id=$_v_id" "bad board ID, defaulting to $_v_platform !!!!!!"
+    ;;
+esac
+
+# exported functions
+
+f_platform() { echo $_v_platform ; }
+f_board() { echo $_v_board ; }
+f_rev() { echo $_v_rev ; }
+
+# N.B. shell true==0, false==1, like process exit codes
+
+f_wan() { 
+  if [ $_v_wan -eq 0 ]; then
+    f_log I hardware no_wan '' 'WiFi only device. No WAN found'; 
+  fi    
+  return $(( ! $_v_wan )) ; 
+}
+
+f_wifi() { return $(( ! $_v_wifi )) ; }
+
+# boot milestones - we write ours into a file to avoid the kernel
+# limitations (32 entries, fixed size, memory corruption, &c)
+# /proc/bd/boot_milestone gets combined into it at perf.conf
+
+# suggested use is "f_milestone <conf>nn", with 00 and 99 for start and end
+# e.g. wand00, wand49, wand50, wand99
+
+f_milestone() {
+  local m="$*"
+  set $(cat /proc/uptime)
+  echo $1 "$m" >> /tmp/milestones || true
+  f_log sytem milestone $1 $m
+}
+
+f_emit() {
+  f_log I system emiting_event $@
+  initctl emit --no-wait $@
+  f_log D sytem event_emitted $@
+}
+
+f_modprobe() {
+ f_log I modules modprobe "loading module $1"
+ ( modprobe $* && f_emit loaded_$1 ) || f_log C modules modprobe_failed "failed to load module $1"
+}
+
+# private functions - not for the squeamish
+
+# display control of various forms used in startup process - not exported for general use.
+
+f_display() {
+  
+  # if a localized screen exists, use it
+  local imageraw=/var/local/eink/images/$1.raw
+  local imagecompressedraw=/var/local/eink/images/$1.raw.gz
+  local imagepng=/var/local/eink/images/$1.png
+  local tempraw=/tmp/f_display_image.raw
+  
+  # look for raw, then compressed raw then png file
+  if [ -e $imageraw ]; then
+      echo "drawing raw"
+      image=$imageraw
+      format="-b"      
+  elif [ -e $imagecompressedraw ]; then
+      echo "drawing compressed"
+      
+      if [ -e $tempraw ]; then
+          rm $tempraw
+      fi 
+      # uncompress
+      gzip -cd $imagecompressedraw > $tempraw
+      
+      sleep 1
+      
+      # draw the temp file
+      image=$tempraw
+      format="-b"
+  elif [ -e $imagepng ]; then
+      echo "drawing png"
+      image=$imagepng
+      format="-g"
+  else 
+      echo "drawing default"
+    # Check for default screen if no localized screen
+    image=/opt/amazon/low_level_screens/$1.png
+    format="-g"
+  fi
+
+  if [ -e $image ]; then
+    # make sure device is in portrait mode
+
+    # Do a full flashing update
+    eips -c
+    sleep 1
+    eips -f $format $image
+    return
+  else
+    echo "cannot find image: $image"
+  fi
+
+  case "$1" in
+
+## controls
+
+    clear) eips -c ;;
+
+#BEN    pause) echo 20 1 > $UPDATE ;;
+#BEN    resume|nopause) echo 20 0 > $UPDATE ;;
+  
+  esac
+}
+
+# displays an empty progress bar (meant to go on top of the splash screen)
+f_display_splash_bar() {
+  local image=/opt/amazon/low_level_screens/splash_bar.png
+  if [ -f $image ]; then
+    eips -x 125 -y 857 -g $image
+  fi
+}
+
+# display text at x y, where x y are character resolution (i.e. 50x40 screen)
+# uses negative values to say "from bottom" or "from right"
+
+f_puts() {
+  local eh=20 ew=12 # eips font size
+  local x=$1 y=$2
+  shift 2
+  local mess="$*"
+
+  [ $x -lt 0 ] && x=$(( _v_width/ew + x - $(expr length "$mess") + 1 ))
+  [ $y -lt 0 ] && y=$(( _v_height/eh + y ))
+
+  eips $x $y "$mess"
+}
+
+internal_features_enabled()
+{
+    [ -f $INTERNAL_FLAG_FILE ]
+}
+
+# Usage: reboot_on_hang [TIMEOUT_ARGS] COMMAND -- LOG_COMMAND
+reboot_on_hang()
+{
+    local command=''
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --)
+                shift
+                break
+                ;;
+            *)
+                command="$command $1"
+                ;;
+        esac
+        shift
+    done
+    local retcode=0
+    timeout $command || retcode=$?
+    if [ $retcode -eq 143 ]; then
+        "$@" || true    # Issue LOG_COMMAND
+        if ! internal_features_enabled || [ ! -f /mnt/us/NO_REBOOT_ON_HANG ]; then
+            sleep 5         # wait for syslog to process the log message
+            sync
+            stop filesystems || true
+            echo 0 > /sys/devices/platform/mxc_wdt.0/wdog_rst
+        fi
+    fi
+    return $retcode
+}
+
+# Usage: is_wlan0_ready
+is_wlan0_ready()
+{
+    local MAC=`ifconfig wlan0 2> /dev/null | awk '$4 == "HWaddr" {print $5}'`
+    case "$MAC" in
+        ''|00:00:00:00:00:00)
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+record_device_metrics() {
+    source /usr/bin/record_device_metric.sh                                
+    record_device_metric "$1" "$2" "$3" "$4" "$5" "$6" "$7" || true
+}
+
+log_var_local_folder_sizes() {
+    rm /tmp/var_local_folder_sizes.txt || true
+    du -sh /var/local/* > /tmp/var_local_folder_sizes.txt
+    while read line
+    do
+        f_log I log_var_local_folder_sizes "printing varlocal folder sizes" "$line"
+    done < /tmp/var_local_folder_sizes.txt
+}
+
+log_df_h() {
+    rm /tmp/df_h.txt || true
+    df -h > /tmp/df_h.txt
+    while read line
+    do
+        f_log I log_df_h "printing df -h" "$line"
+    done < /tmp/df_h.txt
+}
+
+log_version_txt() {
+    while read line
+    do
+        f_log I log_version_txt "printing /etc/version.txt" "$line"
+    done < /etc/version.txt
+}
+
+log_pretty_version_txt() {
+    f_log I log_pretty_version_txt "printing /etc/prettyversion.txt - `cat /etc/prettyversion.txt`"
+}
+
+log_accessed_contents() {
+    set +e
+    f_log I dump_device_data lastAccessedContents `sqlite3 /var/local/cc.db "select p_cdeKey from entries where (p_isVisibleInHome=1 and p_type!='Entry:Item:PVC' and p_type!='Collection') ORDER BY p_lastAccess DESC, p_cdeKey DESC LIMIT 5"`
+    set -e
+}
+
+dump_device_data() {
+    log_var_local_folder_sizes || true
+    log_df_h || true
+    log_pretty_version_txt || true
+    log_accessed_contents || true
+}
+
+# Scan for libc error messages. Messages are sent to syslog with "libc_scan" in the tag.
+# That makes it easy for KDM to scan syslog uploaded from devices.
+# Call it without any parameters. Ensure that STDERR env variable is set to filename to be scanned.
+# NB: This function deletes the STDERR file.
+libc_scan() {
+    if [ -e $STDERR ]; then
+        LOGTAG=libc_scan:$UPSTART_JOB
+        grep -f /etc/upstart/libc_err_patterns.txt $STDERR | logger -t $LOGTAG
+    fi
+    rm -f $STDERR
+}
+
+chroot_mount()
+{                                                                    
+    mount -o bind /dev/log /chroot/dev/log || true                                 
+    mount -o bind /dev/random /chroot/dev/random || true                    
+    mount -o bind /dev/urandom /chroot/dev/urandom || true         
+    mount -o bind /dev/shm /chroot/dev/shm || true                 
+    mount -o bind /sys /chroot/sys || true                                
+    mount -o bind /var/cache /chroot/var/cache || true                         
+    mount -o bind /var/lock /chroot/var/lock || true               
+    mount -o bind /var/run /chroot/var/run || true                              
+    mount -o bind /etc/kdb.src /chroot/etc/kdb.src || true                              
+    mount -o bind /var/local /chroot/var/local || true                                  
+    mount -o bind /mnt/us /chroot/mnt/us || true                                                   
+    mount -o bind /etc/fonts /chroot/etc/fonts || true                                             
+    mount -o bind /etc/gtk-2.0 /chroot/etc/gtk-2.0 || true                                         
+    mount -o bind /etc/pango /chroot/etc/pango || true                                             
+    mount -o bind /etc/resolv.d /chroot/etc/resolv.d || true                                       
+    mount -o bind /usr/share /chroot/usr/share || true                                             
+    mount -o bind /usr/ssl /chroot/usr/ssl || true                            
+    mount -o bind /usr/share/keyboard /chroot/usr/share/keyboard || true      
+    mount -o bind /usr/java/lib/fonts /chroot/usr/java/lib/fonts || true      
+    mount -o bind /usr/share/X11/xkb /chroot/usr/share/X11/xkb || true        
+    mount -o bind /usr/lib/pango /chroot/usr/lib/pango || true                
+    mount -o bind /usr/lib/locale /chroot/usr/lib/locale || true                          
+}                                                                    
+                                                                                
+chroot_umount()                                                     
+{                                                                                       
+    umount -l /chroot/dev/log || true                              
+    umount -l /chroot/dev/random || true                                                           
+    umount -l /chroot/dev/urandom || true                                    
+    umount -l /chroot/sys || true                                               
+    umount -l /chroot/dev/shm || true                     
+    umount -l /chroot/var/cache || true                   
+    umount -l /chroot/var/lock || true                                         
+    umount -l /chroot/var/run || true                                      
+    umount -l /chroot/etc/kdb.src  || true                                              
+    umount -l /chroot/var/local || true                                                 
+    umount -l /chroot/mnt/us || true                                                               
+    umount -l /chroot/etc/fonts || true                                                            
+    umount -l /chroot/etc/gtk-2.0 || true                                                          
+    umount -l /chroot/etc/pango || true                                                            
+    umount -l /chroot/etc/resolv.d || true                                                         
+    umount -l /chroot/usr/share/keyboard || true                              
+    umount -l /chroot/usr/java/lib/fonts || true                              
+    umount -l /chroot/usr/share/X11/xkb || true                               
+    umount -l /chroot/usr/share || true                                       
+    umount -l /chroot/usr/ssl || true                                         
+    umount -l /chroot/usr/lib/pango || true                           
+    umount -l /chroot/usr/lib/locale || true                                 
+}
+
+asr_stack_teardown() {
+    stop xasr &
+    stop asr &
+    stop ivona_ttsd &
+    delete_asr_flags
+}
+
+delete_asr_flags() {
+    rm /var/local/VOICE_VIEW_STARTED || true
+    rm /var/local/ASR_ON || true
+    rm /var/local/NO_DEVICE_IN_RANGE_ALERT_SHOWN || true
+    rm /var/local/IN_ASR_MODE || true
+}

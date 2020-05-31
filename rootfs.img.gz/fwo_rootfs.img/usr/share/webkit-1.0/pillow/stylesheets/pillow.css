@@ -1,0 +1,209 @@
+.pillowBoxedBody {
+    border: 1px solid #000000;
+    padding: 0;
+    margin: 0;
+}
+
+.pillowDialogBody {
+    background-color: transparent;
+    padding: 0;
+    margin: 0;
+    border: 5px solid #000000;
+    -webkit-border-radius: 9px;
+    -webkit-user-select: none;
+}
+
+.pillowDialogMainDiv {
+    background-color : #AAAAAA;
+    -webkit-border-radius: 2px;
+    padding : 8.62pt;
+}
+
+
+
+.pillowDialogButton {
+    -webkit-border-radius: 9px;
+    background-color: #FFFFFF;
+    border: 1px solid #000000;
+    color: #000000;
+    text-align: center;
+    float: right;
+    height: 12.93pt;
+    padding-top: 5.17pt;
+    padding-left: 2.16pt;
+    padding-right: 2.16pt;
+    font-size: 7.3pt;
+}
+
+.pillowDialogButtonBar {
+    width : 100%;
+    height : 18.97pt;
+}
+
+.pillowDialogMarginedButton {
+    margin-right: 4.31pt;
+}
+
+.pillowCustomButton2 {
+    -webkit-border-radius: 9px;
+    background-color: #000000;
+    color: #FFFFFF;
+    border: 1px solid #AAAAAA;
+    text-align: center;
+}
+
+.pillowCustomButton {
+    -webkit-border-radius: 9px;
+    font-size: 1.5em;
+    background-color: #AAAAAA;
+    border: 1px solid black;
+    text-align: center;
+}
+
+.pillowDialogBarButton {
+    height: 18.11pt;
+    margin-top: 3.02pt;
+    margin-right: 2.16pt;
+    margin-left: 2.16pt;
+    padding-top: 4.31pt;
+}
+
+.pillowDialogBarButton2 {
+    height: 18.11pt;
+    margin-top: 4.31pt;
+    margin-right: 2.16pt;
+    margin-left: 2.16pt;
+    padding-top: 4.31pt;
+    font-size: 17pt;
+}
+
+.pillowDialogTitle {
+    text-align: left;
+    color: #000000;
+    font-size: 9.5pt;
+}
+
+.pillowDialogTitle2 {
+    text-align: center;
+    background-color: #000000;
+    color: #FFFFFF;
+    font-size: 17pt;
+    height: 17.25pt;
+    padding-top: 4.31pt;
+    margin: 0;
+    -webkit-border-top-left-radius: 2px;
+    -webkit-border-top-right-radius: 2px;
+}
+
+.pillowDialogTitle3 {
+    text-align: left;
+    background-color: #AAAAAA;
+    color: #000000;
+    font-size: 17pt;
+    height: 21.56pt;
+    margin: 0;
+    -webkit-border-top-left-radius: 2px;
+    -webkit-border-top-right-radius: 2px;
+}
+
+.pillowDialogMainText {
+    font-size: 7.3pt;
+    margin-top: 8.62pt;
+    margin-bottom: 8.62pt;
+}
+
+.pillowDialogMainTextCell {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.pillowButtonBar {
+    height: 29.32pt;
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    z-index: 1;
+}
+
+.pillowButtonBarBackground {
+    height: 29.32pt;
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    z-index: 0;
+    background-color: #AAAAAA;
+    margin: 0;
+}
+
+.pillowButtonBarStripe {
+    height: 14.66pt;
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    background-color: #555555;
+    margin: 0;
+}
+
+.pillowInput {
+    border: 1px solid #000000;
+}
+
+.pillowDarkGrayText {
+    color: #555555;
+}
+
+.pillowLightGrayText {
+    color: #AAAAAA;
+}
+
+.pillowBlackText {
+    color: #000000;
+}
+
+.pillowSelectorContainer {
+    height: 12.93pt;
+    width: 100%;
+    margin-bottom: 12.93pt;
+}
+
+.pillowSelectorSectionLeft {
+    height: 100%;
+    float: left;
+    text-align: center;
+    padding-top: 4.31pt;
+    border: 1px solid #000000;
+    -webkit-border-top-left-radius: 8px;
+    -webkit-border-bottom-left-radius: 8px;
+}
+
+.pillowSelectorSectionMiddle {
+    height: 100%;
+    float: left;
+    text-align: center;
+    padding-top: 4.31pt;
+    border-top: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+    border-right: 1px solid #000000;
+}
+
+.pillowSelectorSectionRight {
+    height: 100%;
+    float: left;
+    text-align: center;
+    padding-top: 4.31pt;
+    -webkit-border-top-right-radius: 8px;
+    -webkit-border-bottom-right-radius: 8px;
+    border-top: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+    border-right: 1px solid #000000;
+}
+
+.pillowSelectorUnselected {
+    background-color: #FFFFFF;
+    color: #000000;
+}
+
+.pillowSelectorSelected {
+    background-color: #000000;
+    color: #FFFFFF;
+}

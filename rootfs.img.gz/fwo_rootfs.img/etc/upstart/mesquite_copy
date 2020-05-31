@@ -1,0 +1,46 @@
+#If /var/local/waf exists, then we need to copy the data to Mesquite and delete it.
+if [ -d "/var/local/waf" ]; then
+  #copy userdata from /var/local/waf to /mnt/us/.active_content_sandbox
+  echo "Begin WAF data copy to Mesquite"
+  
+  #Store data
+  mkdir -p /mnt/us/.active_content_sandbox/store/.cache
+  cp -r /var/local/waf/store/.cache/ /mnt/us/.active_content_sandbox/store/.cache/
+  mkdir -p /mnt/us/.active_content_sandbox/store/resource/LocalStorage
+  cp -r /var/local/waf/store/resource/LocalStorage /mnt/us/.active_content_sandbox/store/resource/
+  cp -r /var/local/waf/store/resource/databases /mnt/us/.active_content_sandbox/store/resource/
+  mkdir -p /var/local/mesquite/store/
+  cp /var/local/waf/store/cookieJar /var/local/mesquite/store/cookieJar
+   
+  #ODAC data
+  mkdir -p /mnt/us/.active_content_sandbox/odac/resource/LocalStorage
+  cp -r /var/local/waf/odac/resource/LocalStorage /mnt/us/.active_content_sandbox/odac/resource/
+  cp -r /var/local/waf/odac/resource/databases /mnt/us/.active_content_sandbox/odac/resource/
+  mkdir -p /var/local/mesquite/odac
+  cp /var/local/waf/odac/cookieJar /var/local/mesquite/odac/cookieJar
+
+  #MYSN data
+  mkdir -p /mnt/us/.active_content_sandbox/mysn/resource
+  cp -r /var/local/waf/mysn/resource/LocalStorage /mnt/us/.active_content_sandbox/mysn/resource/
+  cp -r /var/local/waf/mysn/resource/databases /mnt/us/.active_content_sandbox/mysn/resource/
+  mkdir -p /var/local/mesquite/mysn
+  cp /var/local/waf/mysn/cookieJar /var/local/mesquite/mysn/cookieJar
+
+  #Adviewer
+  mkdir -p /mnt/us/.active_content_sandbox/adviewer/resource/LocalStorage
+  cp -r /var/local/waf/adviewer/resource/LocalStorage /mnt/us/.active_content_sandbox/adviewer/resource/
+  cp -r /var/local/waf/adviewer/resource/databases /mnt/us/.active_content_sandbox/adviewer/resource/
+  mkdir -p /var/local/mesquite/adviewer
+  cp /var/local/waf/adviewer/cookieJar /var/local/mesquite/adviewer/cookieJar
+
+  #Browser
+  mkdir -p /mnt/us/.active_content_sandbox/browser/resource/
+  cp -r /var/local/waf/browser/resource/LocalStorage /mnt/us/.active_content_sandbox/browser/resource/
+  cp -r /var/local/waf/browser/resource/databases /mnt/us/.active_content_sandbox/browser/resource/
+  mkdir -p /var/local/mesquite/browser
+  cp /var/local/waf/browser/cookieJar /var/local/mesquite/browser/cookieJar
+
+  #Now remove WAF 
+  rm -rf /var/local/waf
+  echo "End WAF data copy to Mesquite"
+fi

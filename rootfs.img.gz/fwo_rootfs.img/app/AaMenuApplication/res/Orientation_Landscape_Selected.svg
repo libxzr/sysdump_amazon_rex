@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="66px" height="49px" viewBox="0 0 66 49" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 55.1 (78136) - https://sketchapp.com -->
+    <title>Icon / E-reader / Orientation / Horizontal / Selected</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Icon-/-E-reader-/-Orientation-/-Horizontal-/-Selected" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="167ppi_Orientation_Horizontal_Selected" transform="translate(-0.500000, -0.500000)" stroke="#000000">
+            <rect id="Rectangle" stroke-width="3" fill="#FFFFFF" transform="translate(33.500000, 25.000000) rotate(-90.000000) translate(-33.500000, -25.000000) " x="10.5" y="-6.5" width="46" height="63" rx="6"></rect>
+            <path d="M11.5,11 L56.5,11" id="Line" stroke-linecap="square"></path>
+            <path d="M11.5,18 L56.5,18" id="Line" stroke-linecap="square"></path>
+            <path d="M11.5,25 L56.5,25" id="Line" stroke-linecap="square"></path>
+            <path d="M11.5,32 L56.5,32" id="Line" stroke-linecap="square"></path>
+            <path d="M11.5,39 L56.5,39" id="Line" stroke-linecap="square"></path>
+        </g>
+    </g>
+</svg>

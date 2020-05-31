@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=com.lab126.voiceviewhelper
+Exec=/usr/bin/voiceviewhelper
+User=framework

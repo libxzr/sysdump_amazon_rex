@@ -1,0 +1,18 @@
+#!/bin/sh
+
+RESOLV_CONF=$(readlink /etc/resolv.conf)
+RESOLV_SAVE=/var/run/resolv.conf.save
+
+LIPC_SEND_EVENT=/usr/bin/lipc-send-event
+
+ifname="$1"
+action="$2"
+case "$action.$ifname" in
+	up.wwan0)
+		;;
+	down.wwan0)
+		ifconfig ${ifname} down 2>/dev/null
+		${LIPC_SEND_EVENT} com.lab126.hal wanPPPDown
+		mv ${PPP_RESOLV_SAVE} ${PPP_RESOLV_CONF}
+		;;
+esac

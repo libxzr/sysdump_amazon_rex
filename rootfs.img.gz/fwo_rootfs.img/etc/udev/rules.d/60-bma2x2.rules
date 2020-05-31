@@ -1,0 +1,7 @@
+# When the device is probed in the kernel, nothing is enabled by default. bma2x2_setup enables what we need.
+SUBSYSTEM=="input", ATTRS{name}=="bma2x2", ACTION=="add", RUN+="/lib/udev/bin/bma2x2_setup.sh"
+
+# Xorg's udev scanning logic wants ID_INPUT set on the device in order to auto-detect it. To save power X wil use the
+# interrupt based event device, bma_interrupt instead of the polling one, bma2x2. The setup script, bma2x2_setup.sh was
+# run against bma2x2, because that it has the configuration sys entries for both operation modes.
+SUBSYSTEM=="input", ATTRS{name}=="bma_interrupt", ENV{ID_INPUT}="1", ACTION=="add"

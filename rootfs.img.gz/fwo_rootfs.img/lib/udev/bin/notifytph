@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ "${ACTION}" = "change" ]; then
+	/usr/bin/notifytph 0
+fi
+
+exit 0
+

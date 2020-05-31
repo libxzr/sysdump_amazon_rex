@@ -1,0 +1,43 @@
+/*
+ * widget_scroll_bar.css
+ *
+ * Copyright 2012-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+.lab126ScrollBar {
+    -webkit-box-sizing: border-box;
+    position: absolute;
+    /* From the HIG */
+    width: 12pt;
+    right: 0pt;
+    top: 2.6pt;
+    bottom: 3.2pt;
+    background-color: #FFFFFF;
+    z-index: 100;
+}
+
+.lab126ScrollBarVertical {
+    position: absolute;
+    width: .48pt;
+    height: 100%;
+    left:0;
+    right:0;
+    margin-left:auto;
+    margin-right:auto;
+    background-color: #000000;
+}
+
+.lab126ScrollHandle {
+    position: absolute;
+    width: 1.92pt;
+    border-radius: 1pt;
+    left:0;
+    right:0;
+    margin-left:auto;
+    margin-right:auto;
+    background-color: #000000;
+}

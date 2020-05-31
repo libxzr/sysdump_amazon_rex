@@ -1,0 +1,4 @@
+#!/bin/sh
+
+lipc-set-prop com.lab126.wan startWan 0
+

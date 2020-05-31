@@ -1,0 +1,2 @@
+# This rule is added for testing powerd
+SUBSYSTEM=="platform", DRIVER=="max77696-battery", RUN+="/lib/udev/bin/notifysoc $ENV{DRIVER}"

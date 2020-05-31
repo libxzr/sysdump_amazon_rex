@@ -1,0 +1,5 @@
+{
+    "replace" : "$2 $1",
+    "search" : "^(?:\\W*)(el|la|los|las|un|una|unos|unas)(?:\\s+)(.*)"
+}
+

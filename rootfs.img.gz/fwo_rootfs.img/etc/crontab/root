@@ -1,0 +1,11 @@
+#*/15 * * * * /usr/sbin/checkpmond
+*/15 * * * * /usr/sbin/tinyrot
+*/60 * * * * /usr/sbin/loginfo tmpfs
+*/60 * * * * /usr/sbin/loginfo localVars
+*/60 * * * * /usr/sbin/loginfo userstore
+*/60 * * * * /usr/sbin/loginfo memusedump
+*/60 * * * * /usr/sbin/loginfo lightintensity
+*/15 * * * * /usr/sbin/loginfo powerdcheck
+#*/30 * * * * _OTAFILE=`ls /mnt/us/[Uu]pdate*.bin`;  if [ $? -eq 0 ]; then /usr/sbin/otacheck $_OTAFILE; killall -hup testd; fi
+*/30 * * * * initctl emit tmpfs_scan
+0 0 * * * /etc/dem_heartbeat/record_dem_heartbeat_cronjob.sh

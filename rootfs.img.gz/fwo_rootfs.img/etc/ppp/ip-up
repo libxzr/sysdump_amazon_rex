@@ -1,0 +1,83 @@
+#!/bin/sh
+
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+. /var/local/wan/info
+
+PPP_IP_START=/var/run/ppp/ip_start
+
+PPP_RESOLV_CONF=$(readlink /etc/resolv.conf)
+PPP_RESOLV_SAVE=/var/run/resolv.conf.save
+PPP_RESOLV_NEW="/etc/resolv.d/resolv.conf.${WAN_PEER}"
+RESOLV_OPTIONS="options timeout:5 attempts:2 rotate\n"
+
+LIPC_HASH_PROP=/usr/bin/lipc-hash-prop
+LIPC_GET_PROP=/usr/bin/lipc-get-prop
+
+INTERFACE="$1"
+TTY_DEVICE="$2"
+SPEED="$3"
+LOCAL_IP="$4"
+GATEWAY_IP="$5"
+
+DNS1_NAMESERVER=""
+DNS2_NAMESERVER=""
+
+if [ -z "${USEPEERDNS}" -a ! -r ${PPP_RESOLV_NEW} ]; then
+    msg "unknown WAN peer (${WAN_PEER})" E
+fi
+
+if [ 0 -ne "$(${LIPC_GET_PROP} -i com.lab126.wan shouldRoute)" ]; then
+        msg "PPP adding route to default gw and resolv.conf file" I
+	cp ${PPP_RESOLV_CONF} ${PPP_RESOLV_SAVE}
+	cp ${PPP_RESOLV_NEW} ${PPP_RESOLV_CONF}
+
+	route add default gw "${GATEWAY_IP}" "${INTERFACE}"
+fi
+
+#
+# ppp will call ip-up with USEPEERDNS defined if the usepeerdns option is set.
+# In whispernet2.0 sims where we use VPN, our nameservers are hardwired and
+# based on /etc/resolv.d files.
+# In whispernet3.0 sims we use the dns server as provided by our peer via ipcp
+# so the usepeerdns option is set.  See /platform/etc/ppp/peers/peer-wn3-3 as
+# an example.
+#
+if [ -n "${USEPEERDNS}" ]; then
+    msg "Using Peer DNS (xxx.xxx.$(echo ${DNS1} | cut -d '.' -f 3,4)) and (xxx.xxx.$(echo ${DNS2} | cut -d '.' -f 3,4))" I
+else
+    msg "PPP Using DNS from (${PPP_RESOLV_NEW})" I
+    DNSSERVER=1
+    for DNS in $(cat ${PPP_RESOLV_NEW} \
+				| sed -e 's/^nameserver[ \t]\+\([0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+\).*$/\1/; t; d'); do
+        if [ "${DNSSERVER}" == "1" ]; then
+            DNS1=${DNS}
+        elif [ "${DNSSERVER}" == "2" ]; then
+            DNS2=${DNS}
+        fi
+        let "DNSSERVER += 1"
+    done
+    msg "Using ${PPP_RESOLV_NEW} nameservers xxx.xxx.$(echo ${DNS1} | cut -d '.' -f 3,4) and xxx.xxx.$(echo ${DNS2} | cut -d '.' -f 3,4)" I
+fi
+
+if [ -n "{DNS1}" -a "${DNS1}" != "0.0.0.0" ]; then
+    route add -host ${DNS1} gw ${GATEWAY_IP} ${INTERFACE}
+    DNS1_NAMESERVER="nameserver ${DNS1}\n"
+fi
+if [ -n "{DNS2}" -a "${DNS2}" != "0.0.0.0" ]; then
+    route add -host ${DNS2} gw ${GATEWAY_IP} ${INTERFACE}
+    DNS2_NAMESERVER="nameserver ${DNS2}\n"
+fi
+
+# /usr/bin/lipc-send-event com.lab126.hal wanPPPUp
+
+echo -e "{ cmIpAddr = \"${LOCAL_IP}\",
+        cmDefaultGW = \"${GATEWAY_IP}\",
+        cmNetMask = \"255.255.255.255\",
+        cmResolvConf = \"${DNS1_NAMESERVER}${DNS2_NAMESERVER}${RESOLV_OPTIONS}\" }" \
+            | ${LIPC_HASH_PROP} com.lab126.wan cmIntfInfo
+
+echo PPP interface up ${INTERFACE} ${TTY_DEVICE} ${SPEED} ${LOCAL_IP} ${GATEWAY_IP} > ${PPP_IP_START}
+
+msg "PPP interface up ${INTERFACE} ${TTY_DEVICE} ${SPEED} xxx.xxx.$(echo ${LOCAL_IP} | cut -d '.' -f 3,4) xxx.xxx.$(echo ${GATEWAY_IP} | cut -d '.' -f 3,4) nameserver xxx.xxx.$(echo ${DNS1} | cut -d '.' -f 3,4) nameserver xxx.xxx.$(echo ${DNS2} | cut -d '.' -f 3,4)" I

@@ -1,0 +1,127 @@
+#!/bin/sh
+
+PMON_SOURCE=com.lab126.pmond
+
+usage() {
+    echo "Usage: pmon <command> <command arguments>"
+    echo "Available commands: start, stop, kill, restart, mem_limit, hb_start, hb_stop, summary"
+    echo "start: pmon start <process config name>"
+    echo "stop: pmon stop <process config name>"
+    echo "kill: pmon kill <process config name>"
+    echo "restart: pmon restart <process config name>"
+    echo "mem_limit: pmon mem_limit <process config name> <new mem limit in KB>"
+    echo "hb_start: pmon heartbeat_start <process config name>"
+    echo "hb_stop: pmon heartbeat_stop <process config name>"
+    echo "summary: pmon summary"
+}
+
+_send_command() {
+    CMD=$1
+    PROC=$2
+    if [ -z "$PROC" ]; then
+        echo "Please provide a process config name"
+        exit 1
+    fi
+
+    lipc-set-prop $PMON_SOURCE $CMD $PROC >/dev/null 2>/dev/null
+    RET=$?
+
+    if [ $RET -ne 0 ]; then
+        echo "Failed to $CMD.  Make sure the proc config name is correct"
+        exit 1
+    fi
+}
+
+_start() {
+    _send_command start $2
+}
+
+_stop() {
+    _send_command stop $2
+}
+
+_kill() {
+    _send_command kill $2
+}
+
+_restart() {
+    _send_command restart $2
+}
+
+_mem_limit() {
+    if [ -z "$3" ]; then
+        echo "Provide the mem limit to set"
+        exit 1
+    fi
+
+    _send_command mem_limit $2.$3
+}
+
+_hb_start() {
+    _send_command heartbeat_start $2
+}
+
+_hb_stop() {
+    _send_command heartbeat_stop $2
+}
+
+_summary() {
+    lipc-get-prop $PMON_SOURCE summary
+}
+
+
+
+
+
+########################################
+# START OF SCRIPT
+
+COMMAND=$1
+
+if [ -z "$COMMAND" ]; then
+    usage
+    exit 1
+fi
+
+case $COMMAND in
+    start)
+        _start $@
+        ;;
+
+    stop)
+        _stop $@
+        ;;
+
+    kill)
+        _kill $@
+        ;;
+
+    restart)
+        _restart $@
+        ;;
+
+    mem_limit)
+        _mem_limit $@
+        ;;
+
+    hb_start)
+        _hb_start $@
+        ;;
+
+    hb_stop)
+        _hb_stop $@
+        ;;
+
+    summary)
+        _summary $@
+        ;;
+
+    *)
+        echo "Unknown command $COMMAND"
+        usage
+        ;;
+esac
+
+
+
+

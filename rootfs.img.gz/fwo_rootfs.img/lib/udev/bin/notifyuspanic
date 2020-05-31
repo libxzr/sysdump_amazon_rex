@@ -1,0 +1,11 @@
+#!/bin/sh
+
+_LOG="/usr/bin/logger -s -t $(basename $0)"
+
+${_LOG} "I $(basename $0):panic::FAT panic (corrupted userstore)"
+
+/usr/bin/lipc-send-event -r 3 com.lab126.hal usbMountedReadonly
+
+if [ $? -ne 0 ] ; then
+    touch "/var/local/USERSTORE_READONLY"
+fi

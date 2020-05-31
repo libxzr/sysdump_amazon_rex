@@ -1,0 +1,69 @@
+#! /bin/sh
+# script for loading cyttsp module and updating cypress firwmare.
+# There is no way to know if it's really connected, so failure just unloads
+# the module and returns "true"
+
+# DO_UPDATE can take 3 values:
+#    0: Do not update
+#    1: Use standard update process
+#    2: Force update regardless of version
+
+source /etc/upstart/functions
+
+bootmode=`cat /proc/bootmode`
+CYTTSP4_RECOVERY_DELAY 3
+CYTTSP4_LOADER_DELAY 40
+
+if [ "$(f_platform)" = "yoshime3" ]; then
+	modprobe cyttsp
+elif [ "$(f_platform)" = "wario" -o "$(f_platform)" = "duet" ]; then
+	if [ "$bootmode" = "diags" ]; then
+		f_log I cyttsp4 update "cyttsp4 skip fw update in diags mode"
+		exit 0
+	fi
+	DO_UPDATE=0
+	FW_DIR="/lib/firmware/cyttsp4"
+	SYS_FW_VER="/sys/devices/platform/imx-i2c.1/i2c-1/1-0024/main_ttsp_core.cyttsp4_i2c_adapter/ic_ver"
+	SYS_LOADER="/sys/devices/platform/imx-i2c.1/i2c-1/1-0024/main_ttsp_core.cyttsp4_i2c_adapter/cyttsp4_loader.main_ttsp_core"
+
+	modprobe cyttsp4_i2c
+	modprobe cyttsp4_core
+	modprobe cyttsp4_mt_b	
+
+	# Handle FW corrupted case
+	if [ ! -e $SYS_FW_VER -a "$(f_platform)" = "duet" ]; then
+		#unload modules
+		modprobe -r cyttsp4_mt_b
+		modprobe -r cyttsp4_device_access 
+		modprobe -r cyttsp4_core
+		#reload the module:
+		modprobe cyttsp4_core recovery_mode=y ;  
+		sleep $CYTTSP4_RECOVERY_DELAY
+		modprobe cyttsp4_loader
+		sleep $CYTTSP4_LOADER_DELAY
+		reboot
+		
+	fi
+
+	# auto FW update is available only in pre-GM builds
+	if [ -e "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC" ] ; then
+		if [ "$(f_board)" = "muscat" -o "$(f_board)" = "whisky" ]; then
+
+			if [ ! -e $SYS_FW_VER -o ! -e $FW_DIR ]; then
+				f_log E cyttsp4 update "cannot find firmware version!!"
+				exit 0
+			fi
+
+			FW_FILE=`ls -h $FW_DIR/$(f_board)*.bin | head -1 2>/dev/null`
+			FILE_VER=`basename $FW_FILE .bin | cut -d _ -f 2`
+	
+			CUR_FW_VER=`cat $SYS_FW_VER | grep "Lab126" | tail -c 5`
+		
+			f_log I cyttsp4 update "cyttsp4 fw ver=$CUR_FW_VER file version=$FILE_VER"
+			if [ $(( 0x$FILE_VER )) -ne $(( 0x$CUR_FW_VER )) ]; then
+				f_log I cyttsp4 update "from $CUR_FW_VER to $FILE_VER"
+				modprobe cyttsp4_loader
+			fi
+		fi
+	fi
+fi

@@ -1,0 +1,6 @@
+#!/bin/sh
+
+echo "umounting waveform filesystem"
+    
+sync
+umount /mnt/wfm

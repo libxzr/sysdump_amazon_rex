@@ -1,0 +1,77 @@
+#!/bin/sh
+
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+CURRENT_STATE_RO=0
+
+MOUNT_BIN="/bin/mount"
+MOUNT_ARGS_RO="-o remount,ro"
+MOUNT_ARGS_RW="-o remount,rw"
+
+MSG_RO="read-only"
+MSG_RW="writeable"
+MSG_MAKING="Making root filesystem "
+MSG_REMOUNT="Done re-mounting root filesystem as "
+MSG_FAILREMOUNT="Re-mounting root filesystem failed"
+MSG_NTBD="Nothing to be done"
+
+current_state()
+{
+	{ [ -z "`cat /etc/mtab | awk '/\/dev\/root \/ / { print $4 }' | grep 'ro'`" ] && CURRENT_STATE_RO=0; } || CURRENT_STATE_RO=1;
+	{ [ $CURRENT_STATE_RO -eq 1 ] && msg "Currently $MSG_RO" D; }  || msg "Currently $MSG_RW" D
+}
+
+mount_ro()
+{
+	msg "$MSG_MAKING$MSG_RO" I
+	current_state
+	if [ $CURRENT_STATE_RO -eq 0 ]; then 
+		$MOUNT_BIN $MOUNT_ARGS_RO /
+		if [ $? -eq 0 ]; then
+			msg "$MSG_REMOUNT$MSG_RO" D 
+		else
+			msg "$MSG_FAILREMOUNT" E
+		fi
+	else
+		msg "$MSG_NTBD" D
+	fi
+}
+
+mount_rw()
+{
+	msg "$MSG_MAKING$MSG_RW" I
+	current_state
+	if [ $CURRENT_STATE_RO -eq 1 ]; then 
+		$MOUNT_BIN $MOUNT_ARGS_RW /
+		if [ $? -eq 0 ]; then
+			msg "$MSG_REMOUNT$MSG_RW" D 
+		else
+			msg "$MSG_FAILREMOUNT" E
+		fi	
+	else
+		msg "$MSG_NTBD" D
+	fi
+}
+
+
+case "$1" in
+
+    ro)
+		mount_ro
+        ;;
+	rw)
+		mount_rw
+		;;
+	help|-h|--help)
+		msg "Usage: $0 (ro|rw)" I
+        ;;
+	*)
+		current_state
+		{ [ $CURRENT_STATE_RO -eq 1 ] && exit 5 ; } || exit 6
+       ;;
+
+esac
+
+exit 0
+

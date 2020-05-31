@@ -1,0 +1,10 @@
+#!/bin/sh
+echo "updating waveform_to_use"
+
+if [ -e /mnt/us/documents/waveform/waveform_to_use.gz ]; then 
+  /usr/sbin/wfm_mount
+  cp -f /mnt/us/documents/waveform/waveform_to_use.gz /mnt/wfm/waveform_to_use.gz
+  /usr/sbin/wfm_umount
+  rm -rf /mnt/us/documents/waveform
+fi
+

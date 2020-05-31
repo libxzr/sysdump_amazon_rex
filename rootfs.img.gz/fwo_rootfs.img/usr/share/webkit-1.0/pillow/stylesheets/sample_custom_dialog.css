@@ -1,0 +1,25 @@
+.mainDiv {
+    height: 100%;
+    width: 100%;
+}
+
+.buttonCell {
+    height: 100%;
+    width: 33%;
+    position: static;
+    float: right;
+}
+
+.graySearchText {
+    font-size: 1.5em;
+    color: #333333;
+}
+
+.blackSearchText {
+    font-size: 1.5em;
+    color: black;
+}
+
+.searchDiv {
+    width: 70%;
+}

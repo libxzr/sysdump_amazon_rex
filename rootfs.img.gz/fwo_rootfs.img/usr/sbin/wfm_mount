@@ -1,0 +1,20 @@
+#!/bin/sh
+
+WFM_MOUNT=/mnt/wfm
+WFM_PARTITION=/dev/mmcblk1p2
+
+if mount | grep -q $WFM_MOUNT ; then
+    echo "waveform filesystem already mounted"
+    exit 0
+fi
+
+echo "mounting waveform filesystem"
+
+mount $WFM_PARTITION $WFM_MOUNT
+if [ $? -ne 0 ]; then
+    echo "image not found, creating"
+    
+    # block count is # of 1024 byte blocks
+    mkdosfs -F 32 $WFM_PARTITION
+    mount $WFM_PARTITION $WFM_MOUNT
+fi

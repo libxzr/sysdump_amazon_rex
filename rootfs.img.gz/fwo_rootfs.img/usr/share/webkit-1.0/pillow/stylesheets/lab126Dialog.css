@@ -1,0 +1,263 @@
+/*
+ * lab126Dialog.css
+ *
+ * Copyright 2012 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+.lab126DialogBody {
+    -webkit-box-sizing: border-box;
+    width: 213.84pt;
+    padding: 0;
+    margin: 0;
+    border: none;
+    -webkit-user-select: none;
+    font-weight: normal;
+    font-family: dialog;
+    background-color: #FFFFFF;
+}
+
+.lab126DialogTitleText{
+    position:absolute;
+    top:4.74pt;
+}
+
+.lab126DialogTitle {
+    background-color: #DDDDDD;
+    height:22.85pt;
+    padding-left:9.49pt;
+    font-size: 10.8pt;
+}
+
+.lab126DialogCmdHeader {
+    -webkit-box-sizing: border-box;
+    position: relative;
+    padding-left: 12.93pt;
+    padding-top: 4.31pt;
+    font-size: 10.8pt;
+    background-color: #DDDDDD;
+    height:22.85pt;
+    -webkit-border-bottom-left-radius: 0;
+    -webkit-border-bottom-right-radius: 0;
+}
+
+.lab126DialogText {
+    padding-left: 8.62pt;
+    padding-right: 8.62pt;
+    padding-top: 4.74pt;
+    padding-bottom: 10.35pt;
+    font-size: 8.2pt;
+}
+
+.lab126CommandButtonBar {
+    -webkit-box-sizing: border-box;
+    height : 25.87pt;
+    white-space: nowrap;
+    overflow: hidden;
+    padding-top: 4.74pt;
+    border-top: 1px solid #DDDDDD;
+}
+
+.lab126MultiButtonBar {
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: center;
+    -webkit-box-align: center;
+}
+
+.lab126MultiButtonBar > div:last-child {
+    margin-right: 8.62pt;
+}
+
+.lab126MultiButtonBar > div:first-child {
+    margin-left: 8.62pt;
+}
+
+.lab126ButtonBar {
+    -webkit-box-sizing: border-box;
+    height : 25.87pt;
+    padding-top: 4.31pt;
+    padding-bottom: 4.31pt;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.lab126ButtonBarStack {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-box-pack: center;
+}
+
+.lab126ButtonBarStack > .lab126ButtonBar {
+    height: 21.56pt;
+    padding-top: 0;
+}
+
+.lab126ButtonBarStack > .lab126ButtonBar:first-child {
+    height : 25.87pt;
+    padding-top: 4.31pt;
+}
+
+.lab126DialogButton {
+    -webkit-box-sizing: border-box;
+    -webkit-border-radius: 3.88pt /*9px*/;
+    text-align: center;
+    height: 17.25pt;
+    font-size: 8.2pt;
+    font-family: dialog;
+    background-color: #FFFFFF; 
+    position: relative;
+}
+
+.lab126DialogButton:after {
+    display: block;
+    position: absolute;
+    top: -0.86pt;
+    bottom: -0.86pt;
+    left: -0.86pt;
+    right: -0.86pt;
+    content: '';
+}
+
+.lab126DialogButtonMulti {
+    margin-right: 4.31pt;
+}
+
+.lab126DialogButtonEnabled {
+    border: 1px solid #000000;
+    color: #000000;
+}
+
+.lab126DialogButtonDisabled {
+    border: 1px solid #999999;
+    color: #999999;
+}
+
+/**
+ * The xor target is larger when it's not blacked out in order to hide a WebKit
+ * rendering glitch that appears around its outside edges.
+ */
+.buttonXorTarget {
+    -webkit-border-radius: 3.45pt /*8px*/;
+    position: relative;
+    left: 1.20pt /*0.86pt*/;
+    top: 1.00pt /*0.86pt*/;
+    padding-top: 2.10pt /*1.72pt*/;
+    height: 13.80pt;
+    padding-right: 0.86pt;
+    padding-left: 0.60pt; /* new */
+}
+
+.buttonXorTarget.xor {
+    background-color: #000000;
+    color: #FFFFFF;
+    -webkit-font-smoothing: none;
+    left: 1.50pt /*1.29pt*/;
+    top: 1.50pt /*1.29pt*/;
+    padding-top: 1.50pt /*1.29pt*/;
+    height: 12.50pt;
+    padding-right: 0;
+    padding-left: 0; /* new */
+}
+
+.lab126DialogButtonCentered {
+    margin-left: auto;
+    margin-right: auto;
+    width: 94.85pt;
+}
+
+.lab126DialogButtonCentered > .buttonXorTarget {
+    width: 91.40pt;
+}
+
+.lab126ButtonBarStack .lab126DialogButtonCentered {
+    width: 199.62pt;
+}
+
+.lab126ButtonBarStack .lab126DialogButtonCentered > .buttonXorTarget {
+    width: 196.17pt;
+}
+
+.close-button-hit-target{
+    position: absolute;
+    top: 2.59pt;
+    right: 2.59pt;
+    width: 17.25pt;
+    height: 17.25pt;
+}
+
+.close-button {
+    position: absolute;
+    bottom: 4.31pt;
+    right: 4.74pt;
+    width: 8.62pt;
+    height: 8.62pt;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-image: url('../assets/close_icon.png');
+}
+
+.close-button.xor {
+    background-image: url('../assets/close_icon_inverted.png');
+    background-color: #000000;
+}
+
+.lab126SelectorContainer {
+    -webkit-box-sizing: border-box;
+    height: 17.25pt;
+    width: 100%;
+}
+
+.lab126SelectorSection {
+    -webkit-box-sizing: border-box;
+    height: 100%;
+    float: left;
+    text-align: center;
+    padding-top: 2.16pt;
+    border-top: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+    border-right: 1px solid #000000;
+}
+
+.lab126SelectorDisabled .lab126SelectorSection {
+    border-top-color: #999999;
+    border-bottom-color: #999999;
+    border-right-color: #999999;
+}
+
+.lab126SelectorSection:first-child {
+    border: 1px solid #000000;
+    -webkit-border-top-left-radius: 8px;
+    -webkit-border-bottom-left-radius: 8px;
+}
+
+.lab126SelectorDisabled .lab126SelectorSection:first-child {
+    border-color: #999999;
+}
+
+.lab126SelectorSection:last-child {
+    -webkit-border-top-right-radius: 8px;
+    -webkit-border-bottom-right-radius: 8px;
+}
+
+.lab126SelectorSection.lab126SelectorUnselected {
+    background-color: #FFFFFF;
+    color: #000000;
+}
+
+.lab126SelectorDisabled .lab126SelectorSection.lab126SelectorUnselected {
+    color: #999999;
+}
+
+.lab126SelectorSection.lab126SelectorSelected {
+    background-color: #000000;
+    color: #FFFFFF;
+}
+
+.lab126SelectorDisabled .lab126SelectorSection.lab126SelectorSelected {
+    background-color: #999999;
+}
+

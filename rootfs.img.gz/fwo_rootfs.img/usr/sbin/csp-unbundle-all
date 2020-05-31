@@ -1,0 +1,96 @@
+#!/bin/sh
+
+#
+# Copyright (c) 2013 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# PROPRIETARY/CONFIDENTIAL
+#
+# Use is subject to license terms.
+#
+
+. /usr/lib/contentpack/csp_functions
+
+usage() {
+    _message="Usage: csp-unbundle-all [--force-update|-f] [--help|-h] [/path/to/dir/for/bundles]"
+    csp_log_err "$_message"
+    echo "$_message" >&2
+}
+
+###############################################################################
+
+readonly UNBUNDLE_CMD="/usr/sbin/csp-unbundle"
+readonly UNBUNDLE_CMD_NAME=`basename $UNBUNDLE_CMD`
+
+numnewbundles=0
+opts=""
+retval=$CSP_SUCCESS
+
+eval set -- `getopt -q -o fh -l force-update,help -- "$@"`
+while true
+do
+    case "$1" in
+        --force-update|-f)
+            opts="--force-update"
+            shift
+            ;;
+        --help|-h)
+            usage; exit 1
+            ;;
+        --)
+            shift; break
+            ;;
+    esac
+done
+
+if [ $# -eq 0 ]; then
+    paths="$BUNDLEDOWNLOADDIR"
+else
+    paths=$@
+fi
+
+csp_log_info "csp-unbundle-all is starting..."
+
+for path in $paths
+do
+    if [ -d "$path" ]; then
+        for f in `find "$path" -name '*.'"$BUNDLEEXT"`
+        do
+            $UNBUNDLE_CMD $opts "$f"
+            if [ $? -eq $CSP_SUCCESS ]; then
+                numnewbundles=$(($numnewbundles + 1))
+            else
+                ret=$?
+                csp_log_err "$UNBUNDLE_CMD_NAME returned ${ret}."
+                retval=$CSP_HARD_ERROR
+            fi
+        done
+    else
+        csp_log_info "Path \"$path\" is not a directory. Process it as a file."
+        case "$path" in
+            *."$BUNDLEEXT")
+                $UNBUNDLE_CMD $opts "$path"
+                if [ $? -eq $CSP_SUCCESS ]; then
+                    numnewbundles=$(($numnewbundles + 1))
+                else
+                    ret=$?
+                    csp_log_err "$UNBUNDLE_CMD_NAME returned ${ret}."
+                    retval=$CSP_HARD_ERROR
+                fi
+                ;;
+            *)
+                csp_log_info "Not a .$BUNDLEEXT file. Skipping."
+                ;;
+        esac
+    fi
+done
+
+csp_log_info "csp-unbundle-all is finishing..."
+
+if [ $numnewbundles -gt 0 ]; then
+    csp_log_info "Successfully unbundled ${numnewbundles} bundle(s)."
+    exit $CSP_NEW_BUNDLE_FOUND
+fi
+
+exit $retval
+
+# end.

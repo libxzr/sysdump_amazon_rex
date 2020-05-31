@@ -1,0 +1,48 @@
+/*
+ * search_domain.css
+ *
+ * Copyright (c) 2012-2014 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+#dialog {
+    border-top-width: 1.3pt;
+}
+
+#domains > .items > .item {
+    height: 27.4pt;  
+}
+    
+#domains > .items > .item .description {
+    -webkit-box-flex: 1;
+    padding-right: 13.6pt;
+}
+
+#domains > .items > .item .selected-icon {
+    width: 9.6pt;
+}
+
+#domains > .items > .item .arrow-icon {
+    width: 3.4pt;
+}
+
+/* Overide the padding from widget_list.css */
+.list {
+    padding: 6.3pt 6.8pt;
+}
+
+#domains > .items > .item .selected-icon.selected {
+    background-image: url('../assets/check_mark.png');
+}
+
+#domains > .items > .item .arrow-icon.selected {
+    background-image: url('../assets/right_arrow.png');
+}
+
+#domains > .items > .item.xor .selected-icon.selected {
+    background-image: url('../assets/check_mark_active.png');
+}
+

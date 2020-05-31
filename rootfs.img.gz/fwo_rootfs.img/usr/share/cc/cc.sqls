@@ -1,0 +1,788 @@
+/* 
+ * cc.sqls
+ *
+ * Copyright (c) 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+/* This file contains SQL statements to initialize the Content Catalog database from
+ * scratch and to update an existing database.
+ *
+ * Each statement is preceded by a line like:
+ *
+ * --## Create: Entries:1
+ *
+ * The '--##' says that this is a directive.
+ *
+ * The 'Create:' says that this is creates some object in the database.
+ *
+ * The 'Entries' says that this is for the Entries object (which happens to be a table).
+ *
+ * The '1' says that this will start Entries at version 1.
+ *
+ * init.lua uses these directives to update the Versions table as individual DDL
+ * statements finish--that way, we can track which DDLs succeeded, and which failed, so
+ * that later update scripts can update correctly, even if part of this script failed.
+ *
+ *
+ * Updates:
+ *
+ * --## Update: Entries:1:2
+ *
+ * 'Update:' says that this updates some object in the database.
+ *
+ * 'Entries' says this updates the Entries object.
+ *
+ * '1' says that this updates FROM version 1.
+ *
+ * '2' says that this updates TO version 2.
+ *
+ *
+ * Note that you MUST use a new directive for EVERY SQL statement.  Combining multiple
+ * statements will not work correctly.
+ *
+ *
+ * Also note the idiom:
+ *
+ * --## Create: XY:1
+ * CREATE TABLE XY (placeholder)
+ *
+ * --## Update: XY:1:2
+ * DROP TABLE XY
+ *
+ * --## Update: XY:2:3
+ * CREATE TABLE XY (field1 DATATYPE<optional>, field2 DATATYPE<optional>, ...)
+ *
+ * This is used when I want to wipe and replace an existing table, so that I don't have
+ * to duplicate the CREATE TABLE statement.  (The CREATE TABLE XY (placeholder) is there only
+ * so that DROP TABLE XY can remove it.  If the database already had a v1 XY, the update
+ * will start with DROP TABLE XY.)
+ 
+ * The metadata added at the end of directive is added as a parameter to the db changed event sent from CCAT.
+ * It should be of the following format:
+ * --## Update: XY:1:2: metadata: {<some_data>}
+ *
+ *
+ * If you need to add a column to the table, follow these instructions:
+ * 1. Add the update statement
+ *  --## Update: XY:old_version#:new_version#
+ *  ALTER TABLE XY ADD COLUMN Z DATATYPE<optional>
+ * 2. Remove the existing older create statement for the table from this file
+ * 3. Add a create statement for the same table along with the newly added column with the newer version number
+ *  --## Create: XY:new_version# 
+ *  CREATE TABLE XY(......, Z)
+ *
+ * The above mentioned steps should be followed while adding a column so that:
+ * 1. Creating a new database does not un-necessarily run all update commands that are following the create command.
+ *    This saves a lot of time during db-creation
+ * 2. Also, updating existing database does not run the Create statements: reason for having the same version 
+ *    in the last update statement and create table statement.
+ */
+
+--## Update: Entries:3:4
+ALTER TABLE Entries ADD COLUMN p_isVisibleInHome
+
+--## Update: Entries:4:5
+ALTER TABLE Entries ADD COLUMN p_cdeKey
+
+--## Update: Entries:5:6
+ALTER TABLE Entries ADD COLUMN p_cdeType
+
+--## Update: Entries:6:7
+ALTER TABLE Entries ADD COLUMN p_version
+
+--## Update: Entries:7:8
+ALTER TABLE Entries ADD COLUMN p_guid
+
+--## Update: Entries:8:9
+ALTER TABLE Entries ADD COLUMN j_collections
+
+--## Update: Entries:9:10
+ALTER TABLE Entries ADD COLUMN j_members
+
+--## Update: Entries:10:11
+ALTER TABLE Entries ADD COLUMN j_titles
+
+--## Update: Entries:11:12
+ALTER TABLE Entries ADD COLUMN p_titleCount
+
+--## Update: Entries:12:13
+UPDATE Entries
+SET    j_titles = build_title_json(p_titles_0_nominal,
+                                   p_titles_0_collation,
+                                   p_titles_0_pronunciation,
+                                   p_titles_0_language,
+                                   p_titles_0_direction),
+       p_titleCount = CASE WHEN p_titles_0_nominal IS NOT NULL
+                              OR p_titles_0_collation IS NOT NULL
+                              OR p_titles_0_pronunciation IS NOT NULL
+                              OR p_titles_0_language IS NOT NULL
+                              OR p_titles_0_direction
+                            THEN
+                                 1
+                            ELSE
+                                 0
+                            END
+
+--## Update: Entries:13:14
+ALTER TABLE Entries ADD COLUMN j_credits
+
+--## Update: Entries:14:15
+ALTER TABLE Entries ADD COLUMN p_creditCount
+
+--## Update: Entries:15:16
+UPDATE Entries
+SET    j_credits = build_credit_json(p_credits_0_kind,
+                                     p_credits_0_name_nominal,
+                                     p_credits_0_name_collation,
+                                     p_credits_0_name_pronunciation,
+                                     p_credits_0_name_language,
+                                     p_credits_0_name_direction),
+       p_creditCount = CASE WHEN p_credits_0_kind IS NOT NULL
+                               OR p_credits_0_name_nominal IS NOT NULL
+                               OR p_credits_0_name_collation IS NOT NULL
+                               OR p_credits_0_name_pronunciation IS NOT NULL
+                               OR p_credits_0_name_language IS NOT NULL
+                               OR p_credits_0_name_direction
+                             THEN
+                                  1
+                             ELSE
+                                  0
+                             END
+
+--## Update: Entries:16:17
+ALTER TABLE Entries ADD COLUMN j_languages
+
+--## Update: Entries:17:18
+ALTER TABLE Entries ADD COLUMN p_languageCount
+
+--## Update: Entries:18:19
+UPDATE Entries
+SET    j_languages = '[' || json_string(p_languages_0) || ']',
+       p_languageCount = 1
+WHERE  p_languages_0 IS NOT NULL
+
+--## Update: Entries:19:20
+UPDATE Entries
+SET    j_languages = '[]',
+       p_languageCount = 0
+WHERE  p_languages_0 IS NULL
+
+--## Update: Entries:20:21
+ALTER TABLE Entries ADD COLUMN p_memberCount
+
+--## Update: Entries:21:22
+ALTER TABLE Entries ADD COLUMN p_collectionCount
+
+--## Update: Entries:22:23
+ALTER TABLE Entries ADD COLUMN j_displayObjects
+
+--## Update: Entries:23:24
+UPDATE Entries
+SET    j_displayObjects = '[{"ref":"titles"},{"ref":"credits"}]'
+
+--## Update: Entries:24:25
+ALTER TABLE Entries ADD COLUMN j_displayTags
+
+--## Update: Entries:25:26
+ALTER TABLE Entries ADD COLUMN j_excludedTransports
+
+--## Update: Entries:26:27
+ALTER TABLE Entries ADD COLUMN p_isMultimediaEnabled
+
+--## Update: Entries:27:28
+ALTER TABLE Entries ADD COLUMN p_watermark
+
+--## Update: Entries:28:29
+ALTER TABLE Entries ADD COLUMN p_contentSize
+
+--## Update: Entries:29:30
+ALTER TABLE Entries ADD COLUMN p_percentFinished
+
+--## Update: Entries:30:31
+ALTER TABLE Entries ADD COLUMN p_isTestData
+
+--## Update: Entries:31:32
+ALTER TABLE Entries ADD COLUMN p_isDownloading
+
+--## Update: Entries:32:33
+ALTER TABLE Entries ADD COLUMN p_isLatestItem
+
+--## Update: Entries:33:34
+ALTER TABLE Entries ADD COLUMN p_isUpdateAvailable
+
+--## Update: Entries:34:35
+ALTER TABLE Entries ADD COLUMN p_virtualCollectionCount
+
+--## Update: Entries:35:36
+ALTER TABLE Entries ADD COLUMN p_cdeGroup
+
+--## Update: Entries:36:37
+ALTER TABLE Entries ADD COLUMN p_expirationDate
+
+--## Update: Entries:37:38
+DROP TABLE Entries
+
+--## Update: Entries:38:39
+CREATE TABLE Entries (placeholder)
+
+--## Update: Entries:39:40
+DROP TABLE Entries
+
+--## Update: Entries:40:41
+CREATE TABLE Entries (placeholder)
+
+--## Update: Entries:41:42
+DROP TABLE Entries
+
+--## Update: Entries:42:43
+CREATE TABLE Entries (placeholder)
+
+--## Update: Entries:43:44
+ALTER TABLE Entries ADD COLUMN p_credits_0_name_pronunciation
+
+--## Update: Entries:44:45
+ALTER TABLE Entries ADD COLUMN p_metadataStemWords
+
+--## Update: Entries:45:46
+ALTER TABLE Entries ADD COLUMN p_metadataStemLanguage
+
+--## Update: Entries:46:47
+ALTER TABLE Entries ADD COLUMN p_ownershipType
+
+--## Update: Entries:47:48
+ALTER TABLE Entries ADD COLUMN p_shareType
+
+--## Update: Entries:48:49
+ALTER TABLE Entries ADD COLUMN p_contentState
+
+--## Update: Entries:49:50
+Update Entries SET p_contentState=0 where 1=2
+  
+--## Update: Entries:50:51
+UPDATE Entries SET p_contentState= 1 WHERE p_isArchived=0 AND p_isVisibleInHome=1 AND p_cdeKey IN (SELECT B.p_cdeKey FROM Entries as B WHERE B.p_cdeKey=p_cdeKey AND B.p_cdeType=p_cdeType AND B.p_isArchived=1)    
+
+--## Update: Entries:51:52: metadata:{"archiveSync_ALL"}
+ALTER TABLE Entries ADD COLUMN p_metadataUnicodeWords
+
+--## Update: Entries:52:53
+UPDATE Entries SET p_virtualCollectionCount = (SELECT COUNT(*) AS count FROM Entries WHERE p_isVisibleInHome = 1 AND (p_isArchived = 1 OR p_contentState = 1) AND p_type = 'Entry:Item:Dictionary') WHERE p_type = 'Entry:Item:ADC'
+
+--## Update: Entries:53:54
+ALTER TABLE Entries ADD COLUMN p_homeMemberCount
+
+--## Update: Entries:54:55
+Update Entries SET p_homeMemberCount = 0 where 1=2
+
+--## Update: Entries:55:56: metadata
+ALTER TABLE Entries ADD COLUMN j_collectionsSyncAttributes
+
+--## Update: Entries:56:57: metadata
+ALTER TABLE Entries ADD COLUMN p_collectionSyncCounter
+
+--## Update: Entries:57:58: metadata
+ALTER TABLE Entries ADD COLUMN p_collectionDataSetName
+
+--## Update: Entries:58:59: metadata:{"archiveSync_ALL"}
+ALTER TABLE Entries ADD COLUMN p_originType
+
+--## Update: Entries:59:60
+Update Entries SET p_originType = 0 where 1=2
+
+--## Update: Entries:60:61: metadata:{"archiveSync_MAGZ,NWPR"}
+ALTER TABLE Entries ADD COLUMN p_pvcId
+
+--## Update: Entries:61:62
+Update Entries SET p_pvcId = 0 where 1=2
+
+--## Update: Entries:62:63
+UPDATE ENTRIES SET p_metadataUnicodeWords = build_metadate_unicode_word(j_titles, j_credits) WHERE p_type = 'Collection'
+
+--## Update: Entries:63:64
+ALTER TABLE Entries ADD COLUMN p_companionCdeKey
+
+--## Update: Entries:64:65
+ALTER TABLE Entries ADD COLUMN p_seriesState
+
+--## Update: Entries:65:66
+ALTER TABLE Entries ADD COLUMN p_totalContentSize REAL
+
+--## Update: Entries:66:67
+ALTER TABLE Entries ADD COLUMN p_visibilityState
+
+--## Update: Entries:67:68: metadata:{"archiveSync_ALL"}
+Update Entries SET p_visibilityState = 1
+
+--## Update: Entries:68:69: metadata:{"archiveSync_SRS"}
+
+--## Update: Entries:69:70
+ALTER TABLE Entries ADD COLUMN p_isProcessed
+
+--## Update: Entries:70:71
+Update Entries SET p_isProcessed = 1 WHERE p_type = 'Entry:Item:Series'
+
+--## Update: Entries:71:72
+Update Entries SET p_seriesState = 1 WHERE p_type != 'Entry:Item:Comic'
+
+--## Update: Entries:72:73: metadata:{"icu_update"}
+
+--## Update: Entries:73:74: metadata:{"archiveSync_MAGZ,EBOK"}
+
+--## Update: Entries:74:75
+ALTER TABLE Entries ADD COLUMN p_readState
+
+--## Update: Entries:75:76: metadata:{"icu_update"}
+
+--## Update: Entries:76:77: metadata:{"icu_update"}
+
+--## Create: Entries:77
+CREATE TABLE Entries
+(
+    p_uuid PRIMARY KEY NOT NULL,       -- ID of entry (UUID)
+
+    p_type,                            -- App-defined type (string)
+    p_location,                        -- Location (URI to content)
+    p_lastAccess,                      -- Last access (datetime)
+    p_modificationTime,                -- File mod. (datetime)
+    p_isArchived,                      -- Is archived item? (bool)
+
+    p_titles_0_nominal,                -- Pieces of first title (LString)
+    p_titles_0_collation COLLATE icu,  -- Used only for filtering and sorting
+    p_titles_0_pronunciation,          -- Return value is always j_titles
+    j_titles,                          -- All titles (array of LString)
+    p_titleCount,                      -- How many titles (unsigned)
+
+    p_credits_0_name_collation COLLATE icu,
+                                       -- Collation string for first credit (string)
+                                       -- Only ever used for sorting.
+    j_credits,                         -- All credits (array of credit)
+    p_creditCount,                     -- How many credits (unsigned)
+
+    j_collections,                     -- This entry is a member of these collections
+                                       -- (array of UUID)
+    p_collectionCount,                 -- How many collections (int) (used for filtering)
+
+    j_members,                         -- This collection has these members (array of UUID)
+    p_memberCount,                     -- How many members (int) (used for filtering)
+
+    p_lastAccessedPosition,            -- For books: LPR; MP3/Audio: last timestamp played
+                                       -- (relative URI, like "#1234")
+    p_publicationDate,                 -- Publication date (UTC datetime)
+                                       --
+                                       -- (Whether this should be interpreted as a
+                                       -- floating date or a timepoint depends on the
+                                       -- content, and we have no reliable way of knowing
+                                       -- which is which--currently, use type (EBook,
+                                       -- Blog, Magazine, etc.) to decide.)
+
+    p_expirationDate,                  -- Expiration date (UTC datetime)
+                                       -- (Time when this item should be purged.
+                                       -- Typically used for periodicals and blogs.
+                                       -- Will be null for books etc. which should not
+                                       -- be purged.)
+                                       
+    p_publisher,                       -- StringValue
+    p_isDRMProtected,                  -- Has DRM? (bool)
+    p_isVisibleInHome,                 -- Should appear in Home? (bool)
+    p_isLatestItem,                    -- Is this the latest item in a group such as a periodical? (bool)
+    p_isDownloading,                   -- Is currently downloading? (bool)
+    p_isUpdateAvailable,               -- Is an update available, say to a KDK app? (bool)
+    p_virtualCollectionCount,          -- Number of items in a virtual collection, such as Periodical Back Issues or Archived Items (Integer)
+
+    p_languages_0,                     -- Primary content language
+    j_languages,                       -- All content languages (array of IETF BCP 47)
+    p_languageCount,                   -- How many languages (unsigned)
+
+    p_mimeType,                        -- Mime type (string, mime type)
+    p_cover,                           -- Cover location (URI)
+    p_thumbnail,                       -- Thumbnail location (URI)
+    p_diskUsage,                       -- Bytes on disk (int)
+
+    p_cdeGroup,                        -- CDE Grouping ID (to group periodicals, Retail ASIN)
+    p_cdeKey,                          -- CDE Key/ASIN (string)
+    p_cdeType,                         -- CDE Type (string)
+    p_version,                         -- Content version (string)
+    p_guid,                            -- Content GUID (string)
+
+    j_displayObjects,                  -- What to display (array of display objects)
+    j_displayTags,                     -- Tags to display (array of enum (string) values)
+
+    j_excludedTransports,              -- Disallowed networks for download (array of
+                                       -- strings)
+
+    p_isMultimediaEnabled,             -- For Luna books (bool)
+    p_watermark,                       -- Watermark (string)
+    p_contentSize,                     -- Human-perceived length (int)
+    p_percentFinished,                 -- What percentage of the total content length the
+                                       -- lastAccessedPosition represents (float)
+    p_isTestData,                      -- Is this test data? (bool)
+    
+    p_contentIndexedState,             -- The state of indexing the content, 
+    p_metadataIndexedState,            -- metadata, and
+    p_noteIndexedState,                -- notes/annotations of this entry
+    p_credits_0_name_pronunciation,    -- authors pronunciation
+    p_metadataStemWords,               -- metadata stem words(not used currently. introduced in J3)
+    p_metadataStemLanguage,            -- Language of the metadata(not used currently. introduced in J3)
+    p_ownershipType,                   -- Ownership type
+    p_shareType,                       -- Support share feature in Discovery App
+    p_contentState,                    -- Downloaded / sideloaded value
+    p_metadataUnicodeWords,            -- Searchable metadata for contents
+    p_homeMemberCount,                 -- Number of downloaded/sideloaded books inside a collection
+    j_collectionsSyncAttributes,       -- Collection sync attributes
+    p_collectionSyncCounter,           -- Max whispersync counter for a collection
+    p_collectionDataSetName,           -- Whispersync dataset name for collection
+    p_originType,                      -- Content Origin Type
+    p_pvcId,                           -- PVC identifier
+    p_companionCdeKey,                 -- Companion CDE ASIN (string). For an audio book, we may have a companion ebook and vice-versa
+    p_seriesState,                     -- Series Identifier
+    p_totalContentSize REAL,           -- Total size(including sidecars) occupied by the content on the device (long)
+    p_visibilityState,                 -- Used to determine whether an entry should be visible or not
+    p_isProcessed,                     -- Flag to specify whether the entry should be processed or has already been processed
+    p_readState                        -- Indicates the read state of an entry (int)
+)
+
+--## Create: EntriesMetadataStemLanguageIndex:1
+CREATE INDEX EntriesMetadataStemLanguageIndex
+ON Entries (p_metadataStemLanguage)
+
+--## Create: EntriesCredit0CollationIndex:1
+CREATE INDEX EntriesCredit0CollationIndex
+ON Entries (p_credits_0_name_collation, p_titles_0_collation)
+
+--## Create: EntriesTitles0Index:1
+CREATE INDEX EntriesTitles0Index
+ON Entries (p_titles_0_collation, p_credits_0_name_collation, p_publicationDate DESC)
+
+--## Create: EntriesLastAccessIndex:1
+CREATE INDEX EntriesLastAccessIndex
+ON Entries (p_lastAccess DESC, p_titles_0_collation)
+
+--## Create: EntriesCdetypeCdeKey:1
+CREATE INDEX EntriesCdetypeCdeKey
+ON Entries (p_cdetype, p_cdekey)
+
+--## Create: EntriesType:1
+CREATE INDEX EntriesType
+ON Entries (p_type)
+
+--## Create: EntriesLocation:1
+CREATE UNIQUE INDEX EntriesLocation
+ON Entries (p_location)
+
+--## Update: Collections:3:4
+ALTER TABLE Collections ADD COLUMN i_member_cde_type
+
+--## Update: Collections:4:5
+ALTER TABLE Collections ADD COLUMN i_member_cde_key
+
+--## Update: Collections:5:6
+ALTER TABLE Collections ADD COLUMN i_member_is_present
+
+--## Update: Collections:6:7
+UPDATE Collections SET 
+i_member_cde_type = (SELECT p_cdetype FROM Entries WHERE Entries.p_uuid = i_member_uuid),
+i_member_cde_key = (SELECT p_cdekey FROM Entries WHERE Entries.p_uuid = i_member_uuid),
+i_member_is_present = 1
+
+--## Update: Collections:5:6
+DROP TABLE Collections
+
+--## Update: Collections:6:7
+CREATE TABLE Collections -- Link table, Entries to Entries
+(
+    i_collection_uuid,                 -- Collection side (UUID)
+    i_member_uuid,                     -- Member side (UUID)
+    i_order,                           -- Order of member within
+                                       -- collection (int)
+    i_member_cde_type,                 -- cdeType of the member
+    i_member_cde_key,                   -- cdeKey of the member
+    i_member_is_present,               -- member is present on device
+    UNIQUE (i_collection_uuid, i_member_uuid)
+)
+
+--## Update: Collections:7:8
+ALTER TABLE Collections ADD COLUMN i_is_sideloaded
+
+--## Update: Collections:8:9
+UPDATE Collections SET i_is_sideloaded = (SELECT count(*) FROM Entries WHERE p_uuid = i_member_uuid AND p_isArchived = 0 AND p_contentState = 0)
+
+--## Create: Collections:9
+CREATE TABLE Collections -- Link table, Entries to Entries
+(
+    i_collection_uuid,                 -- Collection side (UUID)
+    i_member_uuid,                     -- Member side (UUID)
+    i_order,                           -- Order of member within
+                                       -- collection (int)
+    i_member_cde_type,                 -- cdeType of the member
+    i_member_cde_key,                  -- cdeKey of the member
+    i_member_is_present,               -- member is present on device
+    i_is_sideloaded,                   -- Item sideloaded/downloaded value
+    UNIQUE (i_collection_uuid, i_member_uuid)
+)
+--## Create: CollectionsCdeTypeCdeKey:1
+CREATE INDEX CollectionsCdeTypeCdeKey
+ON Collections (i_member_cde_type, i_member_cde_key)
+
+--## Update: Series:1:2
+ALTER TABLE Series ADD COLUMN d_itemType
+
+--## Update: Series:2:3
+UPDATE Series SET d_itemType = (SELECT p_type FROM Entries WHERE Entries.p_cdeKey = d_itemCdeKey LIMIT 1)
+
+--## Create: Series:3
+CREATE TABLE Series
+(
+    d_seriesId,                     -- Identifier of a series (string)
+    d_itemCdeKey,                   -- cdeKey of the member (string)
+    d_itemPosition,                 -- Position of a member in the series (double)
+    d_itemPositionLabel,            -- Display label of a member (string)
+    d_itemType,                     -- Type of the member. Same as p_type in Entries table (string)
+    UNIQUE (d_seriesId, d_itemCdeKey)
+)
+
+--## Create: Collation:1
+CREATE TABLE Collation
+(
+    collation                       -- Current collation locale (string)
+)
+
+--## Create: CollationChangedTrigger:1
+CREATE TRIGGER CollationChangedTrigger AFTER INSERT ON Collation
+BEGIN
+    UPDATE Entries SET p_titles_0_collation = build_title_collation(j_titles, NEW.collation, p_titles_0_collation)
+        WHERE should_rebuild_title_collation(j_titles) = 1;
+    UPDATE Entries SET p_credits_0_name_collation = build_credit_collation(j_credits, NEW.collation, p_credits_0_name_collation)
+        WHERE should_rebuild_credit_collation(j_credits) = 1;
+END
+
+--## Create: CollectionsJournal:1
+CREATE TABLE CollectionsJournal
+(
+    i_event_time,                      -- Event time (datetime)
+
+    j_event                            -- Contains the collections event (event json)
+)
+
+--## Create: CollectionsJournalEventTimeIndex:1
+CREATE INDEX CollectionsJournalEventTimeIndex
+ON CollectionsJournal (i_event_time)
+
+--## Update: CollectionsAddJournalTrigger:0:1
+CREATE TRIGGER CollectionsAddJournalTrigger INSERT ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsAddJournalTrigger:1:2
+DROP TRIGGER CollectionsAddJournalTrigger
+
+--## Update: CollectionsAddJournalTrigger:2:3
+CREATE TRIGGER CollectionsAddJournalTrigger INSERT ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsAddJournalTrigger:3:4
+DROP TRIGGER CollectionsAddJournalTrigger
+
+--## Update: CollectionsAddJournalTrigger:4:5
+CREATE TRIGGER CollectionsAddJournalTrigger INSERT ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsAddJournalTrigger:5:6
+DROP TRIGGER CollectionsAddJournalTrigger
+
+--## Create: CollectionsAddJournalTrigger:7
+CREATE TRIGGER CollectionsAddJournalTrigger INSERT ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsAddJournalTrigger:7:8
+DROP TRIGGER CollectionsAddJournalTrigger
+
+--## Update: CollectionsDeleteJournalTrigger:0:1
+CREATE TRIGGER CollectionsDeleteJournalTrigger DELETE ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsDeleteJournalTrigger:1:2
+DROP TRIGGER CollectionsDeleteJournalTrigger
+
+--## Update: CollectionsDeleteJournalTrigger:2:3
+CREATE TRIGGER CollectionsDeleteJournalTrigger DELETE ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsDeleteJournalTrigger:3:4
+DROP TRIGGER CollectionsDeleteJournalTrigger
+
+--## Update: CollectionsDeleteJournalTrigger:4:5
+CREATE TRIGGER CollectionsDeleteJournalTrigger DELETE ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsDeleteJournalTrigger:5:6
+DROP TRIGGER CollectionsDeleteJournalTrigger
+
+--## Create: CollectionsDeleteJournalTrigger:7
+CREATE TRIGGER CollectionsDeleteJournalTrigger DELETE ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsDeleteJournalTrigger:7:8
+DROP TRIGGER CollectionsDeleteJournalTrigger
+
+--## Update: CollectionsRenameJournalTrigger:0:1
+CREATE TRIGGER CollectionsRenameJournalTrigger UPDATE ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsRenameJournalTrigger:1:2
+DROP TRIGGER CollectionsRenameJournalTrigger
+
+--## Update: CollectionsRenameJournalTrigger:2:3
+CREATE TRIGGER CollectionsRenameJournalTrigger UPDATE ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsRenameJournalTrigger:3:4
+DROP TRIGGER CollectionsRenameJournalTrigger
+
+--## Update: CollectionsRenameJournalTrigger:4:5
+CREATE TRIGGER CollectionsRenameJournalTrigger UPDATE ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsRenameJournalTrigger:5:6
+DROP TRIGGER CollectionsRenameJournalTrigger
+
+--## Create: CollectionsRenameJournalTrigger:7
+CREATE TRIGGER CollectionsRenameJournalTrigger UPDATE ON Entries
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsRenameJournalTrigger:7:8
+DROP TRIGGER CollectionsRenameJournalTrigger
+
+--## Update: CollectionsAddEntryJournalTrigger:0:1
+CREATE TRIGGER CollectionsAddEntryJournalTrigger INSERT ON Collections
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsAddEntryJournalTrigger:1:2
+DROP TRIGGER CollectionsAddEntryJournalTrigger
+
+--## Update: CollectionsAddEntryJournalTrigger:2:3
+CREATE TRIGGER CollectionsAddEntryJournalTrigger INSERT ON Collections
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsAddEntryJournalTrigger:3:4
+DROP TRIGGER CollectionsAddEntryJournalTrigger
+
+--## Update: CollectionsAddEntryJournalTrigger:4:5
+CREATE TRIGGER CollectionsAddEntryJournalTrigger INSERT ON Collections
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsAddEntryJournalTrigger:5:6
+DROP TRIGGER CollectionsAddEntryJournalTrigger
+
+--## Update: CollectionsAddEntryJournalTrigger:6:7
+CREATE TRIGGER CollectionsAddEntryJournalTrigger AFTER INSERT ON Collections
+WHEN
+    is_journaling_enabled()
+BEGIN
+    INSERT INTO CollectionsJournal
+    (
+        i_event_time,
+        j_event
+    )
+    VALUES
+    (
+        STRFTIME('%s','now'),
+        '{"action":"addEntry","time":' || STRFTIME('%s','now') || ',"collectionName":'
+                || (SELECT json_string(p_titles_0_nominal) FROM Entries WHERE p_uuid = NEW.i_collection_uuid)
+                || ',"collectionLanguage":'
+                || get_language_from_titles((SELECT j_titles FROM Entries WHERE p_uuid = NEW.i_collection_uuid))
+                || ',"content":{"cdeKey":'
+                || (SELECT json_string(p_cdeKey) FROM ENTRIES WHERE p_uuid = NEW.i_member_uuid)
+                || ',"cdeType":'
+                || (SELECT json_string(p_cdeType) FROM ENTRIES WHERE p_uuid = NEW.i_member_uuid)
+                || '}}'
+    );
+END
+
+--## Update: CollectionsAddEntryJournalTrigger:7:8
+DROP TRIGGER CollectionsAddEntryJournalTrigger
+
+--## Create: CollectionsAddEntryJournalTrigger:9
+CREATE TRIGGER CollectionsAddEntryJournalTrigger INSERT ON Collections
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsAddEntryJournalTrigger:9:10
+DROP TRIGGER CollectionsAddEntryJournalTrigger
+
+--## Update: CollectionsDeleteEntryJournalTrigger:0:1
+CREATE TRIGGER CollectionsDeleteEntryJournalTrigger DELETE ON Collections
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsDeleteEntryJournalTrigger:1:2
+DROP TRIGGER CollectionsDeleteEntryJournalTrigger
+
+--## Update: CollectionsDeleteEntryJournalTrigger:2:3
+CREATE TRIGGER CollectionsDeleteEntryJournalTrigger DELETE ON Collections
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsDeleteEntryJournalTrigger:3:4
+DROP TRIGGER CollectionsDeleteEntryJournalTrigger
+
+--## Update: CollectionsDeleteEntryJournalTrigger:4:5
+CREATE TRIGGER CollectionsDeleteEntryJournalTrigger DELETE ON Collections
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsDeleteEntryJournalTrigger:5:6
+DROP TRIGGER CollectionsDeleteEntryJournalTrigger
+
+--## Create: CollectionsDeleteEntryJournalTrigger:7
+CREATE TRIGGER CollectionsDeleteEntryJournalTrigger DELETE ON Collections
+BEGIN
+    SELECT 1;
+END
+
+--## Update: CollectionsDeleteEntryJournalTrigger:7:8
+DROP TRIGGER CollectionsDeleteEntryJournalTrigger
+
+--## Create: ProfileCatalog:1
+CREATE TABLE ProfileCatalog (placeholder)
+
+--## Update: ProfileCatalog:1:2
+ALTER TABLE ProfileCatalog ADD COLUMN j_displayTags
+
+--## Update: ProfileCatalog:2:3
+DROP TABLE ProfileCatalog

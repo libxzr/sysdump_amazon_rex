@@ -1,0 +1,31 @@
+##
+# icuplugins46.txt
+#
+# Copyright (c) 2012 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# PROPRIETARY/CONFIDENTIAL
+#
+# Use is subject to license terms
+##
+
+# File Format:
+#
+# Non-comment lines have two or three elements in them, and look like this:
+#
+# LIBRARYNAME	ENTRYPOINT	[ CONFIGURATION ... ]
+#
+# Tabs or spaces separate the three items.
+#
+# LIBRARYNAME is the name of a shared library, either a short name if it is
+# on the PATH, or a full pathname. Must be fewer than 100 characters.
+#
+# ENTRYPOINT is the short symbol name of the plugin's entrypoint.
+# see unicode/icuplug.h for information. Must be fewer than 100 characters.
+#
+# CONFIGURATION is the entire rest of the line. It's passed as-is to the plugin.
+
+# TinySegmenter BreakIterator plugin to provide Japanese word break. 
+# ZHSegmenter BreakIterator plugin to provide Chinese word break.
+#
+# libtinysegmenter-icuplugin.so TinySegmenterBIPlugin ja
+# libzhsegmenter-icuplugin.so ZHSegmenterBIPlugin zh

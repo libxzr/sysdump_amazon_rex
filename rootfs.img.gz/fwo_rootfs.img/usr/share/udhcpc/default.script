@@ -1,0 +1,53 @@
+#!/bin/sh
+# udhcpc script edited by Tim Riker <Tim@Rikers.org>
+
+[ -z "$1" ] && echo "Error: should be called from udhcpc" && exit 1
+
+RESOLV_CONF="/tmp/resolv.conf"
+IF_CONF_FILE="/tmp/"$interface
+NO_DEF_ROUTE="/tmp/no-default-route"
+GLOBAL_BROADCAST="255.255.255.255"
+
+[ -n "$broadcast" ] && BROADCAST="broadcast $broadcast"
+[ -n "$subnet" ] && NETMASK="netmask $subnet"
+
+case "$1" in
+        deconfig)
+                /sbin/ifconfig $interface 0.0.0.0
+                ;;
+
+        renew|bound)
+                /sbin/ifconfig $interface $ip $BROADCAST $NETMASK
+
+                if [ ! -e $NO_DEF_ROUTE ] ; then
+                    if [ -n "$router" ] ; then
+                        echo "deleting routers"
+                        while route del default gw 0.0.0.0 dev $interface 2>/dev/null ; do
+                                :
+                        done
+                        for i in $router ; do
+                            route add default gw $i dev $interface
+                        done
+                    fi
+                fi
+                
+                if [ "$subnet" == "$GLOBAL_BROADCAST" ] && [ "$interface" == "wlan0" ]; then
+                      echo "Adding an IP route as the mask is /32"
+                      ip route add $router/32 dev $interface
+                fi
+                
+                echo -n > $RESOLV_CONF
+                [ -n "$domain" ] && echo domain $domain >> $RESOLV_CONF
+                for i in $dns ; do
+                        echo adding dns $i
+                        echo nameserver $i >> $RESOLV_CONF
+                done
+                echo ip=$ip > $IF_CONF_FILE
+                echo broadcast=$broadcast >> $IF_CONF_FILE
+                echo subnet=$subnet >> $IF_CONF_FILE
+                echo gw=$router     >> $IF_CONF_FILE
+                ;;
+esac
+
+exit 0
+

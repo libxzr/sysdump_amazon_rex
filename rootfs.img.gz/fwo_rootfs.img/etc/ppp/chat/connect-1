@@ -1,0 +1,23 @@
+# connection script for Sprint
+
+TIMEOUT 60
+
+ABORT 'BUSY'
+ABORT 'ERROR'
+ABORT 'NO ANSWER'
+ABORT 'NO CARRIER'
+
+SAY 'starting connection\n'
+
+# get the modem's attention and reset it
+''  'ATZ'
+
+# turn off echo, and set English result codes
+OK  'ATE0V1'
+
+# Dial the number
+SAY 'dialing...\n'
+
+OK  'ATD#777'
+CONNECT ''
+

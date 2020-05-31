@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<!--
+ - search_bar.html
+ -
+ - Copyright (c) 2012-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ -
+ - PROPRIETARY/CONFIDENTIAL
+ -
+ - Use is subject to license terms.
+ -->
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title></title>
+        <link rel="stylesheet" type="text/css" href="stylesheets/search_bar.css" />
+        <script type="text/javascript" src="strings/search_bar_strings.js"></script>
+        <script type="text/javascript" src="strings/search_domain_strings.js"></script>
+        <script type="text/javascript" src="javascripts/local_debug.js"></script>
+        <script type="text/javascript" src="javascripts/constants.js"></script> <!-- must be first -->
+        <script type="text/javascript" src="javascripts/pillow.js"></script>
+        <script type="text/javascript" src="javascripts/client_params_handler.js"></script>
+        <script type="text/javascript" src="javascripts/lipc_event_handler.js"></script>
+        <script type="text/javascript" src="javascripts/pillow_case.js"></script>
+        <script type="text/javascript" src="javascripts/debug_cmds.js"></script>
+        <script type="text/javascript" src="javascripts/dpm.js"></script>
+        <script type="text/javascript" src="javascripts/widget_discrete_slider.js"></script>
+        <script type="text/javascript" src="javascripts/recent_searches.js"></script>
+        <script type="text/javascript" src="javascripts/search_bar.js"></script>
+        <script type="text/javascript" src="javascripts/search_bar_client_params_handler.js"></script>
+        <script type="text/javascript" src="javascripts/search_bar_lipc_event_handler.js"></script>
+        <script type="text/javascript" src="javascripts/xor_button.js"></script>
+        <script type="text/javascript" src="javascripts/xor_button_helpers.js"></script>
+        <script type="text/javascript" src="javascripts/window_title.js"></script>
+    </head>
+    <body>
+        <button id="home" aria-label="Home"></button>
+        <div id="spacer1" class="flex-space"></div>
+        <button id="back" aria-label="Back"></button>
+        <div id="spacer1w" class="fixed-space"></div>
+        <button id="forward" aria-label="Forward"></button>
+        <button id="periodical-home" aria-label="Periodical Home"></button>
+        <button id="periodical-contents" aria-label="Periodical Contents"></button>
+        <button id="blog-home" aria-label="Blog Home"></button>
+        <button id="font" aria-label="Font"></button>
+        <button id="search" aria-label="Search"></button>
+        <button id="quickActions" aria-label="QuickActions"></button>
+        <button id="discovery" isASRSupported=false aria-label="Goodreads"></button>
+        <button id="store" aria-label="Store"></button>
+        <button id="character" aria-label="Character"></button>
+        <button id="badge" aria-label="Badges"></button>
+        <div id="spacer-mid" class="fixed-space"></div>
+        <div id="spacer2" class="flex-space"></div>
+        <button id="wide-search" class="bubble" aria-label="Search">
+            <div class="flex-box horizontal">
+		    <img src="assets/search_bar/search_box.png" class="icon" />
+                <form>
+                    <input type="text" id="search-hint" disabled="disabled" />
+                </form>
+            </div>
+        </button>
+
+        <!-- search mode -->
+	<button id="domain"></button>
+        <div id="input-container" class="bubble">
+            <div class="flex-box horizontal">
+                <img src="assets/search_bar/search_box.png" id="search-icon" class="icon" />
+                <img src="assets/search_bar/paper_icon.png" id="custom-icon" class="icon" />
+                <form id="form">
+                    <span id="searchPlaceholder"></span>
+                    <input type="text" id="input" />
+                </form>
+		<button id="refresh" aria-label="Refresh" class="iconsmall"></button>
+                <button id="cancel" aria-label="Cancel" class="iconsmall"></button>
+		<button id="go" aria-label="Go" class="iconsmall"></button>
+            </div>
+        </div>
+        <button id="exit" aria-label="Close"></button>
+        <div id="spacer2w" class="fixed-space"></div>
+        <button id="menu" aria-label="Menu"></button>
+    </body>
+</html>

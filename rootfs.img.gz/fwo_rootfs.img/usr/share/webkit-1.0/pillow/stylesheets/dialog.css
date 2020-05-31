@@ -1,0 +1,105 @@
+/*
+ * dialog.css
+ *
+ * Copyright 2012-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+body {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.dialog {
+    -webkit-box-sizing: border-box;
+    width: 216pt;
+    height: auto;
+    padding: 0;
+    margin: 0;
+    border: none;
+    -webkit-user-select: none;
+    font-weight: normal;
+    font-family: dialog;
+    background-color: #FFFFFF;
+}
+
+.dialog-title {
+    -webkit-box-sizing: border-box;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: start;
+    -webkit-box-align: start;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.landscape #simpleWizardTitle ,.dialog-title-text{
+    padding-top: 3.5pt;
+}
+
+.dialog-title-text {
+    display: block;
+    margin: 0;
+    padding: 0;
+    padding-left: 12pt;
+    padding-top: 14.4pt;
+    padding-right: 12pt;
+    border: none;
+    font-size: 11pt;
+    font-weight: normal;
+    font-family: dialogMedium;
+    -webkit-box-flex: 1;
+}
+
+.dialog-close {
+    display: block;
+    height: 21.4pt;
+    width: 21.4pt;
+    margin: 0;
+    padding: 0;
+    border: none;
+    margin-top: 12.4pt;
+    margin-right: 9.6pt;
+    background-color: transparent;
+    background-image: url('../assets/close_icon.png');
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.dialog-close:focus {
+    outline: none;
+}
+
+.dialog-close.xor {
+    background-image: url('../assets/close_icon_inverted.png');
+}
+
+.dialog-text {
+    -webkit-box-sizing: border-box;
+    border: none;
+    /* TODO from HIG for menu dialogs; might change */
+    margin-left: 12pt;
+    margin-right:12pt;
+    /* TODO not specified yet in HIG for text dialogs */
+    margin-top: 8.64pt;
+    font-size: 9pt;
+}
+
+.dialog-close:disabled {
+    opacity: 0.3;
+}
+
+.dialog-close:enabled {
+    opacity: 1.0;
+}
+
+.device-name-inline {
+    display: inline;
+    font-family: inherit;
+    font-size: 100%;
+}

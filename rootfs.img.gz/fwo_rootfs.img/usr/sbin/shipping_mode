@@ -1,0 +1,355 @@
+#!/bin/sh
+
+source /etc/upstart/functions
+
+SHIPMODE_ARG="$1"
+SHIPMODE_RESELL_DEMO="resell_demo" # Reset device for customer from demo mode
+SHIPMODE_RESTART_DEMO="restart_demo" # Reset device for demo mode from customer
+
+if [ $# -gt 1 ] ; then
+   f_log E "shipping_mode" "Too many arguments: ($*)"
+   exit 1;
+elif [ $# -gt 0 ] && [ "$1" != "$SHIPMODE_RESELL_DEMO" ] && [ "$1" != "$SHIPMODE_RESTART_DEMO" ] ; then
+   f_log E "shipping_mode" "Invalid Argument: ($1)"
+   exit 1;
+fi
+
+E_NOFILES=2 # some whiteliste[d files (dictionaries or voice) are missing
+WHITELIST=/opt/amazon/data.whitelist
+DEMO_WHITELIST=/opt/amazon/demo_data.whitelist
+
+E_BATTERY_NOT_IN_RANGE=3 # Battery charge should be in range of 70-85%.
+
+SHPM_BATTERY_PERCENT_HIGH_THRESHOLD=75
+SHPM_BATTERY_PERCENT_HIGH_THRESHOLD_CHARGER=$SHPM_BATTERY_PERCENT_HIGH_THRESHOLD
+SHPM_BATTERY_VOLTAGE_LOW_THRESHOLD=4000
+SHPM_BATTERY_VOLTAGE_HIGH_THRESHOLD=4100
+SHPM_BATTERY_VOLTAGE_DISCHARGE_THRESHOLD=4050
+SHPM_BATTERY_VOLTAGE_CHARGE_THRESHOLD=4070
+RESELL_BATTERY_MIN_LIMIT=20
+DONT_CHECK_BATTERY_FILE=/mnt/us/DONT_CHECK_BATTERY
+DEMO_MODE_FILE=/var/local/system/DEMO_MODE
+DEMO_BOOT_FLAG=/mnt/us/.demo/boot.flag
+MNTUS_EXEC_FILE=/MNTUS_EXEC
+
+# Delay, in seconds before checking if deregistration succeeded.
+DEREGISTER_CHECK_DELAY=5
+# Number of times to check if deregistration succeeded.
+DEREGISTER_CHECK_RETRIES=2
+
+source /etc/upstart/functions
+
+if [ "$(f_board)" = "cognac" ]; then
+    SHPM_BATTERY_PERCENT_LOW_THRESHOLD=60
+elif [ "$(f_board)" = "stinger" ]; then
+    SHPM_BATTERY_PERCENT_LOW_THRESHOLD=63
+    SHPM_BATTERY_PERCENT_HIGH_THRESHOLD_CHARGER=73
+else
+    SHPM_BATTERY_PERCENT_LOW_THRESHOLD=45
+fi
+SHPM_BATTERY_PERCENT_LOW_THRESHOLD_CHARGER=$SHPM_BATTERY_PERCENT_LOW_THRESHOLD
+
+#For whisky, this battery delay is 10 seconds. This should not be higher as the devices would looping between high
+#and low voltage levels, after each timeout.
+if [ "$(f_board)" = "whisky" ]; then
+    BATTERY_LEVEL_CHECK_DELAY=30
+else
+    # Delay, in seconds(60, 1 minute) before checking if battery level is OK to get into ship mode.
+    BATTERY_LEVEL_CHECK_DELAY=60
+fi
+
+# Delay, in seconds(3, 3s) for ship mode check if battery in range but USB connected.
+export USB_CONNECTION_CHECK_DELAY=3
+
+# Querying system registry for platform specific values.
+export CHARGING_SYS_ENTRY=$(kdb get system/driver/charger/SYS_CHARGING_FILE)
+export USB_CONNECTION_FLAG=$(kdb get system/driver/charger/SYS_USB_CHARGER_CONNECTED)
+
+if [ "$(f_board)" = "cognac" -o "$(f_board)" = "stinger" ]; then
+    USB_CONNECTION_FLAG=/sys/class/power_supply/max77796-charger/pluggedin
+fi
+
+if [ "$(f_board)" = "moonshine" ]; then
+    SHPM_STOP_WITH_ABNORMAL_BATTERY=true
+    SHPM_LED_ON=true
+    SHPM_LED_BRIGHTNESS_FILE=/sys/class/leds/green/brightness
+    SHPM_LED_MAX_BRIGHTNESS_FILE=/sys/class/leds/green/max_brightness
+    USB_CONNECTION_FLAG=$(kdb get system/driver/charger/SYS_CHARGER_PLUGGEDIN)
+fi
+
+# Returns battery percentage level
+get_batt_percent() {
+    echo `gasgauge-info -s | sed 's/\%//'`
+}
+
+# Returns battery voltage level
+get_batt_voltage() {
+    echo `gasgauge-info -v | awk '{ print $1 }' | sed 's/\%//'`
+}
+
+#Force enable charging for shipping mode
+enable_batt_charge() {
+    echo 1 > $CHARGING_SYS_ENTRY
+}
+
+#Force disable charging for shipping mode
+disable_batt_charge() {
+    echo 0 > $CHARGING_SYS_ENTRY
+}
+
+start_charging_control() {
+    _BATTERY_LEVEL_LOW_THRESHOLD=$1
+    _BATTERY_LEVEL_HIGH_THRESHOLD=$2
+    _CHARGING_CONTROL_FILE=/tmp/CHARGING_CONTROL_FILE
+
+    if [ -e "$_CHARGING_CONTROL_FILE" ]; then
+        # Do not start charging control if already running
+        return
+    fi
+    touch $_CHARGING_CONTROL_FILE
+
+    while true; do
+        sleep $USB_CONNECTION_CHECK_DELAY
+        _BATTERY_PERCENT=$(get_batt_percent)
+        if [ -z "$_BATTERY_PERCENT" ]; then
+            continue
+        fi
+        if [ $_BATTERY_PERCENT -ge $_BATTERY_LEVEL_HIGH_THRESHOLD ]; then
+            echo 0 > $CHARGING_SYS_ENTRY
+        elif [ $_BATTERY_PERCENT -le $_BATTERY_LEVEL_LOW_THRESHOLD ]; then
+            echo 1 > $CHARGING_SYS_ENTRY
+        fi
+
+        if [ "$(cat $USB_CONNECTION_FLAG)" = "1" ]; then
+            if [ $_BATTERY_PERCENT -ge $_BATTERY_LEVEL_LOW_THRESHOLD -a $_BATTERY_PERCENT -le $_BATTERY_LEVEL_HIGH_THRESHOLD ]; then
+                lipc-set-prop com.lab126.pillow pillowAlert '{"clientParams":{"alertId":"shippingModeUSBOnlinePrompt", "show":true}}'
+            fi
+        fi
+    done
+}
+
+#Check for DONT_CHECK_BATTERY file and skip battery checking
+if [ ! -f ${DONT_CHECK_BATTERY_FILE} ]; then
+
+    _BATTERY_LEVEL_MET=false
+    _BATTERY_LEVEL_CHARGING=false
+    _BATTERY_LEVEL_DISCHARGING=false
+    while [ "$_BATTERY_LEVEL_MET" = "false" ] ; do
+        # Get the battery percentage using gasgauge
+        _BATTERY_PERCENT=$(get_batt_percent)
+        _BATTERY_LEVEL_MET=true
+        _BATTERY_LEVEL_LOW=false
+        _BATTERY_LEVEL_HIGH=false
+        if [ "$(f_board)" = "whisky" ]; then
+            # Get the battery voltage level using gasgauge
+            _BATTERY_VOLTAGE=$(get_batt_voltage)
+
+            if [ "$_BATTERY_LEVEL_CHARGING" = "false" ] && [ "$_BATTERY_LEVEL_DISCHARGING" = "false" ] ; then
+
+                if [ $_BATTERY_VOLTAGE -lt $SHPM_BATTERY_VOLTAGE_LOW_THRESHOLD ] ; then
+                    _BATTERY_LEVEL_MET=false
+                    _BATTERY_LEVEL_LOW=true
+                fi
+                if [ $_BATTERY_VOLTAGE -gt $SHPM_BATTERY_VOLTAGE_HIGH_THRESHOLD ] ; then
+                    _BATTERY_LEVEL_MET=false
+                    _BATTERY_LEVEL_HIGH=true
+                fi
+
+            else
+                if [ "$_BATTERY_LEVEL_CHARGING" = "true" ] && [ $_BATTERY_VOLTAGE -lt $SHPM_BATTERY_VOLTAGE_CHARGE_THRESHOLD ]  ; then
+                    _BATTERY_LEVEL_MET=false
+                    _BATTERY_LEVEL_LOW=true
+
+                fi
+                if [ "$_BATTERY_LEVEL_CHARGING" = "true" ] && [ $_BATTERY_VOLTAGE -gt $SHPM_BATTERY_VOLTAGE_HIGH_THRESHOLD ]  ; then
+                    _BATTERY_LEVEL_MET=false
+                    _BATTERY_LEVEL_HIGH= true
+                    _BATTERY_LEVEL_CHARGING=false
+                fi
+
+                if [ "$_BATTERY_LEVEL_DISCHARGING" = "true" ] &&  [ $_BATTERY_VOLTAGE -gt $SHPM_BATTERY_VOLTAGE_DISCHARGE_THRESHOLD ] ; then
+                    _BATTERY_LEVEL_MET=false
+                    _BATTERY_LEVEL_HIGH=true
+                fi
+                if [ "$_BATTERY_LEVEL_DISCHARGING" = "true" ] && [ $_BATTERY_VOLTAGE -lt $SHPM_BATTERY_VOLTAGE_LOW_THRESHOLD ] ; then
+                    _BATTERY_LEVEL_MET=false
+                    _BATTERY_LEVEL_LOW=true
+                    _BATTERY_LEVEL_DISCHARGING=false
+                fi
+            fi
+        else
+            if [ $_BATTERY_PERCENT -lt $SHPM_BATTERY_PERCENT_LOW_THRESHOLD ] ; then
+                _BATTERY_LEVEL_MET=false
+                _BATTERY_LEVEL_LOW=true
+            fi
+            if [ $_BATTERY_PERCENT -gt $SHPM_BATTERY_PERCENT_HIGH_THRESHOLD ] ; then
+                _BATTERY_LEVEL_MET=false
+                _BATTERY_LEVEL_HIGH=true
+            fi
+        fi
+
+        # if the battery level is not in proper range exit. For normal cases battery level should be between low% to high% and when in demo mode, battery level must be above 20%.
+        if [ "$_BATTERY_LEVEL_MET" = "false" ] && [ ! -e ${DEMO_MODE_FILE} -o $_BATTERY_PERCENT -lt $RESELL_BATTERY_MIN_LIMIT ] ; then
+            logger -t system -- "Battery level is not in proper range for shipping mode or resell"
+            if [ "$#" -eq 1 ] && [ "$SHIPMODE_ARG" = "$SHIPMODE_RESELL_DEMO" ] ; then
+                lipc-set-prop com.lab126.pillow pillowAlert '{"clientParams":{"alertId":"resellBatteryRangeFailed", "show":true}}'
+                exit $E_BATTERY_NOT_IN_RANGE
+            fi
+        fi
+
+        # Disable/enable charging no matter capacity met or not.
+        if [ $_BATTERY_PERCENT -le $SHPM_BATTERY_PERCENT_LOW_THRESHOLD_CHARGER ] ; then
+            # enable charging if lower then charger threshold
+            enable_batt_charge
+            _BATTERY_LEVEL_CHARGING=true
+        elif [ $_BATTERY_PERCENT -ge $SHPM_BATTERY_PERCENT_HIGH_THRESHOLD_CHARGER ] ; then
+            # disable charging if greater then charger threshold
+            disable_batt_charge
+            _BATTERY_LEVEL_DISCHARGING=true
+        fi
+
+        if [ "$_BATTERY_LEVEL_MET" = "false" ] ; then
+            # if the battery level is low, enable charging and wait for the battery level reached to the required level
+            if [ "$_BATTERY_LEVEL_LOW" = "true" ] ; then
+                lipc-set-prop com.lab126.pillow pillowAlert '{"clientParams":{"alertId":"shippingModeBatteryLowFailed", "show":true}}'
+            fi
+            # if the battery level is high, disable charging and wait for the battery level dropped to the required level
+            if [ "$_BATTERY_LEVEL_HIGH" = "true" ] ; then
+                lipc-set-prop com.lab126.pillow pillowAlert '{"clientParams":{"alertId":"shippingModeBatteryHighFailed", "show":true}}'
+            fi
+            if [ "$SHPM_STOP_WITH_ABNORMAL_BATTERY" = "true" ]; then
+                start_charging_control $SHPM_BATTERY_PERCENT_LOW_THRESHOLD $SHPM_BATTERY_PERCENT_HIGH_THRESHOLD &
+                exit $E_BATTERY_NOT_IN_RANGE
+            fi
+            sleep $BATTERY_LEVEL_CHECK_DELAY
+        fi
+
+        if [ "$SHPM_STOP_WITH_ABNORMAL_BATTERY" = "true" -a "$(cat $USB_CONNECTION_FLAG)" = "1" ]; then
+            start_charging_control $SHPM_BATTERY_PERCENT_LOW_THRESHOLD $SHPM_BATTERY_PERCENT_HIGH_THRESHOLD &
+            exit $E_BATTERY_NOT_IN_RANGE
+        fi
+
+        if [ "$_BATTERY_LEVEL_MET" = "true" -a "$(cat $USB_CONNECTION_FLAG)" = "1" ]; then
+            lipc-set-prop com.lab126.pillow pillowAlert '{"clientParams":{"alertId":"shippingModeUSBOnlinePrompt", "show":true}}'
+            _BATTERY_LEVEL_MET=false
+            _BATTERY_LEVEL_CHARGING=false
+            _BATTERY_LEVEL_DISCHARGING=false
+            sleep $USB_CONNECTION_CHECK_DELAY
+        fi
+    done
+fi
+
+# Checks if all the files listed in the function argument exits
+check_files()
+{
+    while read file; do
+        if [ ! -e "$file" ]; then
+            logger -t system -- "$file not found"
+            return 1
+        fi
+        fsync "$file"
+    done < $1
+}
+
+# return non-zero if any whitelisted file is missing. Special demo mode cases exists which bypass checks and returns 0.
+sm_has_all_whitelisted_files()
+{
+    # If performing a resell action on a demo mode device, don't verify files (dictionaries, icons, etc. may have been removed).
+    if [ "$SHIPMODE_ARG" = "$SHIPMODE_RESELL_DEMO" ]; then
+        return 0
+
+    elif [ "$SHIPMODE_ARG" = "$SHIPMODE_RESTART_DEMO" ]; then
+        # If performing a start demo action, don't verify non-demo files (it may be a "resold demo" with missing dictionaries, icons, etc).
+        [ ! -e $DEMO_WHITELIST ] && return 0
+        cd /mnt/us && check_files $DEMO_WHITELIST || return 1
+        return 0
+
+    else
+        # Otherwise, verify normal files.
+        cd /mnt/us && check_files $WHITELIST || return 1
+        return 0
+    fi
+}
+
+# check if all whitelisted files exist?
+sm_has_all_whitelisted_files
+_RES1=$?
+
+if [ ${_RES1} -ne 0 ]; then
+    logger -t system -- "whitelisted files are missing, aborting"
+    lipc-set-prop com.lab126.pillow pillowAlert '{"clientParams":{"alertId":"shippingModeWhitelistFailed", "show":true}}'
+    exit $E_NOFILES
+fi
+
+#deviced listens to this event and disables touch,fsr and other sensors
+lipc-send-event com.lab126.shutdown shipping_mode
+
+# Attempt to deregister the device if currently registered.
+isRegistered=$(lipc-get-prop com.lab126.amazonRegistrationService isRegistered)
+if [ "$isRegistered" = "1" ]; then
+    lipc-set-prop com.lab126.amazonRegistrationService deregister 0
+    i=0
+    isRegistered="1"
+    while [ $i -lt $DEREGISTER_CHECK_RETRIES ] && [ "$isRegistered" = "1" ]; do
+        sleep $DEREGISTER_CHECK_DELAY
+
+        isRegistered=$(lipc-get-prop com.lab126.amazonRegistrationService isRegistered)
+        let i+=1
+    done
+
+    if [ "$isRegistered" = "1" ]; then
+        logger -t system -- "Unable to deregister device before shipping mode"
+    fi
+else
+    #stopping lab126_gui only when device is not registered, otherwise de-registration may not complete
+    stop lab126_gui
+fi
+
+# Disable the Nightmode if the Nightmode is enabled
+if [ "$(devcap-get-feature -a nightmode)" -eq "1" ]; then
+    epdcMode=$(lipc-get-prop com.lab126.winmgr epdcMode)
+    if [ "$epdcMode" = "Y8INV" ]; then
+        lipc-set-prop com.lab126.winmgr epdcMode Y8
+        epdcMode=$(lipc-get-prop com.lab126.winmgr epdcMode)
+        if [ "$epdcMode" != "Y8" ]; then
+            logger -t system -- "Failed to disable the Nightmode before shipping mode"
+        fi
+    fi
+fi
+
+source /etc/upstart/shutdown_modes
+
+# flash the screen multiple times to fully clear to white
+eips -c -w gc16 -f
+usleep 1250000
+eips -c -w gc16 -f
+usleep 1250000
+
+# Perform demo mode resell actions
+if [ "$SHIPMODE_ARG" = "$SHIPMODE_RESELL_DEMO" ]; then
+    # Delete the boot behavior file
+    rm -f "$DEMO_BOOT_FLAG"
+
+    # Undo the modifications by createDemoModeFlagFile.sh
+    /usr/bin/deleteDemoModeFlagFile.sh
+fi
+
+if [ "$SHPM_LED_ON" = "true" ]; then
+    if [ -n "$SHPM_LED_MAX_BRIGHTNESS" ]; then
+        echo $SHPM_LED_MAX_BRIGHTNESS > $SHPM_LED_BRIGHTNESS_FILE
+    elif [ -e "$SHPM_LED_MAX_BRIGHTNESS_FILE" ]; then
+        cat $SHPM_LED_MAX_BRIGHTNESS_FILE > $SHPM_LED_BRIGHTNESS_FILE
+    fi
+fi
+
+# If not in demo mode, restore demo boot flag and reboot to demo oobe.
+if [ "$SHIPMODE_ARG" = "$SHIPMODE_RESTART_DEMO" ]; then
+    # Create boot flag to allow demo boot behavior
+    mkdir -p $(dirname "$DEMO_BOOT_FLAG")
+    touch "$DEMO_BOOT_FLAG"
+
+    # Initiate shipmode reboot
+    start shutdown SHUTDOWN_MODE=$SHUTDOWN_MODE_SHIP_RESTART
+else
+    start shutdown SHUTDOWN_MODE=$SHUTDOWN_MODE_SHIP
+fi

@@ -1,0 +1,51 @@
+/*
+ * bt_passkey_comparison_dialog.css
+ *
+ * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+
+
+#btPasskeyComparisonTitleText {
+    padding-top: 14.89pt;
+    min-height: 13.2pt;
+}
+
+#btPasskeyComparisonDialogText {
+    margin-top: 0pt;
+}
+
+#btPasskeyComparisonCancelButton {
+    margin-top: 12pt;
+}
+
+.bt_passkey_comparison_main_div {
+    width: 216pt;
+    margin: 0;
+    padding: 0;
+    padding-top: 3.94pt;
+    font-size: 10pt;
+    border: none;
+}
+
+ 
+.bt_passkey_comparison_main_div .passKey{
+    padding-top: 16.32pt;
+    padding-bottom: 17.28pt;
+    height: 11.52pt;
+    font-size: 11pt;
+    text-align: center;
+}
+
+#btPasskeyComparisonCmdBar {
+    padding-top: 0pt;
+    margin-bottom: 7.2pt;
+}
+
+#btPasskeyComparisonCmdBar button {
+    height: 26.88pt;
+}

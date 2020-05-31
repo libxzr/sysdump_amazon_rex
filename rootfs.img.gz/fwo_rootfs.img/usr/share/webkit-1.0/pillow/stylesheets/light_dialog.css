@@ -1,0 +1,329 @@
+/*
+ * light_dialog.css
+ *
+ * Copyright (c) 2012-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+body {
+    -webkit-user-select: none;
+    -webkit-box-sizing: border-box;
+    width: 162.34pt;
+}
+
+.body {
+    height: 217pt;
+}
+
+.body-als {
+    height: 215pt;
+}
+
+button {
+    -webkit-box-sizing: border-box;
+    overflow: hidden;
+    display: block;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    border: none;
+}
+
+button:focus {
+    outline: none;
+}
+
+.dialog {
+    -webkit-user-select: none;
+    -webkit-box-sizing: border-box;
+    width: 162.34pt;
+    height: 217pt;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: justify;
+    border-top-width: 3px;
+}
+
+.dialog-als {
+    width: 162.34pt;
+    height: 201pt;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+}
+
+#popup {
+    -webkit-user-select: none;
+    -webkit-box-sizing: border-box;
+    width: 162.34pt;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-box-pack: justify;
+    border-top-width: 3px;
+}
+
+.popup {
+    height: 217pt;
+    padding-top: 5pt;
+}
+
+.popup-als {
+    height: 215pt;
+    padding-top: 5pt;
+}
+
+#als-adjust {
+    height: 20pt;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: justify;
+}
+
+#auto {
+    width: 120pt;
+    height: 18pt;
+    font-family: dialog;
+    font-size: 8.5pt;
+    font-weight: bold;
+    padding-left: 8.2pt;
+    padding-top: 2pt;
+    border: 1.4pt solid #ffffff;
+}
+
+#check-box {
+    width: 28pt;
+    height: 18pt;
+}
+
+#controls {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-box-sizing: border-box;
+    width: 33.2pt;
+    padding-top: 4pt;
+}
+
+.controls {
+	/**
+     * This margin's purpose is to make the slider be centered under the caron
+     * in the typical case. Think of this width as having been stolen from the
+     * info text; if this width is increased, the info text width should be
+     * decreased by the same amount, and vice-versa.
+     */
+    margin-left: 3.2pt;
+}
+
+.controls-als {
+    margin-left: 0pt;
+}
+
+#light-slider {
+    width: 20.2pt;
+    padding-top: 1.5pt;
+    padding-bottom: 1.5pt;
+}
+
+.light-slider {
+    height: 152pt;
+}
+
+.light-slider-als {
+    height: 141pt;
+}
+
+#light-slider > .box {
+    width: 30.6pt;
+    -webkit-box-pack: end;
+}
+
+#light-slider > .box > .vb {
+    width: 15.8pt;
+}
+
+#brackets, #info {
+    height: 100%;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-box-pack: justify;
+    -webkit-box-sizing: border-box;
+}
+
+
+#info > #gap1 {
+    width: 100%;
+    height: 6pt;
+}
+
+#info > #gap2 {
+    width: 100%;
+    height: 87pt;
+}
+
+#info > #TurboBrightnessSelector {
+    border: 1.0pt solid #000000;
+    border-radius: 3pt;
+    -webkit-box-align: center;
+    text-align: center;
+    height: 15.3pt; 
+    width: 98.8pt;
+    font-family: dialog;
+    font-weight: bold;
+    font-size: 8pt;	
+}
+ 
+#info > .selected {
+    background-color: #000000;
+    color: #FFFFFF;
+}
+
+#info > .unselected {
+    background-color: #FFFFFF;
+    color: #000000;
+}
+
+.brackets {
+    width: 2.2pt;
+    padding-top: 35pt;
+    padding-bottom: 31pt;
+}
+
+.brackets-als {
+    width: 2.2pt;
+    padding-top: 25pt;
+    padding-bottom: 38pt;
+}
+
+#brackets > .bracket {
+    width: 100%;
+    height: 1px;
+    -webkit-box-flex: 4;
+    border: 1.2pt solid #000000;
+    border-left-style: none;
+}
+
+#brackets > .bracketForSixLED {
+    width: 100%;
+    height: 1px;
+    -webkit-box-flex: 12;
+    border: 1.2pt solid #000000;
+    border-left-style: none;
+}
+
+#brackets > .bracketTB {
+    width: 100%;
+    -webkit-box-flex: 2;
+    border: 1.0pt solid #000000;
+    border-left-style: none;
+    border-top-style: none;
+    border-bottom-style: none;
+}
+
+#brackets > #gap {
+    width: 100%;
+    height: 1px;
+    -webkit-box-flex: 12;
+}
+
+#brackets > #gapTB {
+    width: 100%;
+    height: 1px;
+    -webkit-box-flex: 1.5;
+}
+
+#info {
+    /* From the HIG */
+    padding-left: 7pt;
+    padding-right: 7pt;
+    /* From the HIG, minus our adjustment to make things line up */
+    width: 123.82pt;
+}
+
+.info-turbobrightness {
+    padding-top: 10pt;
+    padding-bottom: 35pt;
+}
+
+.info-normalbrightness {
+    padding-top: 35pt;
+    padding-bottom: 35pt;
+}
+
+.info-als {
+    padding-top: 27pt;
+    padding-bottom: 41pt;
+}
+
+
+#info > .text {
+    font-family: dialog;
+    font-weight: bold;
+    font-size: 8pt;
+}
+
+#controls > button, #als-adjust > button {
+    background-position: center;
+    background-repeat: no-repeat;
+    border: 1.4pt solid #ffffff;
+}
+
+#controls > button.xor {
+    background-color: #000000;
+}
+
+.alsON {
+    background-image: url('../assets/checkbox_check.png');
+}
+
+.alsOFF {
+    background-image: url('../assets/checkbox.png');
+}
+
+.light-decr, .light-decr-als {
+    background-image: url('../assets/search_bar/minus.png');
+}
+
+.light-incr, .light-incr-als {
+    background-image: url('../assets/search_bar/plus.png');
+}
+
+.light-decr {
+    width: 29.32pt;
+    height: 29.32pt;
+    margin-left: 8.2pt;
+}
+
+.light-incr {
+    width: 29.32pt;
+    height: 29.32pt;
+    margin-left: 8.2pt;
+}
+
+.light-decr-als {
+    width: 20pt;
+    height: 20pt;
+    margin-left: 12.9pt;
+}
+
+.light-incr-als {
+    width: 20pt;
+    height: 20pt;
+    margin-left: 12.9pt;
+}
+
+.light-decr > .xor, .light-decr-als > .xor {
+    background-image: url('../assets/search_bar/minus_active.png');
+}
+
+.light-incr > .xor, .light-incr-als > .xor {
+    background-image: url('../assets/search_bar/plus_active.png');
+}
+
+hr {
+    align: center;
+    width: 148pt;
+    border: 0.5pt solid #000000;
+    -webkit-margin-before: 2pt;
+    -webkit-margin-after: 0pt;
+}

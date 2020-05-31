@@ -1,0 +1,21 @@
+/*
+ * configure_log_level.css
+ *
+ * Copyright 2012 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+ #daemons .daemon {
+      width: 100.25pt;
+      Height: 14.25pt;
+      text-align: center; 
+ }
+
+ #daemons .logInfo {
+     width: 100.25pt;
+     Height: 14.25pt;
+     text-align: center; 
+}

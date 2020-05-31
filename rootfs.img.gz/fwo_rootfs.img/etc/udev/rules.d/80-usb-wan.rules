@@ -1,0 +1,8 @@
+#Dynamic Kernel Device Management with udev for WAN
+#
+
+# tty devices (added for compatibility with legacy devices)
+KERNEL=="ttyACM[0-9]*", SYMLINK+="tts/USB%n"
+
+# Enable suspend, resume and remote wakeup feature
+ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="1519", ATTRS{idProduct}=="0443", RUN+="/lib/udev/bin/notifywanusb"

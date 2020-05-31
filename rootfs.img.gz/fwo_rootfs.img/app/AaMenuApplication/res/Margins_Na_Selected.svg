@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="78px" height="44px" viewBox="0 0 78 44" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 55.1 (78136) - https://sketchapp.com -->
+    <title>Icon / E-reader / 167ppi / Margins / Narrow / Selected</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Icon-/-E-reader-/-167ppi-/-Margins-/-Narrow-/-Selected" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="167ppi_Margins_Narrow_Selected" stroke="#000000">
+            <rect id="Rectangle" stroke-width="3" fill="#FFFFFF" x="1.5" y="1.5" width="75" height="41" rx="6"></rect>
+            <path d="M6,16.5 L72,16.5" id="Line" stroke-linecap="square"></path>
+            <path d="M6,10.5 L72,10.5" id="Line" stroke-linecap="square"></path>
+            <path d="M6,22.5 L72,22.5" id="Line" stroke-linecap="square"></path>
+            <path d="M6,28.5 L72,28.5" id="Line" stroke-linecap="square"></path>
+            <path d="M6,34.5 L72,34.5" id="Line" stroke-linecap="square"></path>
+        </g>
+    </g>
+</svg>

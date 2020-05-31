@@ -1,0 +1,148 @@
+#!/bin/sh
+
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+_PATHS=/etc/sysconfig/paths
+[ -f ${_PATHS} ] && . ${_PATHS}
+
+_METRICS=/usr/bin/record_device_metric.sh
+[ -f ${_METRICS} ] && . ${_METRICS}
+
+usage()
+{
+	msg "usage: $0 [ exec | noexec ]" W
+	msg "usage: $0 [--loop | --fsck] [mount | umount]" W
+	exit 1
+}
+
+if [ "$1" = "exec" ] || [ "$1" = "noexec" ]; then
+	MNTUS="/mnt/us/"
+	umount ${MNTUS}
+	_RES=$?
+	
+	if [ ${_RES} -ne 0 ]; then
+		msg "un-mounting failed. Check if you are using /mnt/us/" E
+		exit ${_RES}
+	fi
+	
+	mount ${MNTUS} -o $1
+	_RES=$?
+	
+	if [ ${_RES} -ne 0 ]; then
+		msg "mount with $1 option failed." E
+	
+		#Bring /mnt/us back to the user with default options
+		mount ${MNTUS}
+		exit ${_RES}
+	else                                                                                                                                                                                
+		msg "mount with $1 option succeeded." E
+		exit 0
+	fi
+fi
+
+_LOOP_ONLY=0
+_MOUNT_FSCK=0
+
+if [ "$1" = "--loop" ]; then
+	_LOOP_ONLY=1
+	shift
+else
+	if [ "$1" = "--fsck" ]; then
+		_MOUNT_FSCK=1
+		shift
+	fi
+fi
+
+. /etc/sysconfig/mntus
+
+if [ ! -f ${MNTUS_PARAMS} ]; then
+	msg  "drive parameters not found (${MNTUS_PARAMS})" E
+	exit 127
+fi
+
+. ${MNTUS_PARAMS}
+
+case "$1" in
+	mount)
+		# Check if the loopback device is already setup.
+		losetup ${MNTUS_LOOP_DEV} > /dev/null
+		_RES=$?
+		if [ ${_RES} -ne 0 ]; then
+			f_log E mntus loopback_not_mounted "" "loopback device is not set-up"
+			# create the loopback
+			losetup -o ${MNTUS_PART_OFFSET} ${MNTUS_LOOP_DEV} ${MNTUS_DEV}
+			_RES=$?
+			if [ ${_RES} -ne 0 ]; then
+				record_device_metric mntus mount loopDeviceAttachFailed 1 '' $METRIC_PRIORITY_LOW $METRIC_TYPE_COUNTER
+				f_log E mntus loopback_attach_failed "" "loopback attach failed (${_RES})"
+				exit ${_RES}
+			fi
+		fi
+		if [ ${_LOOP_ONLY} -eq 0 ]; then
+
+			if [ ${_MOUNT_FSCK} -ne 0 ]; then
+				fsck.vfat -a -w -v ${MNTUS_LOOP_DEV}
+				_RES=$?
+				if [ ${_RES} -ne 0 ]; then
+					if [ ${_RES} -eq 1 ]; then
+						f_log I mntus fs_error_recover "" "File system errors recovered"
+					else
+						f_log E mntus fsck_failed "" "fsck failed on mount (${_RES})"
+						exit ${_RES}
+					fi
+				fi				
+			fi
+
+			# mount the partition
+			mount ${MNTUS_MP}
+			_RES=$?
+			if [ ${_RES} -ne 0 ]; then
+				losetup -d ${MNTUS_LOOP_DEV}
+				f_log E mntus partition_mount_failed "" "partition mount failed (${_RES})"
+				exit ${_RES}
+			fi
+		fi
+		;;
+	umount)
+		if [ ${_LOOP_ONLY} -eq 0 ]; then
+			# unmount the partition
+			umount ${MNTUS_MP}
+			_RES=$?
+			if [ ${_RES} -ne 0 ]; then
+				f_log E mntus partition_unmount_failed "" "partition unmount failed (${_RES})"
+				exit ${_RES}
+			fi
+			
+			if [ ${_MOUNT_FSCK} -ne 0 ]; then
+				fsck.vfat -a -v ${MNTUS_LOOP_DEV}
+				_RES=$?
+				if [ ${_RES} -ne 0 ]; then
+					if [ ${_RES} -eq 1 ]; then
+						f_log I mntus fs_error_recover "" "File system errors recovered"
+					else
+						f_log E mntus fsck_failed "" "fsck failed on unmount (${_RES})"
+						exit ${_RES}
+					fi
+				fi		
+			fi
+		fi
+
+		# detach the loop
+		# (this does not seem necessary under busybox)
+		#losetup -d ${MNTUS_LOOP_DEV} 2>/dev/null
+		#_RES=$?
+		#if [ ${_RES} -ne 0 ]; then
+		#	echo "error: loopback detach failed (${_RES})"
+		#	exit ${_RES}
+		#fi
+		;;
+	*)
+		usage
+		exit 1
+		;;
+esac
+
+exit 0
+
+

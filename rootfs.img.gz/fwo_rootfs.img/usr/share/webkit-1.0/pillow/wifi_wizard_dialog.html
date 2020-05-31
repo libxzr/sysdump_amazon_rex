@@ -1,0 +1,304 @@
+<!--
+ - wifi_wizard_dialog.html
+ -
+ - Copyright 2012-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ -
+ - PROPRIETARY/CONFIDENTIAL
+ -
+ - Use is subject to license terms.
+ -->
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8"/>
+        <link rel="stylesheet" type="text/css" href="stylesheets/dialog.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/lab126Dialog.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/widget_button_bar.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/widget_list.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/widget_scroll_bar.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/wifi_wizard_dialog.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/wifi_wizard_scan_list.css" />
+        <script type="text/javascript" src="javascripts/local_debug.js"></script>
+        <script type="text/javascript" src="javascripts/constants.js"></script> <!-- must be first -->
+        <script type="text/javascript" src="javascripts/common_utils.js"></script> <!-- must be loaded if dialog supports large mode -->
+        <script type="text/javascript" src="strings/wifi_wizard_dialog_strings.js"></script>
+        <script type="text/javascript" src="javascripts/pillow.js"></script>
+        <script type="text/javascript" src="javascripts/window_title.js"></script>
+        <script type="text/javascript" src="javascripts/widget_selector.js"></script>
+        <script type="text/javascript" src="javascripts/widget_button_bar.js"></script>
+        <script type="text/javascript" src="javascripts/widget_list.js"></script>
+        <script type="text/javascript" src="javascripts/widget_scroll_bar.js"></script>
+        <script type="text/javascript" src="javascripts/xor_button.js"></script>
+        <script type="text/javascript" src="javascripts/wifi_wizard_lipc.js"></script>
+        <script type="text/javascript" src="javascripts/wifi_wizard_scan_list.js"></script>
+        <script type="text/javascript" src="javascripts/wifi_wizard_errors.js"></script>
+        <script type="text/javascript" src="javascripts/wifi_wizard_widget_list.js"></script>
+        <script type="text/javascript" src="javascripts/wifi_wizard_simple_entry.js"></script>
+        <script type="text/javascript" src="javascripts/wifi_wizard_advanced_entry.js"></script>
+        <script type="text/javascript" src="javascripts/wifi_wizard_dialog.js"></script>
+    </head>
+    <body class="dialog" onload="wifiWizardDialog.init();">
+        <div id="popupsArea">
+            <div class="wifiWizardPopup"
+                id="netNameAndPasswordPopup"
+                onmousedown="return wifiWizardDialog.handleEntryFormMouseDown(event);">
+                <div class="dialog-title" id="netNameAndPasswordPopupTitleDiv">
+                    <div class="dialog-title-text" id="simpleWizardTitle">
+                        <span id="netNameAndPasswordPopupTitleText"></span></div>
+                    <button class="dialog-close" id="simpleCancelButton"></button>
+                </div>
+                <div id="netNameAndPasswordEntryDiv">
+                    <div class="wifiInputWithLabel">
+                        <div class="wifiLabel" id="netNameLabel"></div>
+                        <div class="wifiLabel" id="networkName" dir="auto" align="left"></div>
+                        <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                            <input class="wifiWizardInput"
+                                id="networkNameEntryInput"
+                                entryKey="essid"
+                                type="text"
+                                onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                onFocus="wifiWizardDialog.fieldFocused(event);"
+                                onBlur="wifiWizardDialog.fieldBlured(event);"
+                                value="" maxlength="32" />
+                        </form>
+                    </div>
+                    <div class="wifiInputWithLabel">
+                        <div class="wifiLabel" id="identityLabel"></div>
+                        <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                            <input class="wifiWizardInput"
+                                id="identityEntryInput"
+                                entryKey="identity"
+                                type="text"
+                                onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                onFocus="wifiWizardDialog.fieldFocused(event);"
+                                onBlur="wifiWizardDialog.fieldBlured(event);"
+                                value="" />
+                        </form>
+                    </div>
+                    <div class="wifiInputGroup">
+                        <div class="wifiInputWithLabel">
+                            <div class="wifiLabel" id="passwordLabel"></div>
+                            <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                                <input class="wifiWizardInput"
+                                    id="passwordEntryInput"
+                                    entryKey="password"
+                                    type="text"
+                                    onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                    onFocus="wifiWizardDialog.fieldFocused(event);"
+                                    onBlur="wifiWizardDialog.fieldBlured(event);"
+                                    value="" />
+                            </form>
+                        </div>
+                        <div class="wifiCheckboxWithLabel"
+                            onclick="wifiWizardDialog.handleShowHidePassword(event)">
+                            <div id="passwordHide" class="checkbox"></div>
+                            <div id="passwordHideLabel" class="checkboxLabel"></div>
+                        </div>
+                        <div class="wifiCheckboxWithLabel" id="storeCredentialsCheckbox" onclick="wifiWizardDialog.handleStoreCredentials(event);">
+                            <div id="storeCredentials" class="checkboxChecked"></div>
+                            <div class="checkboxLabel">
+                                <span id="storeCredentialsLabel"></span>
+                                <span id="learnMoreLabel" onclick="wifiWizardDialog.showLearnMoreDialog();event.stopPropagation();"></span> 
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="wifiWizardSimpleButtonBar"></div>
+                <div id="wifiWizardWpsButtonBar"></div>
+                <div id="wifiWizardManualButtonBar"></div>
+            </div>
+            <div class="wifiWizardPopup" id="errorPopup">
+                <div class="dialog-title" id="errorTitleDiv">
+                    <div class="dialog-title-text"><span id="errorTitleText"></span></div>
+                </div>
+                <div id="errorTextDiv" class="dialog-text">
+                    <span id="errorText"></span>
+                </div>
+                <div id="wifiWizardErrorButtonBar"></div>
+            </div>
+            <div class="wifiWizardPopup"
+                id="advancedPopup"
+                onmousedown="return wifiWizardDialog.handleEntryFormMouseDown(event);">
+                <div class="dialog-title">
+                    <div class="dialog-title-text" id="advancedTitleText"></div>
+                    <button class="dialog-close" id="advancedCancelButton"></button>
+                </div>
+                <!-- Advance Entry MainArea Has Set Size -->
+                <div class="wifiAdvancedEntryMainArea">
+                    <div id="wifiAdvancedEntryScrollContainer">
+                        <div id="wifiAdvancedEntryScrollBox">
+                            <div class="wifiLabelContainer">
+                                <div class="wifiLabel advancedPad2" id="advancedDescriptionText"></div>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad2">
+                                <div class="wifiLabel" id="advancedNetNameLabel"></div>
+                                <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                                    <input class="wifiWizardInput"
+                                        entryKey="essid"
+                                        id="advancedNetworkNameEntryInput"
+                                        type="text"
+                                        onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                        onFocus="wifiWizardDialog.fieldFocused(event);"
+                                        onBlur="wifiWizardDialog.fieldBlured(event);"
+                                        value=""
+                                        maxlength="32" />
+                                </form>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad3" id="advancedPage2Start">
+                                <div class="wifiLabel" id="advancedConnectionType"></div>
+                                <div id="connectionTypeSelector">
+                                </div>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad3">
+                                <div class="wifiLabel" id="advancedIpAddressLabel"></div>
+                                <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                                    <input class="wifiWizardInput"
+                                        entryKey="ipAddress"
+                                        id="advancedIpAddressEntryInput"
+                                        type="text"
+                                        onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                        onFocus="wifiWizardDialog.fieldFocused(event);"
+                                        onBlur="wifiWizardDialog.fieldBlured(event);"
+                                        value="" />
+                                </form>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad3" id="advancedPage2End">
+                                <div class="wifiLabel" id="advancedSubnetMaskLabel"></div>
+                                <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                                    <input class="wifiWizardInput"
+                                        entryKey="subnetMask"
+                                        id="advancedSubnetMaskEntryInput"
+                                        type="text"
+                                        onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                        onFocus="wifiWizardDialog.fieldFocused(event);"
+                                        onBlur="wifiWizardDialog.fieldBlured(event);"
+                                        value="" />
+                                </form>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad2" id="advancedPage3Start">
+                                <div class="wifiLabel" id="advancedRouterLabel"></div>
+                                <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                                    <input class="wifiWizardInput"
+                                        entryKey="router"
+                                        id="advancedRouterEntryInput"
+                                        type="text"
+                                        onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                        onFocus="wifiWizardDialog.fieldFocused(event);"
+                                        onBlur="wifiWizardDialog.fieldBlured(event);"
+                                        value="" />
+                                </form>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad2" id="advancedPage3End">
+                                <div class="wifiLabel" id="advancedDnsLabel"></div>
+                                <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                                    <input class="wifiWizardInput"
+                                        entryKey="dns"
+                                        id="advancedDnsEntryInput"
+                                        type="text"
+                                        onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                        onFocus="wifiWizardDialog.fieldFocused(event);"
+                                        onBlur="wifiWizardDialog.fieldBlured(event);"
+                                        value="" />
+                                </form>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad2" id="advancedPage4Start">
+                                <div class="wifiLabel" id="advancedSecurityType"></div>
+                                <div id="securityTypeSelector"></div>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad2" id="advancedPage4End">
+                                <div class="wifiLabel" id="advancedWpaType"></div>
+                                <div id="wpaTypeSelector"></div>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad3" id="advancedPage5Start">
+                                <div class="wifiLabel" id="advancedEapMethod"></div>
+                                <div id="eapMethodSelector"></div>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad3">
+                                <div class="wifiLabel" id="advancedPhase2Auth"></div>
+                                <div id="phase2AuthSelector"></div>
+                            </div>
+                            <div class="wifiInputWithLabel advancedPad3" id="advancedPage5End">
+                                <div class="wifiLabel" id="advancedCaCertificateLabel"></div>
+                                <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                                    <input class="wifiWizardInput"
+                                        entryKey="caCertificate"
+                                        id="advancedCaCertificateEntryInput"
+                                        type="text"
+                                        onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                        onFocus="wifiWizardDialog.fieldFocused(event);"
+                                        onBlur="wifiWizardDialog.fieldBlured(event);"
+                                        value="" />
+                                </form>
+                            </div>
+                            <div class="wifiInputWithLabel" id="advancedPage6Start">
+                                <div class="wifiLabel" id="advancedIdentityLabel"></div>
+                                <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                                    <input class="wifiWizardInput"
+                                        entryKey="identity"
+                                        id="advancedIdentityEntryInput"
+                                        type="text"
+                                        onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                        onFocus="wifiWizardDialog.fieldFocused(event);"
+                                        onBlur="wifiWizardDialog.fieldBlured(event);"
+                                        value="" />
+                                </form>
+                            </div>
+                            <div class="wifiInputGroup">
+                                <div class="wifiInputWithLabel">
+                                    <div class="wifiLabel" id="advancedPasswordLabel"></div>
+                                    <form onSubmit="return wifiWizardDialog.handleOnSubmit();">
+                                        <input class="wifiWizardInput"
+                                            entryKey="password"
+                                            id="advancedPasswordEntryInput"
+                                            type="text"
+                                            onkeyup="wifiWizardDialog.genericFieldKeyUp(event);"
+                                            onFocus="wifiWizardDialog.fieldFocused(event);"
+                                            onBlur="wifiWizardDialog.fieldBlured(event);"
+                                            value="" />
+                                    </form>
+                                </div>
+                                <div class="wifiCheckboxWithLabel"
+                                    onclick="wifiWizardDialog.handleShowHidePassword(event)">
+                                    <div id="passwordHideAdvanced" class="checkbox"></div>
+                                    <div id="passwordHideAdvancedLabel" class="checkboxLabel"></div>
+                                </div>
+                            </div>
+                            <div id="advancedButtonBar" class="button-bar">
+                                <button id="advancedConnectButton">
+                                    <div class="button-text" id="advancedConnectButtonText"></div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="advancedScrollbarContainer"></div>
+            </div>
+        </div>
+        <div id="wifiWizardMainDiv">
+            <div id="wifiWizardMainDivCmdheader" class="dialog-title">
+                <span class="dialog-title-text" id="title"></span>
+                <button class="dialog-close" id="scanListDoneButton"></button>
+            </div>
+            <div id="networksAndButtons">
+                <div class="list" id="availableNetworks">
+                    <button class="item template" id="availableNetworkItem">
+                        <div class="class-field emptyFlag"></div>
+                        <div class="class-field selectedIcon"></div>
+                        <div class="text-field label" dir="auto" align="left"></div>
+                        <div class="class-field secureIcon"></div>
+                        <div class="class-field signalIcon"></div>
+                    </button>
+                </div>
+        <div id="noNetworks">
+        </div>
+        <div id="userGuide">
+            <p id="userGuidePart1"> </p>
+            <img src="assets/ic_quickaction_hint.png" />
+            <p id="userGuidePart2"> </p>
+        </div>
+              <!-- Bottom Bar -->
+              <div id="wifiWizardListViewCmdBar"></div>
+
+            </div>
+        </div>
+    </body>
+</html>

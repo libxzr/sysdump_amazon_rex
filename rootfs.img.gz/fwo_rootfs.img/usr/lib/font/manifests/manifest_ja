@@ -1,0 +1,12 @@
+{
+  "languages": "ja",
+  "type": "font",
+  "uniqueIdentifier": "ja",
+  "files": "ja.font",
+  "ja.font.md5": "38b245140f4ff426167f131fd8edb258",
+  "TsukuMinPr5-Medium.ttf.md5": "7b1e3aa16c1c8c13927813adb4ea9821",
+  "TsukuMinPr5-Bold.ttf.md5": "e839e6e32190d2ff1d8b36e69f1184c5",
+  "version": 20181023,
+  "fonts.ja": "tsukushimincho",
+  "font.tsukushimincho.display": "\u7b51\u7d2b\u660e\u671d"
+}

@@ -1,0 +1,13 @@
+# /var/local partition and filesystem definitions
+
+_LAYOUT=/etc/default/layout
+[ -f $_LAYOUT ] && . $_LAYOUT || true
+
+# device definitions
+MNTLOG_DEV=/dev/${ROOT}${LOCAL_P}
+MNTLOG_MP=`kdb get system/driver/filesystem/MP_LOCALVAR`
+MNTLOG_MNT_OPT=sync,rw
+MNTLOG_LABEL="LocalVars"
+MNTLOG_DC=/opt${MNTLOG_MP}
+MNTLOG_SYSTEMDIR=$MNTLOG_MP/system
+MNTLOG_LOGDIR=$MNTLOG_MP/log

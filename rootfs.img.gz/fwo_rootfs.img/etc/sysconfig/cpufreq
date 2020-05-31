@@ -1,0 +1,21 @@
+# Paths
+_CPUFREQ=/sys/devices/system/cpu/cpu0/cpufreq
+
+_GOV_CONSERV=${_CPUFREQ}/conservative
+_GOV_ONDEMAND=${_CPUFREQ}/ondemand
+
+_SCALING_GOV=${_CPUFREQ}/scaling_governor
+
+_SCALING_MINFREQ=${_CPUFREQ}/scaling_min_freq
+_SCALING_MAXFREQ=${_CPUFREQ}/scaling_max_freq
+_CUR_CPU_MINFREQ=`cat ${_CPUFREQ}/cpuinfo_min_freq`
+_CUR_CPU_MAXFREQ=`cat ${_CPUFREQ}/cpuinfo_max_freq`
+
+# mode can be "performance", "ondemand",  "conservative" or "powersave"
+MODE=ondemand
+
+# "conservative" and "ondemand" mode settings
+FREQ_STEP=50
+UP_THRESHOLD=30
+DOWN_FACTOR=5
+

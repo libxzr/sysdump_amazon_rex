@@ -1,0 +1,3 @@
+# Run coredump collection scripts when the WAN module entered coredump mode.
+# This is for Banff and Solden WAN modules.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1519", ATTRS{idProduct}=="f000", RUN+="/bin/su -c /lib/udev/bin/notifywanusbcoredump"

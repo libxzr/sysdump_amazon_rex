@@ -1,0 +1,368 @@
+#!/bin/sh
+
+##############################################3
+# Copyright 2008-2019 Lab126 Inc
+# Tinyrot script rotates specified files.
+# It copies each log file to the $ARCHIVE_DIR, compreses it,
+# and rotates it.  In addition, it make sure the achieved
+# files to no exceed specified size
+#
+# Conf file /etc/tinyrot.conf has customizable settings
+#
+# file-conf Conf file specifies what files need to be rotated and
+# the max size of files to save for each file
+#
+# Author: saileshr@lab126.com
+##########################################
+
+source /usr/bin/record_device_metric.sh
+
+CONF=/etc/tinyrot.conf
+[ -f $CONF ] && . $CONF
+
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+UPTIME=`sed -e "s/ [0-9].*//;s/\([0-9]*\)\..*/\1/" < /proc/uptime`
+
+PLAIN_SUFFIX="_??????????????"
+ARCHIVE_SUFFIX=$PLAIN_SUFFIX".gz"
+MESSAGES_LOG="/var/log/messages"
+MESSAGES_LOG_PATH="/var/local/log/messages"
+tmsg ()
+{
+	[ -n "$DEBUG" ] && echo "$*"
+}
+
+get_pretty_version ()
+{
+	if [ -e "/etc/prettyversion.txt" ]; then
+		pretty_version=$(awk '$1=="Kindle" {print $2;exit;}' /etc/prettyversion.txt);
+	fi
+}
+
+# given name (e.g. messages), return size in KiB of compressed archives
+
+totalsize () 
+{
+	local TOTAL=0
+	local F=$(ls ${1}_*${ARCHIVE_SUFFIX} 2>/dev/null)
+
+	[ -n "$F" ] && TOTAL=$(du -sk $F | awk '{t+=$1} END {print t}')
+
+	echo $TOTAL
+}
+
+init_aggr()
+{
+	### Check nexttosend and get youngest
+	if [ -f "$NEXT_FILE" ];  then N0=$(cat $NEXT_FILE); else N0=0; fi
+	N1=`cat $1_$YOUNGEST_FILE`
+	if [ ! -e $1_$AGGR_FILE ] || [ -n "${N0}" -a "${N1}" -eq "${N0}" ]; then
+		echo -n $AGGR_COUNT > $1_$AGGR_FILE
+		return 0
+	else
+		T1=`cat $1_$AGGR_FILE`
+		T2=`echo $(($T1-1))`
+		if [ ${T2} -le 1 ]; then
+			rm  $1_$AGGR_FILE
+		else
+			echo -n "$T2" >  $1_$AGGR_FILE
+		fi
+		return 1
+	fi	
+}
+
+# Checks if maximum filesize of youngest rotated log file
+# has been reached.  Returns zero if the youngest rotation
+# file is unknown or maximum filesize has been reached.
+# Returns one if youngest rotated file does not exist or
+# is below filesize max (continue to rotate logs to this file). 
+init_filemaxsize()
+{
+	### check if we have hit filesize max 
+	if [ ! -e $1_$YOUNGEST_FILE ]; then
+		return 0
+	fi	
+
+	YROTATION=`cat $1_$YOUNGEST_FILE`
+        YFILE=$(echo $1_${YROTATION}${ARCHIVE_SUFFIX})
+	if [ ! -e $YFILE ]; then
+		return 1
+	fi
+	FSIZE=`stat -c %s $YFILE`
+	KBSIZE=`expr $FSIZE / 1024`
+	if [ $KBSIZE -ge $FILEMAXSIZE ]; then
+		# we've hit the file size max, so don't aggregate
+		msg ":Max file size hit $FILEMAXSIZE on $YFILE" I
+		return 0
+	else
+		return 1
+	fi 
+}
+
+init_counter()
+{
+	if [ ! -e $1_$OLDEST_FILE ]; then
+		echo -n "00000001" > $1_$OLDEST_FILE
+		echo -n "00000001" > $1_$YOUNGEST_FILE
+		OLDESTROTATION="00000001"
+		YOUNGESTROTATION="00000001"
+	else
+		T1=`cat $1_${YOUNGEST_FILE}|sed 's/[0]*\(.*\)/\1/g'`
+		T2=`echo $((($T1+1)%${MAXROT}))`
+		if [ "x$2" != "xaggr" ]; then
+			YOUNGESTROTATION=`echo $T2 | awk '{ printf "%08d", $1 }'`
+		else 
+			YOUNGESTROTATION=`echo $T1 | awk '{ printf "%08d", $1 }'`
+		fi
+		echo -n "$YOUNGESTROTATION" > $1_$YOUNGEST_FILE
+		OLDESTROTATION=`cat $1_$OLDEST_FILE`
+	fi
+
+}
+tinyrot_onetime_cleanup()
+{
+	if [ -f ${TINYROT_ONETIME_CLEANUP}_$2 ] ; then
+		return
+	fi
+	ls $1_*${ARCHIVE_SUFFIX} | while read file
+	do
+		O1=`echo "$file" | sed "s#$1_\([0-9]*\)_.*#\1#"`
+		if [ $O1 -lt $OLDESTROTATION ] ; then
+		   msg "Removing $file" w
+		   rm -f $file
+		fi
+	done
+	
+	if [ $YOUNGESTROTATION -lt $OLDESTROTATION ]; then
+		msg "YOUNGESTROTATION counter is lesser then OLDESTROTATION counter" w
+		echo -n "$OLDESTROTATION" > $1_$YOUNGEST_FILE
+	fi
+	msg "one time cleanup for $2 is done" I 
+	touch ${TINYROT_ONETIME_CLEANUP}_$2
+	
+}
+remove_file()
+{
+	if [ -e $1_${OLDESTROTATION}${ARCHIVE_SUFFIX} ]; then
+		msg "Removing $1_${OLDESTROTATION}_*.gz to save storage space" I
+		# emit a metric if the removed messages file is greater than 128KB
+		if [ $1 == $MESSAGES_LOG_PATH ]; then
+			FSIZE=`stat -c %s $1_${OLDESTROTATION}${ARCHIVE_SUFFIX}`
+			if [ $FSIZE -ge $MIN_LOG_SIZE_FOR_METRICS ]; then
+				source /usr/bin/record_device_metric.sh
+				msg "Removing message_log file of size $((FSIZE/1024))KB" I
+				record_device_metric tinyrot removefile sizeexceeds 1 '' $METRIC_PRIORITY_LOW $METRIC_TYPE_COUNTER || true
+			fi
+		fi
+		rm -f $1_${OLDESTROTATION}${ARCHIVE_SUFFIX}
+		T1=`echo $OLDESTROTATION|sed 's/[0]*\(.*\)/\1/g'`
+		T2=`echo $((($T1+1)%${MAXROT}))`
+		Y1=`echo $YOUNGESTROTATION|sed 's/[0]*\(.*\)/\1/g'`
+		if [ $T1 -ge $Y1 ] ; then
+			T2=$Y1
+		fi
+		OLDESTROTATION=`echo $T2 | awk '{ printf "%08d", $1 }'`
+		echo -n "$OLDESTROTATION" > $1_$OLDEST_FILE
+	else
+		# Calling while loop condition on ${DESTFILE}_*${ARCHIVE_SUFFIX} matched
+		# but test above on $1_${OLDESTROTATION}${ARCHIVE_SUFFIX} does not: mismatch!
+		# This happens if compressed logs were left behind and they add up to over 256K.
+		# To avoid tinyrot from going into an infinite loop, as last resort, cleanup all!
+		msg "Not found: $1_${OLDESTROTATION}_*.gz " W
+		msg "Cleaning up any old logs matching ${DESTFILE}_*${ARCHIVE_SUFFIX}" W
+		rm -f ${DESTFILE}_*${ARCHIVE_SUFFIX}
+		# Reset any runaway value in OLDEST_FILE, but don't touch anything else:
+		cat $1_$YOUNGEST_FILE > $1_$OLDEST_FILE
+	fi
+}
+
+AGGR=0
+rotate_file ()
+{
+	local destfile;
+	local any_overflow=false;
+	local is_dem;
+	local prg_source;
+
+	msg ":Rotating file $FILE with max size $MAXSIZE" I
+        if [ ! -e $BIG_ARCHIVE_DIR ]; then
+           mkdir -p $BIG_ARCHIVE_DIR
+        fi
+
+
+	if [ "/mnt/us/bt_snoop_log" == ${FILE} ]; then
+		destfile=$BIG_ARCHIVE_DIR/`basename $FILE`
+		msg ":destination file for rotate: $destfile"
+	else
+		destfile=$ARCHIVE_DIR/`basename $FILE`
+	fi
+
+	DESTFILE=$destfile
+	if [ ! -s $FILE ]; then                                
+		msg ":No file to rotate: $FILE" I      
+        	return
+	fi 
+	# initialize count-based (AGGR_COUNT) or size-based rotation
+	if [ "x-" = "x${FILEMAXSIZE}" ]; then        
+		init_aggr $DESTFILE
+	else
+		init_filemaxsize $DESTFILE
+	fi
+	AGGR=$?
+	if [ ${AGGR} != 0 ]; then	
+		init_counter $DESTFILE aggr
+	else
+		init_counter $DESTFILE donotaggr
+		/usr/sbin/loginfo essentials
+		/usr/sbin/loginfo varlocalmetrics
+	fi
+
+	msg "Moving $FILE to $FILE.0" D
+        # we move the file locally to preserve the (currently logging) inode,
+	# then HUP syslog and wait till it starts the new file.
+
+	if ! mv $FILE $FILE.0 >/dev/null 2>/dev/null; then       
+		msg ":Failed to move $FILE to $FILE.0" W                    
+		return                                                      
+	fi
+
+	tmsg "$0 : Signaling syslog"                                        
+	pkill -HUP syslog-ng
+        #to notify cleanup for /mnt/us/bsa_server_log
+	pkill -SIGUSR1 bsa_server 
+	WAIT=0 ; while [ ! -f $MESSAGES_LOG -a $WAIT -lt 10 ]; do sleep 1 ; let WAIT++ ; done
+
+
+	# Name of compressed dest file
+	CDESTFILE=${DESTFILE}_${YOUNGESTROTATION}_`date +%Y%m%d%H%M%S`.gz
+
+	msg ":Compressing $FILE.0 to $CDESTFILE" D
+    # The $(echo ...) turns the glob pattern into a concrete file name.
+    # ${DESTFILE}_${YOUNGESTROTATION}${ARCHIVE_SUFFIX} also matches
+    # ${CDESTFILE}, which we very much do not want to remove.  (We also
+    # don't want zcat to pick it up, resulting in a loop.)
+	YAGGR_FILE=$(echo ${DESTFILE}_${YOUNGESTROTATION}${ARCHIVE_SUFFIX})
+	if [ ${AGGR} != 0 -a -e ${YAGGR_FILE} ]; then
+		zcat ${YAGGR_FILE} | cat - $FILE.0 | gzip > $CDESTFILE && \
+		rm -f ${YAGGR_FILE}
+	else
+		# Copy the file and compress it
+		gzip $FILE.0 -c >$CDESTFILE 2>/dev/null
+	fi
+
+	if [ $? != 0 ]; then
+		msg ":Failed to gzip log file $FILE to $CDESTFILE" W
+		return
+	fi
+
+	msg "Deleting $FILE.0" D
+	# Delete the old file
+	rm -f $FILE.0
+	# Creating an empty file at the same location
+	touch $FILE
+
+	# remove oldest file(s) if we exceed the max
+	# for message logs, we retain the youngest compressed file in pre-gm build
+	LOG_TYPE=`basename $FILE`
+	TOTAL=$(totalsize $DESTFILE)
+	if [ ${LOG_TYPE} == "messages" -a -f /PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC ]; then
+	        while [ $TOTAL -gt $MAXSIZE -a ${YOUNGESTROTATION} != ${OLDESTROTATION} ]; do
+	                remove_file $DESTFILE
+	                TOTAL=$(totalsize $DESTFILE)
+	        done
+	else
+	        [ "${LOG_TYPE}" == "non_anonymous_clickstream_metrics" ] || [ "${LOG_TYPE}" == "anonymous_clickstream_metrics" ];
+	        is_dem=$?
+
+	        while [ $TOTAL -gt $MAXSIZE ]; do
+	                if [ $any_overflow == false ] && [ $is_dem -eq 0 ]; then
+	                        any_overflow=true;
+	                fi
+	                remove_file $DESTFILE
+	                TOTAL=$(totalsize $DESTFILE)
+	        done
+	        if [ $any_overflow == true ]; then
+	                local marketplace_value=$(get-dynconf-value marketplace.obfuscated.id);
+	                local dem_metadata="$MARKETPLACE=$marketplace_value";
+	                if [ -z "$pretty_version" ]; then
+	                        prg_source="tinyrot:empty";
+	                else
+	                        prg_source="tinyrot:$pretty_version";
+	                fi
+
+	                record_device_metric platform "$prg_source" dem_metric_overflow 1 "$dem_metadata" $METRIC_PRIORITY_HIGH $METRIC_TYPE_COUNTER
+	        fi
+	fi
+	#onetime cleanup to fix JFOUR-1239
+	tinyrot_onetime_cleanup $DESTFILE `basename $FILE`
+}
+
+############## START OF SCRIPT ######################
+
+IFS=`echo -en "\n\b"`
+# Bailing out when kicked off to close to boot time
+if [ $UPTIME -lt $DEADZONE ]; then
+	if ! [ "x$1" = "x--force" ]; then
+		msg ":Still booting - not doing anything until later" W
+		exit 0
+	fi
+fi
+
+
+# wait up to 60 seconds for the lock
+
+# No-root users need write access to this lock file, since this script is being invoked
+# in the context of the applications running.
+mode=`umask`
+umask 000;
+exec 9> $FLAG_TINYROT_LOCK
+umask $mode;
+
+I=0; while [ $I -lt 60 ] && ! flock -n 9; do sleep 1 ; let I++ ; done
+
+if [ $I -eq 60 ]; then
+    if [ "x$1" != "x--force" ]; then
+        exit 1
+    else
+        # could potentially end up with a pair of tinyrots killing
+        # each other; still better than two running at once
+	# kevinsh@ - what about showlog and the lock?
+
+        OTHER_TINYROTS=$(ps -o pid h -C tinyrot | grep -v '^ *'$$'$')
+
+        if [ -n "$OTHER_TINYROTS" ]; then
+            msg ":tinyrot --force killing other tinyrots ($OTHER_TINYROTS)" W
+            kill -9 $OTHER_TINYROTS
+        fi
+
+	I=0; while [ $I -lt 60 ] && ! flock -n 9; do sleep 1 ; let I++ ; done
+        if [ $I -eq 60 ]; then
+            msg ":tinyrot --force still unable to acquire lock; running anyway" W
+        fi
+    fi
+fi
+
+# Create the destination directory if it doesn't exist
+if [ ! -e $ARCHIVE_DIR ]; then
+	mkdir -p $ARCHIVE_DIR
+fi
+
+loginfo tmpfsmetrics
+get_pretty_version
+
+while read LINE; do
+	COMMENT=`echo $LINE | sed '/^#/d'`
+	if [ "x$COMMENT" != "x" ]; then
+		FILE=`echo $LINE | sed 's/\(\S*\)\s\(\S*\)\s\(\S*\)/\1/'`
+		MAXSIZE=`echo $LINE | sed 's/\(\S*\)\s\(\S*\)\s\(\S*\)/\2/'`
+		FILEMAXSIZE=`echo $LINE | sed 's/\(\S*\)\s\(\S*\)\s\(\S*\)/\3/'`
+		# Needs to be re-initialized, as its overwritten
+		AGGR_FILE=aggregate
+		rotate_file
+	fi
+done < $FILES_CONF
+
+# Sync before exiting
+sync

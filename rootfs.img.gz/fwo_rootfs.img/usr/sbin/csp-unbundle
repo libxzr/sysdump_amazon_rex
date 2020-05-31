@@ -1,0 +1,337 @@
+#!/bin/sh
+#
+# Copyright (c) 2013-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# PROPRIETARY/CONFIDENTIAL
+#
+# Use is subject to license terms.
+#
+
+#
+# csp-unbundle
+#     unbundles Content Support Pack bundle.
+#
+# usage: csp-unbundle path_to_bundle
+#
+
+# font related settings
+readonly FONTTYPE="font"
+
+# keyboard related settings
+readonly KBTYPE="keyboard"
+
+# parent directory to create work directory under
+readonly WORKDIR_PARENT="/mnt/us/system/tmp"
+
+# work directory template prefix
+readonly WORKDIR_PREFIX="csp_tmp"
+
+# whether to remove original bundle
+remove_original_bundle=1
+
+. /etc/upstart/bundlefuncs
+. /usr/lib/contentpack/csp_functions
+
+###############################################################################
+
+create_work_dir() {
+    ensure_directory "$WORKDIR_PARENT"
+    if [ $? -ne 0 ] || [ ! -d "$WORKDIR_PARENT" ]; then
+        csp_log_err "Can't create work directory at \"$WORKDIR_PARENT\""
+        exit $CSP_RETRIABLE_ERROR
+    fi
+
+    _workdir=`mktemp -d "$WORKDIR_PARENT"/"$WORKDIR_PREFIX".XXXXXX`
+    if [ $? -ne 0 ] || [ ! -n "$_workdir" ]; then
+        csp_log_err "Can't create work directory under \"$WORKDIR_PARENT\""
+        exit $CSP_RETRIABLE_ERROR
+    fi
+
+    echo $_workdir
+}
+
+get_bundle_name() {
+    _bundlepath="$1"
+    _suffix=""
+
+    for _s in ".img" ".bin" ".font"
+    do
+        if echo $_bundlepath | grep ".${_s}\$" >/dev/null; then
+            _suffix=$_s
+            break;
+        fi
+    done
+
+    if [ ! -n "$_suffix" ]; then
+        echo ""
+        return
+    fi
+
+    # bundle name format is <lang> only
+    basename "$_bundlepath" "$_suffix"
+}
+
+get_img_list() {
+    _work_dir="$1"
+    _name="$2"
+    echo "$_work_dir/$_name"*
+}
+
+get_image_type() {
+    _image="$1"
+    if echo $_image | grep "\.${FONTIMGEXT}$" >/dev/null; then
+        echo "$FONTTYPE"
+    elif echo $_image | grep "\.${KBIMGEXT}$" >/dev/null; then
+        echo "$KBTYPE"
+    fi
+}
+
+get_bundle_type() {
+    _manifjson="$1"
+
+    get_json_value "$_manifjson" "$TYPEKEYINMANIFEST"
+}
+
+get_install_dir() {
+    _bundle="$1"
+    _name="$2"
+
+    if echo $_bundle | grep "\.${FONTIMGEXT}$" >/dev/null; then
+        echo "$FONTIMGDIR"
+    elif echo $_bundle | grep "\.${KBIMGEXT}" >/dev/null; then
+        echo "$KBIMGDIR"/"$_name"
+    fi
+}
+
+clean_up() {
+    csp_log_info "Clean up..."
+
+    if [ -d "$work_dir" ]; then
+        rm -rf "$work_dir"
+    fi
+
+    if [ $remove_original_bundle -eq 1 ]; then
+        rm -f "$bundle_path"
+    fi
+
+    csp_log_info "Done."
+}
+
+# Remove any work directories that was left behind by a previous incomplete
+# run of this script, like if the device rebooted while the script was still
+# running.
+remove_abandoned_work_dir() {
+    csp_log_info "Remove any abandoned work directories..."
+    rm -rf "$WORKDIR_PARENT"/"$WORKDIR_PREFIX".*
+}
+
+usage() {
+    _msg="Usage: csp-unbundle [-f|--force-update] /path/to/bundle"
+    csp_log_err $_msg
+    echo $_msg >&2
+}
+
+###############################################################################
+
+manifdest=""
+forceupdate=0
+
+eval set -- `getopt -q -o f -l force-update -- "$@"`
+while true
+do
+    case $1 in
+        --force-update|-f)
+            forceupdate=1
+            shift
+            ;;
+        -h)
+            usage; exit 1
+            ;;
+        --)
+            shift; break
+            ;;
+        *)
+            usage; exit 1
+        ;;
+    esac
+done
+
+if [ $# -ne 1 ]; then
+    usage
+    exit $CSP_HARD_ERROR
+fi
+
+# Remove any work directories that was left behind by a previous incomplete
+# run of this script.
+remove_abandoned_work_dir
+
+bundle_path="$1"
+
+if [ ! -f "$bundle_path" ]; then
+    csp_log_err "Error: the specified bundle doesn't exist: '$bundle_path'"
+    exit $CSP_HARD_ERROR
+fi
+
+# get bundle name
+name=`get_bundle_name $bundle_path`
+if [ ! -n "$name" ]; then
+    csp_log_err "Error: couldn't get the bundle name from the bundle path."
+    exit $CSP_HARD_ERROR
+fi
+
+csp_log_info "Bundle name = $name"
+
+# load bundle headers & verify bundle
+csp_verify_bundle $bundle_path $OTA_BLOCKSIZE
+if [ $? -ne 0 ]; then
+   csp_log_err "Error: bundle verification failed."
+   exit $CSP_HARD_ERROR
+fi
+
+# if bundle verification is okay, let's expand the bundle.
+csp_log_info "Extracting bundle contents..."
+
+# check bundle format
+if [ "$OTA_VERSION" != "$SPBUNDLEVER" ]; then
+    csp_log_err "Bundle is not signed. Unsigned bundle is not supported."
+    clean_up
+    exit $CSP_HARD_ERROR
+fi
+
+# create work directory
+work_dir=`create_work_dir`
+if [ ! -d "$work_dir" ] || [ ! -w "$work_dir" ]; then
+    csp_log_err "Can't create work directory."
+    exit $CSP_RETRIABLE_ERROR
+fi
+
+# expand outermost bundle
+csp_log_info "Expanding outermost bundle..."
+csp_extract_bundle "$bundle_path" "$work_dir"
+if [ $? -ne 0 ]; then
+    csp_log_err "Failed to expand bundle. bundle = $bundle_path"
+    clean_up
+    exit $CSP_HARD_ERROR
+fi
+
+# expand payload
+csp_log_info "Expanding payload..."
+payload="${work_dir}/${PAYLOADFILE}"
+csp_extract_bundle "$payload" "$work_dir"
+if [ $? -ne 0 ]; then
+    csp_log_err "Failed to expand the payload \"$payload\"."
+    clean_up
+    exit $CSP_HARD_ERROR
+fi
+
+# manifest
+manif="${work_dir}/${MANIFESTINBUNDLE}"
+if [ ! -f "$manif" ]; then
+    csp_log_err "Manifest file not found at \"$manif\"."
+    clean_up
+    exit $CSP_HARD_ERROR
+fi
+
+# check bundle type and decide where to copy manifest
+bundletype=`get_bundle_type "$manif"`
+if [ "$bundletype" = "$FONTTYPE" ]; then
+    manifdest="${FONTMANIFDIR}/${MANIFESTPREFIX}${name}"
+elif [ "$bundletype" = "$KBTYPE" ]; then
+    manifdest="${KBMANIFDIR}/${MANIFESTPREFIX}${name}"
+else
+    csp_log_err "bundle type is unknown. bundle path = $bundle_path."
+    clean_up
+    exit $CSP_HARD_ERROR
+fi
+csp_log_info "bundle type is $bundletype."
+
+# check if font image is already mounted
+if [ "$bundletype" = "$FONTTYPE" ]; then
+    mountdir=`get_font_mount_dir "$name"`
+    if is_mounted "$mountdir"; then
+        csp_log_info "Font image \"$name\" is already mounted."
+        # try unmounting font image
+        umount -d "$mountdir"
+        if [ $? -eq 0 ]; then
+            csp_log_info "Successfully unmounted \"$mountdir\"."
+        else
+            csp_log_info "Can't unmount \"$mountdir\"."
+            if [ "$forceupdate" -eq 1 ]; then
+                csp_log_info "Will overwrite mounted image..."
+            else
+                csp_log_err "Can't continue unbundling while font is mounted."
+                clean_up
+                exit $CSP_HARD_ERROR
+            fi
+        fi
+    fi
+fi
+
+# install manifest
+if [ -n "$manifdest" ]; then
+    # install
+    if  install_signed_file "$manif" "$manifdest"; then
+        csp_log_info "Copied manifest to \"$manifdest\"."
+    else
+        csp_log_err "Failed to copy manifest \"$manif\" to \"$manifdest\"."
+        clean_up
+        exit $CSP_HARD_ERROR
+    fi
+else
+    csp_log_err "Manifest path is empty."
+    clean_up
+    exit $CSP_HARD_ERROR
+fi
+
+# check image files (font image, key db etc.) in the bundle
+# then copy them to the destinations
+imglist=`get_img_list "$work_dir" "$name"`
+for img in $imglist
+do
+    if [ ! -f "$img" ]; then
+        csp_log_err "Image \"$img\" not found."
+        set_status $CSP_HARD_ERROR
+        continue
+    fi
+
+    install_dir=`get_install_dir "$img" "$name"`
+    if [ ! -n "$install_dir" ]; then
+        csp_log_err "Error: don't know where to copy \"$img\"."
+        set_status $CSP_HARD_ERROR
+        continue
+    fi
+
+    csp_log_info "install dir = $install_dir"
+    ensure_directory "$install_dir"
+    if [ $? -ne 0 ]; then
+        csp_log_err "Couldn't create dir $install_dir. Skipping."
+        set_status $CSP_RETRIABLE_ERROR
+        continue
+    fi
+
+    imgdest="${install_dir}"/`basename "$img"`
+
+    install_signed_file "$img" "$imgdest"
+    if [ $? -ne 0 ]; then
+        csp_log_err "Can't install \"$img\" to \"$imgdest\"."
+        set_status $CSP_HARD_ERROR
+        continue
+    fi
+done
+
+# clean up
+clean_up
+
+if [ `get_status` -ne $CSP_SUCCESS ]; then
+    csp_log_info "Removing manifest as the status was not successful..."
+    rm -f "$manifdest"
+    if [ -e "$manifdest" ]; then
+        csp_log_err "Can't remove file \"$manifdest\"."
+    fi
+fi
+
+current_status=`get_status`
+csp_log_info "Exiting with status = $current_status"
+exit $current_status
+
+# end.

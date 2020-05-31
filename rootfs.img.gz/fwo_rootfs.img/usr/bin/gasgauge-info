@@ -1,0 +1,59 @@
+#! /bin/sh
+
+HELP="usage:
+gasgauge-info [-chklms] [-i <seconds>] <registers...>
+-h      help
+--help  help
+
+-i s    interval (seconds)
+
+-c      output state of charge in percent with sys entry command
+-s      same as -c but with lipc powerd command
+-v      output battery voltage value
+-l      output battery charge current (load)
+-k      output battery temperature
+-m      output battery available capacity (mAh)
+"
+
+usage() {
+  echo "$HELP"
+  exit 1
+}
+
+[ $# -eq 0 ] && usage
+
+SLEEP=
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+   -c) WANT=percent_sys_entry ;;
+   -s) WANT=percent_lipc_powerd ;;
+   -v) WANT=mv ;;
+   -l) WANT=ma ;;
+   -k) WANT=temp ;;
+   -m) WANT=mah ;;
+   -i) SLEEP=$2 ; shift ;;
+   *) usage ;;		# covers -h and --help too
+  esac
+  shift
+done
+
+source /etc/upstart/functions
+
+DIR=/sys/class/power_supply/*bat*
+
+get_value() {
+  case "$WANT" in
+    percent_sys_entry) echo "$(cat $DIR/capacity)%" ;;	
+    percent_lipc_powerd) lipc-get-prop com.lab126.powerd battLevel ;;
+    mv) echo "$(cat $DIR/voltage_now) mV" ;;
+    ma) echo "$(cat $DIR/current_now) mA" ;;
+    temp) echo "$(cat $DIR/temp) " ;;
+    mah) echo "$(cat $DIR/charge_now) mAh" ;;
+    *) echo "don't know what you want - $WANT" ; exit 1 ;;	# shouldn't happen
+  esac
+}
+
+
+get_value
+while [ -n "$SLEEP" ]; do sleep $SLEEP && get_value ; done

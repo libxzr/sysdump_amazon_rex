@@ -1,0 +1,36 @@
+#!/bin/sh
+
+FAKEZONEINFO="/var/local/system"
+
+tz_off()
+{
+	echo $1 | awk \
+	'{
+		s = $1 < 0 ? -1 : 1;
+		n_1_2 = int(( s * $1 ) / 30 + 15 );
+		n_15 = int( n_1_2 / 30 );
+		n_60 = int( n_15 / 4 );
+		n_15 -= n_60 * 4;
+		printf ("%02d:%02d\n", s * n_60, n_15 * 15);
+	}'
+}
+
+_arg=''
+_tzname='AMZ'
+
+if [ $# -eq 0 ] ; then
+    date +%z
+elif [ $# -eq 1 ] ; then
+    _arg=$1
+elif [ $# -eq 3 ] ; then
+    _arg=$3
+elif [ $# -eq 4 ] ; then
+	_arg=$3
+	_tzname=$4
+else
+	echo "usage -- settz [<offset_in_seconds>] | [<event> <source> <offset_in_seconds>]"
+fi
+
+if [ -n "${_arg}" ] ; then
+	echo "Zone tz $(tz_off ${_arg}) - ${_tzname}" | zic -d ${FAKEZONEINFO} -
+fi

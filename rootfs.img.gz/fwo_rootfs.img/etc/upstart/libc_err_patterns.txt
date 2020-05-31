@@ -1,0 +1,20 @@
+buffer overflow detected
+stack smashing detected
+invalid open call: O_CREAT without mode
+invalid open64 call: O_CREAT without mode
+invalid openat call: O_CREAT without mode
+invalid openat64 call: O_CREAT without mode
+invalid mq_open call: O_CREAT without mode and attr
+longjmp causes uninitialized stack frame
+%n in writable segment detected
+invalid %N$ use detected
+double free or corruption
+malloc: top chunk is corrupt
+free(): invalid pointer
+realloc(): invalid pointer
+malloc_check_get_size: memory corruption
+corrupted double-linked list
+break adjusted to free malloc space
+munmap_chunk(): invalid pointer
+malloc(): memory corruption
+realloc(): invalid old size

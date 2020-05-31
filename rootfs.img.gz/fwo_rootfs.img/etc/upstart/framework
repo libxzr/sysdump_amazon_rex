@@ -1,0 +1,265 @@
+#! /bin/sh
+
+# check for framework disabled
+
+source /etc/upstart/functions
+JHOME=/usr/java
+JLIB=/usr/java/lib
+EHOME=/opt/amazon/ebook
+LIBHOME=/opt/amazon/ebook/lib
+
+# construct clazzpath from lib, booklet, testlibdir
+LPATH=$LIBHOME/concierge-1.0.0.jar:$LIBHOME/icu4j.jar:$LIBHOME/utilities.jar:$LIBHOME/json_simple-1.1.jar::$LIBHOME/libphonenumber-7.0.jar
+
+LANG=$(locale | grep LANG= | cut -d= -f2 | cut -d. -f1)
+if [ "$LANG" != "en_US" ]; then
+   LANG=$(echo $LANG | cut -d_ -f1)
+fi
+JAR_DIRS="$EHOME/lib $EHOME/booklet /usr/local/ebook/lib /opt/amazon/pkg/oss/lib"
+JAR_LIST_CORE=$(find $JAR_DIRS '*.jar' 2>/dev/null | grep -v -e "\-[a-zA-Z][a-zA-Z]-assets\.jar" -e "\-[a-zA-Z][a-zA-Z]\.jar" -e "\-[a-zA-Z][a-zA-Z]-properties\.jar"  -e "\-[a-zA-Z][a-zA-Z]_[a-zA-Z][a-zA-Z]-assets\.jar" -e "\-[a-zA-Z][a-zA-Z]_[a-zA-Z][a-zA-Z]\.jar" -e "\-[a-zA-Z][a-zA-Z]_[a-zA-Z][a-zA-Z]-properties\.jar")
+JAR_LIST_LOCALE=$(find $JAR_DIRS '*.jar' 2>/dev/null | grep -e "\-${LANG}-assets\.jar" -e "\-${LANG}\.jar" -e "\-${LANG}-properties\.jar"  -e "\-${LANG}_[a-zA-Z][a-zA-Z]-assets\.jar" -e "\-${LANG}_[a-zA-Z][a-zA-Z]\.jar" -e "\-${LANG}_[a-zA-Z][a-zA-Z]-properties\.jar")
+
+CPATH=$(echo $JAR_LIST_CORE $JAR_LIST_LOCALE | sed -e 's/ \+/:/g')
+
+# Commenting out these lines since oracle debug messges prints them while loading.
+#f_log I framework jar_filter "" "NORMAL JARS = ${JAR_LIST_CORE}"
+#f_log I framework jar_filter "" "LOCALE JARS = ${JAR_LIST_LOCALE}"
+
+# heap changes
+
+MEMTOTAL="$(devcap-get-feature -i memory size)"
+
+# For Xmx value 'x' effective heap size Ef(x) is given by the formula
+# Ef(x) = x + ((x%2) ? 0.25 : -0.75)
+# Change Xmx and Xms values to 31m after grok memory leak is fixed
+
+if [ $MEMTOTAL -gt 511 ]; then
+  HEAP="-Xmx33m -Xms33m -XX:MaxNewSize=4m -XX:SurvivorRatio=3 -XX:TargetSurvivorRatio=80 -Xss100k -XX:ReservedCodeCacheSize=3m -XX:+InitialGenPreTouch"
+  HEAP="$HEAP -XX:CompileThreshold=5000 -XX:CodeCacheMinimumFreeSpace=100k"
+  HEAP="$HEAP -XX:NmethodSweepFraction=6 -XX:NmethodSweepActivity=2 -XX:NmethodSweepMaxWaitTime=8 -XX:NmethodHotnessCounterResetValue=64"
+elif [ $MEMTOTAL -gt 255 ]; then
+  HEAP="-Xmx25m -XX:MaxNewSize=3m -XX:SurvivorRatio=2 -XX:TargetSurvivorRatio=80 -Xss100k -XX:ReservedCodeCacheSize=2m"
+  HEAP="$HEAP -XX:CompileThreshold=8000 -XX:CodeCacheMinimumFreeSpace=100k"
+  HEAP="$HEAP -XX:NmethodSweepFraction=4 -XX:NmethodSweepActivity=3 -XX:NmethodSweepMaxWaitTime=5 -XX:NmethodHotnessCounterResetValue=64"
+fi
+HEAP="$HEAP -XX:MinHeapFreeRatio=5 -XX:MaxHeapFreeRatio=15 -XX:+UseAggressiveHeapShrink"
+HEAP="$HEAP -XX:MaxInlineSize=16 -XX:MaxInlineLevel=2 -XX:-InlineSynchronizedMethods"
+
+# Setting the CVM variant
+if [ -f /mnt/us/ENABLE_CLIENT_CVM_VARIANT ]; then
+  HEAP="$HEAP -client"
+else
+  HEAP="$HEAP -minimal"
+fi
+
+# HEAP="$HEAP -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintCodeCache"
+# HEAP="$HEAP -Xloggc:/mnt/us/gclog_%p.txt"
+
+# Setting Thread Priority Policy
+THREAD="-XX:ThreadPriorityPolicy=1"
+
+f_log I framework commandLine "HEAP = ${HEAP}"
+
+WAN_EXISTS=true
+WIFI_EXISTS=true
+f_wan || WAN_EXISTS=false
+f_wifi || WIFI_EXISTS=false
+
+PHY_X="$(devcap-get-feature -i screen.physical width)"
+RES_X="$(devcap-get-feature -i screen resolution.width)"
+
+# Compute device specific clickRadius and MultiClickRadius in pixels from the absolute values in mm
+# we have decided for all devices
+
+CLICKRADIUS_MM=7.55
+MULTICLICKRADIUS_MM=15.10
+
+CLICKRADIUS_PX=$(awk "BEGIN{print int((($CLICKRADIUS_MM*$RES_X)/$PHY_X)+0.5)}")
+MULTICLICKRADIUS_PX=$(awk "BEGIN{print int((($MULTICLICKRADIUS_MM*$RES_X)/$PHY_X)+0.5)}")
+
+# the surface pixel number is from width x height x 20
+# Compute and round to closest integer
+
+AOPTS="-Ddebug=1 \
+-Dawt.allowOffscreenCreateImage=true \
+-Dawt.useFlatTextHighlightingArea=true \
+-Dawt.supportGesture=true \
+-Dawt.traceEvents=false \
+-Dcom.sun.java.swing.text.DocumentFactory=com.amazon.agui.swing.KindleTextDocumentFactory \
+-Dxargs=$EHOME/bin/init.xargs \
+-Dcheck_comm_stack=true \
+-Dawt.eventThreadPriority=10 \
+-Dgci.eventThreadPriority=7 \
+-Dgci.disableSurfaceDumper=true \
+-Dfeature.wifiPresent=$WIFI_EXISTS \
+-Dfeature.wanPresent=$WAN_EXISTS \
+-Dsun.net.client.defaultReadTimeout=120000 \
+-Dhttp.keepalive.timeout=60000 \
+-Dhttp.maxConnections=16 \
+-Dallow_demo=false \
+-Djava.awt.SyncOnPaint=false \
+-Dextkeyboard=false \
+-Dconfig=$EHOME/config/framework.$(f_platform).conf \
+-DPLATFORM_CLASS_FILE=$EHOME/config/platform.conf \
+-DENABLE_SEARCH_INDEXING_THREAD=true \
+-Dpolicy.home=$EHOME/security \
+-Djava.security.manager \
+-Djava.awt.DebugPaint=false \
+-DUSE_KWGRAPHICS=false \
+-Dx11.sync=true \
+-Dbuttons.noxor=true \
+-Dcc_transport_jni=true \
+-Dawt.clickRadius=$CLICKRADIUS_PX \
+-Dawt.multiClickRadius=$MULTICLICKRADIUS_PX \
+-Dawt.multiClickTime=200 \
+-DappContext.disposeClearsSoftReferences=true \
+-Djavax.microedition.plaf.platformfactory=com.amazon.agui.swing.plaf.kindle.KindlePlatformFactory \
+-Dhttp.bufferSize=1360 \
+-Dsun.net.client.defaultConnectTimeout=60000 \
+-DappContext.disposeStopsThreads=true \
+-Dawt.image.incrementaldraw=false \
+-Dawt.inputMethods=com.amazon.ebook.util.input.KindleInputMethod \
+-Dawt.nativeDoubleBuffering=true \
+-Dawt.repaintTimeout=500 \
+-Dawt.repaintTimeout.filtered=false \
+-Dawt.screenRefreshDelay=0 \
+-Dawt.toolkit=java.awt.AGUIToolkit \
+-Dcom.sun.apps.useSunRR=true \
+-Dcom.sun.me.gci.renderer.fontenv.classname=sun.font.PangoFontEnvironment \
+-Dcom.sun.me.gci.renderer.imageRendererFactory=sun.font.CairoImageRendererFactory \
+-Dcom.sun.me.gci.renderer.shapeRendererFactory=sun.font.CairoShapeRendererFactory \
+-Dcom.sun.me.gci.renderer.textRendererFactory=sun.font.PangoTextRendererFactory \
+-Dcom.sun.me.gci.surface.surfaceFactory=com.sun.me.windowsystem.x11.X11DrawingSurfaceFactory \
+-Dcom.sun.me.gci.windowsystem.graphicsenv.classname=com.sun.me.windowsystem.x11.X11GraphicsEnvironment \
+-DdefaultEncodingUTF8=true \
+-Ddvb.middleware=false \
+-Dgci.offscreenJavaImageFormat=3 \
+-Dgci.useAcceleratedSurface=true \
+-Dgci.useNativeSurfaces=true \
+-Djava.awt.AlphaComposite.SRC_OVER.isRestricted=false \
+-Djava.awt.ClearWhenSetVisible=true \
+-Djava.awt.Component.setCursor.isRestricted=true \
+-Djava.awt.EventDispatchThread.classname=java.awt.AGUIEventDispatchThread \
+-Djava.awt.Frame.setResizable.isRestricted=true \
+-Djava.awt.Frame.setTitle.isRestricted=true \
+-Djava.awt.HardwareSingleImageBuffer=false \
+-Djava.awt.ImmediateFlip=false \
+-Djava.awt.PaintLock=false \
+-Djava.awt.Window.allowMultiple=true \
+-Djava.awt.Window.disableClearOnPaint=false \
+-Djava.awt.event.KeyEvent.isRestricted=true \
+-Djava.awt.event.KeyEvent.supportMask=0 \
+-Djava.awt.event.MouseEvent.isRestricted=true \
+-Djava.awt.event.MouseEvent.supportLevel=1 \
+-Djava.awt.font.TextMeasurer.canBreakLines=true \
+-Djava.awt.graphicsenv=java.awt.AGUIGraphicsEnvironment \
+-Djava.awt.loadpic= \
+-Djava.awt.logodisptime=1000 \
+-Dawt.shutdownBlockerTimeout=0 \
+-Djava.awt.robotHelper=com.sun.me.windowsystem.x11.X11RobotHelper \
+-Djava.library.builtin.agui=true \
+-Djava.library.builtin.awtimage=true \
+-Djava.library.builtin.awtpango=true \
+-Djava.library.builtin.gci=true \
+-Djava.library.builtin.gciawt=true \
+-Djavax.swing.JComponent.setToolTipText.isRestricted=true \
+-Djavax.swing.JMenuBar.NUM_SOFT_KEYS=2 \
+-Djavax.swing.JMenuBar.NUM_SOFT_MENUS=2 \
+-Djavax.swing.JMenuBar.clientPropertiesSupported=true \
+-Djavax.swing.JPopupMenu.adjustLocation=false \
+-Djavax.swing.JTabbedPane.setToolTipTextAt.isRestricted=true \
+-Djavax.swing.setMnemonic.isRestricted=true \
+-Djavax.swing.text.JTextComponent.setFocusAccelerator.isRestricted=true \
+-Dmicroedition.agui.version=1.0 \
+-Dmicroedition.java2d.version=1.0 \
+-Dsun.menu.mode=Normal \
+-Dsun.net.trustUnresolvedWildcardMatch=true \
+-Dx11.serialized=true \
+-Dx11.serialized.pollDuration=20000 \
+-Dx11.serialized.pollCount=50 \
+-Dx11.shmem=true \
+-Dkindlet.classloader.bypass=true \
+-Dch.ethz.iks.concierge.decompressEmbedded=false \
+-Djava.security.policy=$JLIB/security/java_permissive.policy \
+-XX:+DontPrintDynamicLibraries \
+-Djava.jni_accept_utf8s=true"
+
+
+
+# Conditional gray scale support JSIXONE-2251
+# KDK deserialize security exception SBR-5507
+if [ 1 -ne $(devcap-get-feature -a activecontent) ] ; then 
+   AOPTS="$AOPTS -Dgci.offscreenJavaImageFormat=10"
+else
+   AOPTS="$AOPTS -Djceks.key.serialFilter=java.lang.Enum;java.security.KeyRep;java.security.KeyRep\$Type;javax.crypto.spec.SecretKeySpec;com.amazon.kindle.kindlet*;!*"
+fi 
+
+# enable more cvm crash logging/reporting
+export CVM_LOG_LEVEL=4
+
+APP=ch.ethz.iks.concierge.framework.Framework
+
+# XXX - are any of these needed anymore?
+
+# use either jvmpi or jvmti, not both
+#IHPROF="-Xrunhprof:heap=all,thread=y,file=/mnt/base-us/framework.$$.hprof.txt"
+#IHPROF="-Xbootclasspath/a:$JLIB/java_crw_demo.jar \
+#                -agentlib:jvmtihprof=cpu=times,heap=sites,thread=y,file=/mnt/us/framework.$$.hprof.txt"
+
+#DEBUG="-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y -Xdebug -DMinimumKindletTimeoutMillis=60000"
+
+if [ -f /mnt/us/PROFILE_CVM_NB ]
+then
+    # NetBeans profiling
+    DEBUG="-agentlib:profilerinterface=lib/profiler/lib,5140"
+    LPATH=$LPATH:$JLIB/profiler/lib/jfluid-server.jar:$JLIB/profiler/lib/jfluid-server-cvm.jar
+
+elif [ -f /mnt/us/DEBUG_CVM_JDWP ] || [ -f /mnt/us/DEBUG_CVM_JDWP_SUSPEND ]
+then
+    SUSPEND=n
+    if [ -f /mnt/us/DEBUG_CVM_JDWP_SUSPEND ]
+    then
+        SUSPEND=y
+    fi
+     # N.B. the line below does not appear in /proc/$(pidof cvm)/cmdline, even though debugging is enabled
+     DEBUG="-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=$SUSPEND -Xdebug -DMinimumKindletTimeoutMillis=60000"
+fi
+# N.B. the line below does not appear in /proc/$(pidof cvm)/cmdline
+ERROR_FLAG="-XX:OnError=cat /var/tmp/hs_err_pid%p.log"
+
+JOPTS="-Dsun.awt.exception.handler=com.amazon.agui.swing.event.EventQueueExceptionHandler \
+-Xbootclasspath/a:$JLIB/agui.jar:$JLIB/localedata.jar:$JLIB/charsets.jar:$LPATH \
+-Dsun.boot.library.path=$JLIB \
+-cp $CPATH"
+
+if [ -f /mnt/us/DEBUG_CVM_CRASH ]; then
+  CRASH=/mnt/us/DEBUG_CVM_CRASH
+  export CVM_CRASH_DEBUG=1
+  f_log D framework crash_debug "" "To disable, remove ${CRASH}"
+fi
+
+# If the internal KDK developer keystore exists in the location to which it's built (/usr/local),
+# and there isn't already a file with the same name in the location the KDK requires(/var/local),
+# copy it now that /var/local has been created. Both of these locations are wiped out on ship
+# mode/factory reset and will never reach end customers.
+if [ ! -f "/var/local/java/keystore/developer.keystore" ] && [ -f "/usr/local/java/keystore/developer.keystore" ]; then
+  f_log I framework CopyKDKKeystore "Copying internal KDK keystore from /usr/local to /var/local"
+  mkdir -p /var/local/java/keystore
+  cp -f /usr/local/java/keystore/developer.keystore /var/local/java/keystore
+fi
+
+OPTS="$HEAP $THREAD $JOPTS $IHPROF $DEBUG $AOPTS"
+rm -rf /var/local/java/default
+# /var/local/java/cvm.aot file was used in Java 1.4 and not required in SE8,
+# removing this file to free up space in /var/local
+[ -e /var/local/java/cvm.aot ] && rm /var/local/java/cvm.aot && f_log I framework "Removed cvm.aot file"
+
+# Capture stdout/stderr and log it.
+# Unfortunately, if framework is killed, it might not kill cvm.
+# If this happens, we rely on framework.conf to do a killall cvm.
+# Nasty? Yes, but until cvm can directly log its stderr/stdout to 
+# syslog this is the best we can do.
+f_log I framework "##### Starting Java SE8 VM "
+export LD_PRELOAD="$JLIB/arm/libdlopen_global.so"
+set -o pipefail
+$JHOME/bin/cvm $OPTS "$ERROR_FLAG" $APP 2>&1 | su framework -c "exec logger -p local2.debug"

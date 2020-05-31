@@ -1,0 +1,10 @@
+{
+    "frontlight":true,
+    "button.home":false,
+    "als":false,
+    "screen":{
+        "dpi":212,
+        "resolution.height":1024,
+        "resolution.width":758
+    }
+}

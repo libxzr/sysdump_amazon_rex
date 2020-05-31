@@ -1,0 +1,632 @@
+#!/bin/sh
+
+
+# check number of args
+if [ "$#" -ne "1" ]; then
+    echo "$0 requires the shutdown mode as an argument"
+    for L in $SHUTDOWN_MODE_LIST; do
+        echo "\t$L"
+    done
+    exit 1;
+fi
+
+# grab the shutdown mode
+SHUTDOWN_MODE=$1
+LOG_NAME="ss_${SHUTDOWN_MODE}"
+
+# If this file is present, save logs for later debugging
+SAVE_LOGS_FILE=/mnt/us/SAVE_LOGS
+SAVE_LOGS=0
+LOGS_TAR_GZ="/mnt/us/all_logs_as_of_`date +%a_%b_%d_%Y_%H_%M_%S`.tar.gz"
+FLAG_NO_TRANSITIONS=`kdb get system/driver/filesystem/NO_TRANSITIONS`
+DONT_DISABLE_LOGIN_FILE=/mnt/us/DONT_DISABLE_LOGIN
+SAVE_FACTORY_RESET_LOGS_FILE=/mnt/us/SAVE_FACTORY_RESET_LOGS
+SHIPMODE_SLEEP_TIME=/mnt/us/SHIPMODE_SLEEP_TIME
+DISABLE_LOGIN=1
+
+##
+# sourcing critical files
+#
+TO_SOURCE=" \
+    /etc/upstart/functions \
+    /etc/upstart/upstart_functions \
+    /etc/upstart/shutdown_modes \
+    /etc/default/layout \
+    /etc/sysconfig/paths \
+    /etc/rc.d/functions"
+for F in $TO_SOURCE; do
+    # make sure the file exists
+    if [ -f $F ]; then
+        source $F
+        RES=$?
+        # make sure we sourced it successfully
+        if [ $RES -ne 0 ]; then
+            f_log C $LOG_NAME "cannot source file" "\"$F\""
+            exit 1
+        fi
+    else
+        f_log C $LOG_NAME "cannot find file" "$F"
+        exit 1;
+    fi
+done
+
+FLAG_FACTORY_FRESH="/opt/amazon/factory_fresh/factory_fresh"
+FLAG_NO_TRANSITIONS="/opt/amazon/factory_fresh/no_transitions"
+FLAG_FACTORY_FRESH_AUTHENTICATION="/opt/amazon/factory_fresh/factory_fresh_authentication"
+
+##
+# functions
+#
+# miscellaneous files
+ss_remove_misc_files()
+{
+    # remove misc files NOTE: Do not alter this line unless you first
+    # update the OTA blacklist to exclude them from future updates.
+    rm -f /etc/sysconfig/ALLOW_CVM_RESET
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "cannot remove ALLOW_CVM_RESET"
+    fi
+
+    rm -rf /usr/local /opt/ar6k/include /opt/ar6k/host /opt/amazon/ebook/lib/uitest.jar
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "cannot remove misc files"
+        return $RES
+    fi
+}
+
+# blast partition
+ss_blast_partition()
+{
+    local NAME=$1
+    local PARTITION=$2
+
+    # check for valid arguments
+    if [ -z "$NAME" -o -z "$PARTITION" ]; then
+        f_log E $LOG_NAME "invalid arguments to blast partition" \
+        "name=\"$NAME\" partition=$PARTITION"
+        return 1
+    fi
+
+    # read the start sector and number of consecutive sectors to erase
+    local START_SECTOR=$(cat /sys/block/${ROOT}/$PARTITION/start)
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "failed to get start sector" \
+        "name=\"$NAME\" partition=$PARTITION" "getting start sector exited with code $RES"
+        return $RES
+    fi
+
+    local NUM_SECTORS=$(cat /sys/block/${ROOT}/$PARTITION/size)
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "failed to get number of consecutive sectors" \
+        "name=\"$NAME\" partition=$PARTITION" "getting number of sectors exited with code $RES"
+        return $RES
+    fi
+
+    # log what we're about to do
+    f_log I $LOG_NAME "erasing partition" \
+        "name=\"$NAME\" partition=/dev/$PARTITION" \
+        "secure erase from ${START_SECTOR} of ${NUM_SECTORS} sectors"
+
+    # secure erase the filesystem
+    if [ "$(f_platform)" = "duet" ]; then
+    	CTRL_ERASE_FILE=/sys/devices/system/falcon/falcon0/falcon_ctrl_erase
+    elif [ "$(f_platform)" = "heisenberg" ]; then
+		CTRL_ERASE_FILE=/sys/devices/soc0/soc.2/2100000.aips-bus/2194000.usdhc/mmc_host/mmc0/mmc0:0001/mmc_ctrl_erase
+	else
+	CTRL_ERASE_FILE=/sys/devices/system/mmc_ctrl/mmc_ctrl0/mmc_ctrl_erase
+    fi
+
+    echo "/dev/${ROOT} ${START_SECTOR} ${NUM_SECTORS}" > $CTRL_ERASE_FILE
+    RES=$?
+
+    local RES_ERASE=$(cat $CTRL_ERASE_FILE)
+    if [ $RES -eq 0 ] && [ ${RES_ERASE} -eq 1 ]; then
+        f_log I $LOG_NAME "partition erased successfully" \
+            "name=\"$NAME\" partition=/dev/$PARTITION"
+    else
+        f_log C $LOG_NAME "failed to erase partition" \
+            "name=\"$NAME\" partition=/dev/$PARTITION" "secure erase exited with code $RES"
+    fi
+    return $RES
+}
+
+# blast partition with dd
+ss_blast_partition_with_dd()
+{
+    local NAME=$1
+    local PARTITION=$2
+
+    # check for valid arguments
+    if [ -z "$NAME" -o -z "$PARTITION" ]; then
+        f_log E $LOG_NAME "invalid arguments to blast partition" \
+        "name=\"$NAME\" partition=$PARTITION"
+        return 1
+    fi
+
+    # read the size of the partition
+    local PARTITION_SIZE_BLKS=$(/sbin/sfdisk --show-size -uB -n $PARTITION)
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "failed to get partition size" \
+        "name=\"$NAME\" partition=$PARTITION" "sfdisk exited with code $RES"
+        return $RES
+    fi
+
+    # maximum number of blocks to erase
+    local ERASE_SIZE_BLKS=4096
+
+    # erase min(partition size blks, erase size blks) number of blocks
+    if [ $PARTITION_SIZE_BLKS -lt $ERASE_SIZE_BLKS ]; then
+        ERASE_SIZE_BLKS=$PARTITION_SIZE_BLKS
+    fi
+
+    # log what we're about to do
+    f_log I $LOG_NAME "erasing partition" \
+        "name=\"$NAME\" partition=$PARTITION" \
+        "overwriting first ${ERASE_SIZE_BLKS} of ${PARTITION_SIZE_BLKS} blocks"
+
+    # blast the filesystem
+    dd if=/dev/zero of=$PARTITION count=$ERASE_SIZE_BLKS
+    RES=$?
+    if [ $RES -eq 0 ]; then
+        f_log I $LOG_NAME "partition erased successfully" \
+            "name=\"$NAME\" partition=$PARTITION"
+    else
+        f_log C $LOG_NAME "failed to erase partition" \
+            "name=\"$NAME\" partition=$PARTITION" "dd exited with code $RES"
+    fi
+    return $RES
+}
+
+# blast the /var/local/ partition
+ss_blast_var_local()
+{
+    local PARTITION=/dev/${ROOT}${LOCAL_P}
+
+    ss_blast_partition_with_dd "/var/local" $PARTITION
+    return $?
+}
+
+# blast the userstore partition
+ss_blast_userstore()
+{
+    local PARTITION=${ROOT}${USER_P}
+
+    ss_blast_partition "userstore" $PARTITION || ss_blast_partition_with_dd "/mnt/base-us" /dev/$PARTITION
+    return $?
+}
+
+ss_prune_var_local()
+{
+    f_log I $LOG_NAME "varlocal pruning begin"
+    mount | grep /var/local/font/mnt | cut -d " " -f1 | xargs umount
+    RES=$?
+    f_log I $LOG_NAME "varlocal font unmount status: $RES"
+    find /var/local/* \( -type d -o -type f \) -maxdepth 0 ! -path "/var/local/log" -exec rm -rf '{}' \;
+    RES=$?
+    f_log I $LOG_NAME "varlocal delete files $RES"
+    if [ $RES -ne 0 ]; then
+       return $RES
+    fi
+    COUNT=`find /var/local/* \( -type d -o -type f \) -maxdepth 0 -path "/var/local/log" | wc -l`
+    if [ $COUNT -gt 1 ] ; then
+    	f_log I $LOG_NAME "varlocal delete failed $COUNT"
+	return 1
+    fi
+    touch /var/local/copy_optvarlocal
+    f_log I $LOG_NAME "varlocal pruning complete"
+}
+
+# remove files in userstore, except ones whitelisted
+ss_prune_userstore()
+{
+    WHITELIST=/opt/amazon/data.whitelist
+
+    # demo whitelist is "required" files (for demo mode).
+    # currently no required demo files on the userstore
+    # DEMO_WHITELIST=/opt/amazon/demo_data.whitelist
+
+    # demo graylist is "optional" files (for demo mode).
+    DEMO_GRAYLIST=/opt/amazon/demo_data.graylist
+
+    # form the whitelist argument for the find command
+    FIND_WHITELIST=$(cat $WHITELIST $DEMO_GRAYLIST |sed 's@\(.*\)@-a \! -path \1@g' | xargs)
+
+    f_log I $LOG_NAME "userstore pruning begin"
+    # delete all files in userstore not specified in whitelist
+    cd /mnt/us
+    find . \( -name "*" -o -name ".*" \) -a ! -name "." $FIND_WHITELIST \
+        -depth -exec rm -rf '{}'  \;
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "userstore pruning failed"
+        return $RES
+    fi
+
+    # delete files from graylist if it's a factory reset
+    if [ $SHUTDOWN_MODE = $SHUTDOWN_MODE_FACTORY_RESET ]; then
+        GRAYLIST=/opt/amazon/data.graylist
+        f_log I $LOG_NAME "userstore pruning - deleting gray list "
+        cat $GRAYLIST | xargs rm -rf
+        RES=$?
+        if [ $RES -ne 0 ]; then
+            f_log C $LOG_NAME "userstore pruning - deleting gray list unsuccessful"
+        fi
+    fi
+    f_log I $LOG_NAME "userstore pruning complete"
+}
+
+# auto-select wan mode
+ss_set_wan_auto_select_mode()
+{
+    f_wan || return 0
+    _WANINFO=/var/local/wan/info
+    _WAN_MGROAM_PEER=4
+    _WAN_MGROAM_BIN=/usr/sbin/dtpmgroam
+
+    f_log I $LOG_NAME "wan auto select started"
+
+    [ -e ${_WANINFO} ] && . ${_WANINFO}
+    MCS_COOKIE=/var/run/mcsdwc.dat
+    MCS_SET_AUTO_MODE_TO=60
+    MCS_SET_AUTO_MODE_OP="0"
+
+    _STOP_COUNT=0
+    _STOP_MAX=120
+
+    if [ ${WAN_TYPE} -eq 5 ]; then
+        MCS_SET_AUTO_MODE_OP="AT+COPS=0"
+    fi
+
+    f_log I $LOG_NAME "turning wan off"
+    wancontrol wanoffkill
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "failed to turn off wan (2)"
+        return $RES
+    fi
+
+    #Banff and Solden doesn't need to reset to auto-select mode
+    if [ ${WAN_TYPE} -eq 6 -o ${WAN_TYPE} -eq 7 ]; then
+        return 0
+    fi
+
+    f_log I $LOG_NAME "setting mcs cookie"
+    echo "$MCS_SET_AUTO_MODE_TO $MCS_SET_AUTO_MODE_OP" > $MCS_COOKIE
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "failed to set mcs cookie"
+        return $RES
+    fi
+
+    f_log I $LOG_NAME "turning wan on"
+    wancontrol wanon
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "failed to turn on wan"
+        return $RES
+    fi
+
+    case "$WAN_TYPE" in
+        4) # elmo
+            f_log I $LOG_NAME "clearing mru"
+            #modemcmd -c "AT*MRUCLEAR" -t 5
+	    #for alta
+	    /usr/sbin/elmo_kit factory_test -e
+            RES=$?
+            if [ $RES -ne 0 ]; then
+                f_log W $LOG_NAME "failed to clear mru"
+                # continue
+            fi
+            ;;
+    esac
+
+    f_log I $LOG_NAME "turning wan off (2)"
+    wancontrol wanoffkill
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "failed to turn off wan (2)"
+    else
+        f_log I $LOG_NAME "wan auto select completed"
+    fi
+    return $RES
+}
+
+# common cleanup tasks (shared between shipping_mode and factory_reset)
+ss_common_cleanup()
+{
+
+    f_log I $LOG_NAME "cleaning misc files"
+    mntroot rw
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "failed to mount rootfs R/W"
+        return $RES
+    fi
+
+    rm -f ${FLAG_FACTORY_FRESH} $MNTLOG_DC/system/ENABLE_DIAGS
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "failed to remove factory fresh and diags-enable files"
+        return $RES
+    fi
+
+    ss_remove_misc_files || return $? # remove misc prints logs
+}
+
+ss_waveform_cleanup()
+{
+    f_log I $LOG_NAME "erasing waveforms"
+    # erase stored waveform / i18n screens
+    wfm_mount
+    if [ -f "/mnt/wfm/DONT_ERASE_WFM" -a "$(f_platform)" != "yoshi" -a "$(f_platform)" != "yoshime3" ]; then
+        wfm_mount
+	f_log I $LOG_NAME "Creating a backup for waveform"
+	tar -cvf /tmp/waveform.tar /mnt/wfm/waveform_to_use
+        wfm_erase
+        RES=$?
+        if [ $RES -ne 0 ]; then
+           f_log C $LOG_NAME "failed to erase waveforms"
+	   return $RES
+        fi
+	wfm_mount
+	tar -xf /tmp/waveform.tar -C /
+        RES=$?
+        if [ $RES -ne 0 ]; then
+           f_log C $LOG_NAME "copying waveform failed"
+	   return $RES
+        fi
+	touch /mnt/wfm/DONT_ERASE_WFM
+	wfm_umount
+    else
+       wfm_erase
+       RES=$?
+       if [ $RES -ne 0 ]; then
+           f_log C $LOG_NAME "failed to erase waveforms"
+	   return $RES
+       fi
+    fi
+}
+
+# side effect: can leave logs in userstore (only for dev, QA and debugging
+# factory process).  Be sure to not clean up userstore after this.
+ss_save_logs()
+{
+    if [ $SAVE_LOGS -eq 1 ]; then
+        f_log I $LOG_NAME "saving logs"
+        tar -zcvf $LOGS_TAR_GZ /var/local/log /var/log
+        RES=$?
+        if  [ ${RES} -ne 0 ]; then
+            f_log E $LOG_NAME "could not save all logs.."
+        # -/var/local/log may not yet be created
+        # -user store run out of space
+        # either case we don't care and just log this failure
+        fi
+    fi
+}
+
+# rpinit
+ss_run_rpinit()
+{
+    #To disable user logins to the device,
+    #we make the password field empty and lock the user accounts
+    #We don't want to disable password for engineering builds for sometime
+    if [ $DISABLE_LOGIN -eq 1 ]; then
+        SHADOW_FILE="/etc/shadow"
+        USER_LIST=`awk 'BEGIN { FS=":" } { if ($2 != "*") { print $1 } }' $SHADOW_FILE`
+        for user in $USER_LIST
+        do
+            passwd -d $user
+            passwd -l $user
+        done
+    fi
+}
+
+# removes the /MNTUS_EXEC file
+ss_remove_mntus_exec()
+{
+    MNTUS_EXEC_FILE=/MNTUS_EXEC
+    if [ -f $MNTUS_EXEC_FILE ]; then
+        f_log I $LOG_NAME "removing /MNTUS_EXEC file"
+        rm -f ${MNTUS_EXEC_FILE}
+        RES=$?
+        if [ $RES -ne 0 ]; then
+            f_log C $LOG_NAME "cannot remove /MNTUS_EXEC file"
+            return $RES
+        fi
+    fi
+}
+
+# disable rtc on PMIC when shipping mode
+ss_disable_rtc()
+{
+    f_log I $LOG_NAME "Disabling RTC"
+    echo 0 > /sys/class/rtc/rtc0/wakealarm
+    sleep 1
+    rtc_value=`cat /sys/class/rtc/rtc0/wakealarm`
+    if [[ "$rtc_value" != ""  ]]
+    then
+        f_log E $LOG_NAME "Cannot clear RTC0 setting"
+        return 1
+    fi
+
+    echo 0 > /sys/class/rtc/rtc1/wakealarm
+    sleep 1
+    rtc_value=`cat /sys/class/rtc/rtc1/wakealarm`
+    if [[ "$rtc_value" != ""  ]]
+    then
+        f_log E $LOG_NAME "Cannot clear RTC1 setting"
+        return 1
+    fi
+
+    f_log I $LOG_NAME "RTC0 and RTC1 settings are clear!"
+
+    return 0
+}
+
+# removes the not-shipped file and touches first_boot file to mark
+# the device as shipped.
+ss_mark_as_shipped()
+{
+    f_log I $LOG_NAME "removing not-shipped file"
+    rm -f ${NOT_SHIPPED_FILE}
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "cannot remove not-shipped file"
+        return $RES
+    fi
+
+    f_log I $LOG_NAME "touching first_boot file"
+    touch ${FIRST_BOOT_FILE}
+    RES=$?
+    if [ $RES -ne 0 ]; then
+	    f_log C $LOG_NAME "cannot touch first_boot file"
+        return $RES
+    fi
+}
+
+# mark the device with a factory fresh tag
+ss_factory_fresh()
+{
+    f_log I $LOG_NAME "marking system factory-fresh"
+    factory_fresh_dir=`dirname ${FLAG_FACTORY_FRESH}`
+    mkdir -p $factory_fresh_dir
+    touch ${FLAG_FACTORY_FRESH}
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "cannot touch factory-fresh file"
+        return $RES
+    fi
+
+    f_log I $LOG_NAME "marking system no_transitions for volumd and powerd"
+    touch ${FLAG_NO_TRANSITIONS}
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "cannot touch no_transitions file"
+        return $RES
+    fi
+
+    # The factory fresh authentication file created on shipping mode or factory
+    # reset. It is removed by the framework when authentication credentials
+    # have been received (FRO).
+    f_log I $LOG_NAME "marking system factory-fresh-authentication"
+    touch ${FLAG_FACTORY_FRESH_AUTHENTICATION}
+    RES=$?
+    if [ $RES -ne 0 ]; then
+        f_log C $LOG_NAME "cannot touch factory-fresh-authentication file"
+        return $RES
+    fi
+
+    sync
+}
+
+# This feature is available only in pre-GM builds
+if [ -e "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC" ] ; then
+    SAVE_LOGS=1
+fi
+
+#
+# Figure out what mode we're in and do the work
+#
+case $SHUTDOWN_MODE in
+    $SHUTDOWN_MODE_FACTORY_RESET)
+    #wan auto select mode; ignore if there is a failure as we can't do anything in case of factory reset
+    ss_set_wan_auto_select_mode || ss_set_wan_auto_select_mode
+        # prune the userstore before unmounting it
+        # unmount /var/local before blasting it
+        if ss_common_cleanup && ss_waveform_cleanup ; then
+            if [ -e $SAVE_FACTORY_RESET_LOGS_FILE ]; then
+                ss_prune_userstore && \
+                ss_save_logs && \
+                f_upstart_job_stop_timeout 30 "filesystems" && \
+                ss_blast_var_local && \
+                ss_factory_fresh
+            else
+                f_upstart_job_stop_timeout 30 "filesystems" && \
+                ss_blast_userstore && \
+                ss_blast_var_local && \
+                ss_factory_fresh
+            fi
+        fi
+        RES=$?
+        ;;
+    $SHUTDOWN_MODE_SHIP_RESTART | \
+    $SHUTDOWN_MODE_SHIP)
+        # prune the userstore before unmounting it
+        # unmount /var/local before blasting it
+        [ -e $SAVE_LOGS_FILE ] && SAVE_LOGS=1
+        # This feature is available only in pre-GM builds
+        if [ -f "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC" ]; then
+            [ -e $DONT_DISABLE_LOGIN_FILE ] && DISABLE_LOGIN=0
+        fi
+        if [ -e $SHIPMODE_SLEEP_TIME ] ; then
+            sleep_time=`cat $SHIPMODE_SLEEP_TIME`
+            sleep $sleep_time
+        fi
+        #wan auto select mode; ignore if there is a failure as we can't do anything in the case of ship mode
+        ss_set_wan_auto_select_mode
+        RES=$?
+        if [ $RES -ne 0 ]; then
+            sleep 1
+            # retry
+            ss_set_wan_auto_select_mode
+            RES=$?
+            if [ $RES -ne 0 ]; then
+                f_log C $LOG_NAME "failed, returnCode=$RES"
+            fi
+        fi
+        ss_disable_rtc && \
+        ss_common_cleanup && \
+            ss_run_rpinit  && \
+            ss_prune_userstore  && \
+            ss_save_logs && \
+            f_upstart_job_stop_timeout 30 "filesystems" && \
+            ss_blast_var_local && \
+            ss_remove_mntus_exec && \
+            ss_mark_as_shipped  && \
+            ss_factory_fresh
+        RES=$?
+        ;;
+    $SHUTDOWN_MODE_SETTINGS_RESET)
+        # blast /var/local (unmount /var/local first)
+        f_upstart_job_stop_timeout 30 "filesystems" && ss_blast_var_local
+        RES=$?
+        ;;
+    $SHUTDOWN_MODE_USERSTORE_RESET)
+        # blast the userstore (unmount userstore first)
+        f_upstart_job_stop_timeout 30 "filesystems" && ss_blast_userstore
+        RES=$?
+        ;;
+    $SHUTDOWN_MODE_USERSTORE_CLEAN)
+        # reset the userstore in place
+        # (this isn't necessarily called during shutdown)
+        ss_prune_userstore
+        RES=$?
+        ;;
+    $SHUTDOWN_MODE_CRITBATT | \
+    $SHUTDOWN_MODE_CUST_SERVICE)
+        f_log I $LOG_NAME "nothing to do for this shutdown mode" "\"$SHUTDOWN_MODE\""
+        RES=0
+        ;;
+    *)
+        f_log C $LOG_NAME "unknown shutdown mode" "\"$SHUTDOWN_MODE\""
+        LIST=$(echo $SHUTDOWN_MODE_LIST | sed -e 's/\s*/,/g' -e 's/^\,//g')
+        f_log D $LOG_NAME "valid shutdown modes" "\"$LIST\""
+        exit 1
+        ;;
+esac
+
+# check the return code of the stuff that was just run
+if [ $RES -ne 0 ]; then
+    f_log C $LOG_NAME "failed"
+else
+    f_log I $LOG_NAME "completed successfully"
+fi
+
+mntroot ro
+exit $RES
+

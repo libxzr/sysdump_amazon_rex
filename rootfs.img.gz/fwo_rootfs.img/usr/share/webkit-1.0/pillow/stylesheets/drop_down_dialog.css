@@ -1,0 +1,30 @@
+/*
+ * drop_down_dialog.css
+ *
+ * Copyright 2012-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+body {
+    width: 758px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: start;
+}
+
+.drop-down-dialog {
+    -webkit-box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: solid #a6a6a6;
+    border-left-width: 2px;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+}

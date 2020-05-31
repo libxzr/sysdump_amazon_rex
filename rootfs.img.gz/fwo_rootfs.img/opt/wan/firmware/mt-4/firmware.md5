@@ -1,0 +1,6 @@
+c923e5d0e5e526e7cc1f92cfea81a9d4  ./verify
+62e154c5f1a6d6e2652642aae3db54a8  ./getversion
+62c838a4822030925c931ebd6e5c5e5e  ./flash
+1b9e5aacae2910576fbc9b04d11a7f9b  ./elmo_downloader
+c8dc264a4b6c135c8f4eb34bfac61738  ./elmofw/partition.mbn
+f0b13c858c4f0cc88acc4d313ea86ddc  ./display_progress

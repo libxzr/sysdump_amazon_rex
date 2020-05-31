@@ -1,0 +1,513 @@
+/*
+ * search_bar.css
+ *
+ * Copyright (c) 2011-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+body {
+    margin: 0;
+    overflow: hidden;
+    color: #000000;
+    background-color: #FFFFFF;
+    font-family: dialog;
+    font-size: 8.2pt;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-sizing: border-box;
+    -webkit-user-select: none;
+    height: 25.44pt;
+    border-bottom: 0.48pt solid #d3d3d3;
+}
+
+button, div {
+    -webkit-box-sizing: border-box;
+    font: inherit;
+    color: inherit;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+button {
+    display: block;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    border: none;
+    overflow: hidden;
+    position: relative;
+}
+
+button:focus {
+    outline: none;
+}
+
+body > button {
+    width: 24.96pt;
+    height: 24.0pt;
+}
+
+button .button-text {
+    display: block;
+    overflow: hidden;
+}
+
+/**
+ * An empty div that expands to fill the available space.
+ */
+.flex-space {
+    height: 28.98pt;
+    width: 1px;
+    -webkit-box-flex: 1;
+}
+
+/**
+ * An empty div with a fixed size, for use as a spacer.
+ */
+.fixed-space {
+    height: 28.98pt;
+}
+
+#spacer1w {
+    width: 11.84pt;
+}
+
+#spacer-mid {
+    width: 4.04pt;
+}
+
+#spacer-mid.wide {
+    width: 12.23pt;
+}
+
+#spacer2w {
+    width: 20.46pt;
+}
+
+/**
+ * An empty flex-box that fills its parent entirely.
+ *
+ * Items that would be placed in the parent should instead be put in this box.
+ *
+ * This is useful when the container is being hidden and revealed
+ * programmatically, since it avoids requiring the code to know the display
+ * mode needed by the container.
+ */
+.flex-box {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: -webkit-box;
+}
+
+.flex-box.horizontal {
+    -webkit-box-orient: horizontal;
+}
+
+/**
+ * Disabled buttons
+ */
+
+button:disabled .button-text {
+    color: #000000;
+}
+
+button:disabled:after {
+    display: block;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    content: '';
+    -webkit-border-radius: inherit;
+    background-color: #FFFFFF;
+    opacity: 0.6; /* #000 to #999 */
+}
+
+button.drop-down-visible:disabled:after {
+    display: none;
+}
+
+/**
+ * Inverted button styling
+ */
+
+button.xor {
+    background-color: #000000;
+}
+
+button.xor .button-text {
+    color: #FFFFFF;
+    -webkit-font-smoothing: none;
+}
+
+/**
+ * Normal-mode button spacing
+ */
+
+body > button {
+    /**
+     * From the HIG: this is given as a 22px gap (on Celeste) between the
+     * buttons in the center section. It's simpler to split that gap between
+     * the left and right margins of adjacent buttons.
+     */
+    margin-top: 0.48pt;
+    margin-bottom: 0.48pt;
+    margin-left: 1.2pt;
+    margin-right: 1.2pt;
+}
+
+body > button.leftmost {
+    /**
+     * From the HIG: the left margin is 7.6pt.  Including it in the border
+     * makes it tappable.
+     **/
+    margin-left: 4.32pt;
+    margin-right: 1.2pt;
+    width: 24.96pt; 
+}
+
+#menu {
+    /**
+     * From the HIG: the right spacer is supposed to be two Celeste pixels
+     * wider than the left spacer. We accomplish that here by increasing the
+     * left margin by 0.8pt over the default of 3.8pt.
+     */
+    margin-left: 3.6pt;
+    margin-right: 6.0pt;
+    width: 24.96pt;
+}
+
+/**
+ * Search-mode spacing adjustments
+ */
+
+#exit {
+    /**
+     * From the HIG: the X button isn't shown inside a standard 29.32pt square.
+     * Instead, it is shown as being 10.2pt wide with a 13.6pt margin on each
+     * side. The actual X asset is, however, a 29.32pt square. The remaining
+     * margin, since the X is centered in the asset, is 4.2pt on each side.
+     */
+    margin-left: 4.2pt;
+    margin-right: 3.0pt;
+    width: 30.92pt;
+}
+
+#domain {
+    /**
+     * The domain button, unlike the others, has text. The HIG gives
+     * measurements for spacing that run right up to the edge of the domain
+     * button, but the domain button needs to have some padding for the XORing
+     * to look good.
+     *
+     * This amount of padding is not from the HIG, since there aren't going to
+     * be redlines for XORing unless specifically requested, but it looks fine,
+     * and it's small enough that it doesn't go beyond the HIG-specified
+     * spacing on either side of the domain button.
+     */
+    padding-left: 3pt;
+    padding-right: 3pt;
+    /**
+     * There are no redlines for the new design with the X button on the right.
+     * This margin was borrowed from the menu button by analogy.
+     */
+    border-left-width: 6.2pt;
+    margin-left: 0;
+    margin-right: 0;
+    /*display : none;*/
+}
+
+.search-active-with-domains #input-container {
+    /**
+     * From the HIG:
+     *
+     * When search mode is inactive, the input container needs normal left and
+     * right margins in order to act like all the other buttons.
+     *
+     * When search mode is active, the domain button is to its immediate left.
+     * The whitespace gap between these is only 5.2pt, which is much less than
+     * the normal gap of 7.6pt between buttons. Once the domain button has
+     * taken 3pt of that for padding, the remaining 2.2pt is less than the
+     * normal left margin of a button.
+     */
+    margin-left: 2.2pt;
+    display: -webkit-box;
+    -webkit-box-flex: 1;
+}
+
+.search-active #input-container {
+    -webkit-box-flex: 1;
+    display: -webkit-box;
+    border: 2px solid #000000;
+    margin-left: 6.5pt;
+    margin-top: 2.4pt;
+}
+
+/**
+ * One-domain mode: when there is only one search domain, we don't display the
+ * useless domain button.
+ */
+
+.one-domain #domain {
+    display: none;
+}
+
+.one-domain.search-active #input-container {
+    /* This matches the amount of visual space to the right of the X. */
+    margin-left: 12.6pt;
+}
+
+#input-container {
+    display: block;
+    background-color: #FFFFFF; 
+    border: 1px solid #000000;
+    margin-left: 1.2pt;
+    margin-right: 1.2pt;
+}
+
+#wide-search {
+    margin-left: 3.36pt;
+}
+
+/**
+ * The search entry field and everything in it
+ */
+
+.bubble {
+    width: 78.24pt;
+    height: 21.12pt;
+    margin-top: 1.92pt;
+    margin-bottom: 1.92pt;
+    /* TODO: should this be 2px or 0.8pt? It matters on Whitney. */
+    background-color: #FFFFFF;
+    border: 1px solid #000000;
+    -webkit-border-radius: 0.0pt;
+}
+
+.search-active.with-results-popup #input-container {
+    -webkit-border-bottom-left-radius: 0;
+    -webkit-border-bottom-right-radius: 0;
+}
+
+
+#input-container button {
+    width: 16.38pt;
+    height: 16.38pt;
+}
+
+.icon {
+    margin: 4.8pt;
+    height: 11.52pt;
+    width: 11.52pt;
+}
+
+.iconsmall {
+    margin: 2.0pt;
+}
+
+form {
+    display: block;
+    height: 100%;
+    -webkit-box-flex: 1;
+    margin: 0;
+    padding: 0;
+}
+
+#input,
+#search-hint {
+    display: block;
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    font: inherit;
+    background-color: transparent;
+}
+
+#searchPlaceholder{
+    display: none;
+    font-weight: bold;
+    position: absolute;
+    top: 6.0pt;
+    font: inherit;
+    background-color: transparent;
+    color: #A9A9A9;
+    height: 100%;
+    line-height: 100%;
+}
+
+#input {
+    -webkit-user-select: text;
+}
+
+#input:focus {
+    outline: none;
+}
+
+#search-hint:disabled {
+    color: #444444;
+}
+
+/**
+ * Icons
+ */
+
+#back {
+    background-image: url('../assets/search_bar/back.png');
+}
+
+#back.xor {
+    background-image: url('../assets/search_bar/back_active.png');
+}
+
+#home {
+    background-image: url('../assets/search_bar/home.png');
+}
+
+#home.xor {
+    background-image: url('../assets/search_bar/home_active.png');
+}
+
+#quickActions {
+    background-image: url('../assets/ic_settings_default.png');
+}	
+
+#quickActions.xor {
+    background-image: url('../assets/ic_settings_active.png');
+}
+
+
+.discovery-normal {
+    background-image: url('../assets/search_bar/discovery.png');
+}
+
+.discovery-normal.xor {
+    background-image: url('../assets/search_bar/discovery_active.png');
+}
+
+.discovery-notification {
+    background-image: url('../assets/search_bar/discovery_activity_notification.png');
+}
+
+.discovery-notification.xor {
+    background-image: url('../assets/search_bar/discovery_activity_notification_active.png');
+}
+
+.badge-normal {
+    background-image: url('../assets/search_bar/badge.png');
+}
+
+.badge-normal.xor {
+    background-image: url('../assets/search_bar/badge_active.png');
+}
+
+.kftu {
+    background-image: url('../assets/search_bar/kftu.png');
+}
+
+.kftu-active.xor {
+    background-image: url('../assets/search_bar/kftu_active.png');
+}
+
+.badge-notification {
+    background-image: url('../assets/search_bar/badge_activity_notification.png');
+}
+
+.badge-notification.xor {
+    background-image: url('../assets/search_bar/badge_activity_notification_active.png');
+}
+
+#periodical-home {
+    background-image: url('../assets/search_bar/periodical_home.png');
+}
+
+#periodical-home.xor {
+    background-image: url('../assets/search_bar/periodical_home_active.png');
+}
+
+#periodical-contents {
+    background-image: url('../assets/search_bar/periodical_contents.png');
+}
+
+#periodical-contents.xor {
+    background-image: url('../assets/search_bar/periodical_contents_active.png');
+}
+
+#blog-home {
+    background-image: url('../assets/search_bar/blog_home.png');
+}
+
+#blog-home.xor {
+    background-image: url('../assets/search_bar/blog_home_active.png');
+}
+
+#forward {
+    background-image: url('../assets/search_bar/forward.png');
+}
+
+#forward.xor {
+    background-image: url('../assets/search_bar/forward_active.png');
+}
+
+#store {
+    background-image: url('../assets/search_bar/store.png');
+}
+
+#store.xor {
+    background-image: url('../assets/search_bar/store_active.png');
+}
+
+#font {
+    background-image: url('../assets/search_bar/font.png');
+}
+
+#font.xor {
+    background-image: url('../assets/search_bar/font_active.png');
+}
+
+#search {
+    background-image: url('../assets/search_bar/search.png');
+}
+
+#search.xor {
+    background-image: url('../assets/search_bar/search_active.png');
+}
+
+#refresh {
+    background-image: url('../assets/search_bar/refresh.png');
+}
+
+#cancel {
+    background-image: url('../assets/search_bar/cancel.png');
+}
+
+#menu {
+    background-image: url('../assets/search_bar/menu.png');
+}
+
+#menu.xor {
+    background-image: url('../assets/search_bar/menu_active.png');
+}
+
+#exit {
+    background-image: url('../assets/close_icon.png');
+}
+
+#exit.xor {
+    background-image: url('../assets/close_icon_inverted.png');
+}
+/*TODO Fix*/
+#go {
+    background-image: url('../assets/search_bar/go_small.png');
+}
+
+#go.xor {
+    background-image: url('../assets/search_bar/go_small_active.png');
+}
+

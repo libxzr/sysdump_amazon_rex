@@ -1,0 +1,379 @@
+.statusBarBody {
+    background-color: #FFFFFF;
+    border-bottom: .48pt solid #d3d3d3;
+    padding: 0;
+    margin: 0;
+    font-family: dialog;
+    font-weight: normal;
+    font-size: 7pt;
+    -webkit-user-select: none;
+    height: 12.96pt;
+}
+
+#mainDiv {
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+    background-color: #FFFFFF;
+    color: #000000;
+    border-width: 0;
+    margin: 0;
+    padding: 0;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+}
+
+.statusBarText {
+    white-space: nowrap;
+}
+
+#statusBarTextArea {
+    margin-left: 2.16pt;
+    height: 100%;
+    -webkit-box-flex: 1;
+    line-height: 9pt;
+}
+
+#titleText {
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+}
+
+.statusBarTextDiv {
+    height: 87%;
+    text-align: left;
+    padding-top: 1.83pt;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.statusBarRightIconDock {
+    height: 100%;
+    margin-left: 13.6pt; 
+    margin-right: 13.6pt; 
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: end;
+}
+
+.statusBarConnectionDiv {
+    height: 100%;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: end;
+    margin-right: 6.8pt;
+}
+
+#statusBarAudioIconDiv {
+    width: 8pt;
+    height: 100%;
+    margin-right: 6.8pt;
+    display: none;
+    background-repeat: no-repeat;
+}
+
+.statusBarTimeDiv {
+    height: 76%;
+    width: 30.18pt;
+    text-align: right;
+    padding-top: 3.16pt;
+    line-height: 7pt;
+}
+
+.audioIcon{
+    background-image: url('../assets/audio_icon.png');
+}
+
+.screenReaderIcon{
+    background-image: url('../assets/screen_reader.png');
+}
+
+#sodaStatusIconDiv {
+    width: 11pt;
+    position: relative;
+    margin-right: 1pt;
+}
+
+#batteryStatusIconDiv {
+    width: 13pt;
+    position: relative;
+    margin-right: 6.8pt;
+}
+
+#sodaFillContainer {
+    width: 9pt;
+    height: 3.9pt;
+    position:absolute;
+    left: 1.36pt;
+    top: 4.55pt;
+    background-color : #FFFFFF;
+}
+
+
+/*The battery fill container needs to have a different style on Bourbon(600px width)
+ *as the battery icon asset has been shifted up and the top alignment also does not 
+ *fit. Setting these values skews the battery fill for Icewine, although both these
+ *styles work work on Pinot. Hence, I am changing this only for devices with 600px
+ *max-width i.e. Bourbon/Whitney.
+*/
+#batteryFillContainer {
+    width: 9pt;
+    height: 3.9pt;
+    position:absolute;
+    left: 1.36pt;
+    top: 4.55pt;
+    background-color : #FFFFFF;
+}
+
+@media screen and (max-width: 600px) {
+    #batteryFillContainer {
+        height: 3.7pt;
+        top: 4.80pt;
+        width: 9.1pt;
+    }
+}
+
+#sodaFill {
+    height: 100%;
+    position: absolute;
+    background-color : #000000;
+}
+
+#batteryFill {
+    height: 100%;
+    position:absolute;
+    background-color : #000000;
+}
+
+.batteryBaseIcon {
+    background-image: url('../assets/battery_0.png');
+    background-repeat: no-repeat;
+}
+
+.batteryChargingIcon {
+    background-image: url('../assets/battery_charging.png');
+    background-repeat: no-repeat;
+}
+
+.batteryCriticalIcon {
+    background-image: url('../assets/battery_critical.png');
+    background-repeat: no-repeat;
+}
+
+.sodaBaseIcon {
+    background-image: url('../assets/soda_battery_0.png');
+    background-repeat: no-repeat;
+}
+
+.sodaChargingIcon {
+    background-image: url('../assets/soda_battery_charging.png');
+    background-repeat: no-repeat;
+}
+
+.sodaCriticalIcon {
+    background-image: url('../assets/soda_battery_critical.png');
+    background-repeat: no-repeat;
+}
+
+.connectionWifiBars {
+    width: 12.6pt;
+    height: 100%;
+    margin-left: 1.6pt;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.connectionWifi0Bars {
+    background-image: url('../assets/WiFi_01_0Bars.png');
+}
+
+.connectionWifi1Bars {
+    background-image: url('../assets/WiFi_02_1Bars.png');
+}
+
+.connectionWifi2Bars {
+    background-image: url('../assets/WiFi_03_2Bars.png');
+}
+
+.connectionWifi3Bars {
+    background-image: url('../assets/WiFi_04_3Bars.png');
+}
+
+.connectionWanIcon {
+    height: 100%;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.connectionWanIcon.threeG{
+    width: 7.4pt;
+    background-image: url('../assets/connection_3G.png');
+}
+
+.connectionWanIcon.twoG{
+    width: 7.4pt;
+    background-image: url('../assets/connection_2G.png');
+}
+
+.connectionWanIcon.edge{
+    width: 2.6pt;
+    background-image: url('../assets/connection_Edge.png');
+}
+
+.connectionAirplaneOnIcon {
+    width: 11.6pt;
+    height: 100%;
+    background-image: url('../assets/airplane_mode.png');
+    background-repeat: no-repeat;
+}
+
+.connectionNoServiceIcon {
+    background-image: url('../assets/connection_no_service.png');
+    width: 11.4pt;
+    height: 100%;
+}
+
+.connectionWanBars{
+    width: 12.2pt;
+    margin-left: 1.6pt;
+    background-repeat: no-repeat;
+}
+
+.connectionWan0Bars {
+    background-image: url('../assets/connection_0bar.png');
+}
+
+.connectionWan1Bars {
+    background-image: url('../assets/connection_1bar.png');
+}
+
+.connectionWan2Bars {
+    background-image: url('../assets/connection_2bar.png');
+}
+
+.connectionWan3Bars {
+    background-image: url('../assets/connection_3bar.png');
+}
+
+.connectionWan4Bars {
+    background-image: url('../assets/connection_4bar.png');
+}
+
+.connectionWan5Bars {
+    background-image: url('../assets/connection_5bar.png');
+}
+
+#hiddenTextTester {
+    width: 258.68pt;
+    height: 12.93pt;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#statusBarParentalControlsIconDiv {
+    width: 6.2pt;
+    height: 100%;
+    display: none;
+    margin-right: 6.8pt;
+}
+
+.parentalControlsOn {
+    background-image: url('../assets/parental_controls_enabled.png');
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+#textualActivity {
+    width: 130.20pt;
+    height: 10.35pt;
+    background-color : #FFFFFF;
+    color : #000000;
+    margin-left: 1.29pt;
+    padding-top: 1.29pt;
+    -webkit-border-radius: 9px;
+    float: left;
+    overflow: hidden;
+    text-align: left;
+}
+
+#textualActivityTextDiv{
+    margin-top: 1.29pt;
+    margin-left: 1.29pt;
+    margin-right: 1.29pt;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis; 
+}
+
+#spinner{
+    width: 9.2pt;
+    height: 9.2pt;
+    margin-left: 2.16pt;
+    margin-top: 1.86pt;
+    background-repeat: no-repeat;
+}
+
+.spinnerIcon0{
+    background-image: url('../assets/black_bg_spinner0.png');
+}
+
+.spinnerIcon1{
+    background-image: url('../assets/black_bg_spinner1.png');
+}
+
+.spinnerIcon2{
+    background-image: url('../assets/black_bg_spinner2.png');
+}
+
+.spinnerIcon3{
+    background-image: url('../assets/black_bg_spinner3.png');
+}
+
+.spinnerIcon4{
+    background-image: url('../assets/black_bg_spinner4.png');
+}
+
+.spinnerIcon5{
+    background-image: url('../assets/black_bg_spinner5.png');
+}
+
+.spinnerIcon6{
+    background-image: url('../assets/black_bg_spinner6.png');
+}
+
+.spinnerIcon7{
+    background-image: url('../assets/black_bg_spinner7.png');
+}
+
+.spinnerIcon8{
+    background-image: url('../assets/black_bg_spinner8.png');
+}
+
+.spinnerIcon9{
+    background-image: url('../assets/black_bg_spinner9.png');
+}
+
+.spinnerIcon10{
+    background-image: url('../assets/black_bg_spinner10.png');
+}
+
+.spinnerIcon11{
+    background-image: url('../assets/black_bg_spinner11.png');
+}
+
+.spinnerIcon12{
+    background-image: url('../assets/black_bg_spinner12.png');
+}
+
+.spinnerIcon13{
+    background-image: url('../assets/black_bg_spinner13.png');
+}
+
+.spinnerIcon14{
+    background-image: url('../assets/black_bg_spinner14.png');
+}
+
+.spinnerIcon15{
+    background-image: url('../assets/black_bg_spinner15.png');
+}
+

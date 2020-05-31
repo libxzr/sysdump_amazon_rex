@@ -1,0 +1,151 @@
+#! /bin/sh
+#
+# script to skip/wait/shutdown based on battery and charger state
+#
+# N.B. the original just checked capacity - we include the intended
+# voltage check as well to avoid issues with uncalibrated batteries
+# and a falsely high capacity reading.
+#
+# N.B. RU also has a battery check, but it's not clear what the display does.
+#
+# we have three outcomes:
+# 1) skip check
+# 2) wait for sufficient charge (we're low, but connected to a charger)
+# 3) power off - insufficient charge and not connected
+#
+# /var/local/system/low_batt marks the problem for reboot
+
+source /etc/upstart/functions
+
+DEBUG_WAIT=45
+
+GOV=/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+
+# the battery (gauge) directory gives us capacity/voltage (and other fun stuff)
+# the USB (charger) directory gives us charging/connected
+
+BDIR=$(dirname `kdb get system/driver/charger/SYS_BATT_CAP`)
+UDIR=$(dirname `kdb get system/driver/charger/SYS_CHARGING_FILE`)
+
+CAP_OK=4		# required capacity
+MV_OK=3460		# required charging voltage
+
+# allow environment override of command line, then mark with word boundaries
+
+[ -z "$CMDLINE" ] && CMDLINE=$(cat /proc/cmdline)
+CMDLINE=":${CMDLINE// /:}:"
+
+# various battery related values
+# cap - capacity 0..100%
+# mv - millivolts charging voltage
+# ma - milliamps charging current
+# mah - milliamp hours battery charge
+# lmd - last measured discharge
+
+get_cap() {
+  case "$CMDLINE" in	# debug lowbatt or no charger from kernel cmdline
+    *:nobatt:*) echo 2 ; return ;;
+    *:lowbatt:*) 
+      local T=$(cat /proc/uptime)
+      T=${T%%.*}
+      if [ $T -lt $DEBUG_WAIT ]; then echo 2 ; return ; fi
+      ;;
+  esac
+
+  local C=$(cat $BDIR/battery_capacity)
+  echo ${C%"%"}		# lose the trailing percent
+}
+
+get_mv() { cat $BDIR/battery_voltage ; }
+get_ma() { cat $BDIR/battery_current ; }
+get_mah() { cat $BDIR/battery_mAH ; }
+get_lmd() { cat $BDIR/battery_lmd ; }
+get_id() { cat $BDIR/battery_id ; }
+
+# remember return status is 0 for success, non-zero for failure
+# debug test from command line
+
+is_connected() {
+  case "$CMDLINE" in *:nobatt:*) return 1 ;; esac
+  [ -e $UDIR/connected -a $(cat $UDIR/connected) -eq 1 ]
+}
+
+is_charging() {
+  case "$CMDLINE" in *:nobatt:*) return 1 ;; esac
+  [ -e $UDIR/charging -a $(cat $UDIR/charging) -eq 1 ]
+}
+
+blog() {
+  f_log I battery $1 "cap=$(get_cap),mV=$(get_mv),mAH=$(get_mah)"
+}
+
+# reasons to skip
+# 1) cmdline or file says nobattcheck
+# 2) can't get /sys file (FIXME why would this happen and we continue?)
+
+SKIP=
+
+[ -f /mnt/us/system/nobattcheck ] && SKIP="file control"
+[ -d $BDIR ] || SKIP="battery device directory missing"
+
+case "$CMDLINE" in
+  *:nobattcheck:*) SKIP="kernel boot args" ;;
+  *:battcheck:*) SKIP= ;;	# force check for testing
+esac
+
+
+if [ -n "$SKIP" ]; then
+  f_log I battery skip_check reason="\"$SKIP\"" "skipping battery check"
+  exit 0
+fi
+
+#
+# wait until percent charge > 4% *and* voltage > 3460 mV
+# do both so we don't get fooled by badly calibrated batteries
+#
+
+if [ "$(get_cap)" -lt $CAP_OK -o "$(get_mv)" -le $MV_OK ]; then
+
+# show the low battery screen
+
+  f_display critbatt
+
+# are we connected and charging? It can take >4s to see connected,
+# and charging has been seen to be 30s or so.
+
+  for i in $(seq 1 10); do
+    is_connected && break
+    blog connect_wait
+    sleep 1
+  done
+
+  if is_connected; then
+    for i in $(seq 1 6); do
+      is_charging && break
+      blog charger_wait
+      sleep 10
+    done
+  fi
+
+
+  OLD_GOV=$(cat $GOV) 
+  echo ondemand > $GOV
+
+  while [ "$(get_cap)" -lt $CAP_OK -o "$(get_mv)" -le $MV_OK ]; do
+    if is_connected && is_charging; then :; else
+      blog low_power_off
+      poweroff -f
+    fi
+
+    blog low_power_wait
+    sleep 20
+  done
+
+  echo $OLD_GOV > $GOV
+fi
+
+# we're okay
+
+blog charged
+rm -f /var/local/system/low_battery
+exit 0

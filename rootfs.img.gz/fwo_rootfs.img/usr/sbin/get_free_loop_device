@@ -1,0 +1,24 @@
+#!/bin/sh
+
+MAX_LOOP=16
+# Starting at /dev/loop/2 as 0 is used by userstore and 1 is used by waveform
+loopNum=2
+LOOPBACKCRAMFS=/etc/loopbacktab
+# count default cramfs images
+while read lbmountpt
+do  
+        [ -z "$(echo $lbmountpt | grep -v '^#')" ] && continue
+        if [ -d ${lbmountpt} ]; then
+                loopNum=$(($loopNum+1))
+        fi
+done < ${LOOPBACKCRAMFS}
+
+while [ "$loopNum" -le "$MAX_LOOP" ]
+do
+	losetup /dev/loop/$loopNum 2>&1 | grep "No such device or address" > /dev/null
+	if [ $? -eq 0 ] ; then
+	  	echo "Found free loop device : $loopNum"
+	        return $loopNum
+	fi
+	loopNum=$(($loopNum+1))
+done

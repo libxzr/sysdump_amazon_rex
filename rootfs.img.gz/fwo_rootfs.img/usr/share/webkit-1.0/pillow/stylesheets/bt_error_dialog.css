@@ -1,0 +1,23 @@
+/*
+ * bt_error_dialog.css
+ *
+ * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+
+
+
+.bt_error_main_div {
+    width: 217.25pt;
+    margin: 0;
+    padding: 0;
+    padding-bottom: 4pt;
+    padding-top: 4pt;
+    font-size: 10pt;
+    border: none;
+}
+

@@ -1,0 +1,241 @@
+#!/bin/sh
+
+source /etc/upstart/functions
+
+MODEMCMD=/usr/sbin/modemcmd
+RET=0
+TTS_WAN=/dev/ttyACM0
+TTS_DM=/dev/ttyACM1
+TTS_AT=/dev/ttyACM2
+TTS_URC=/dev/ttyACM3
+
+ERR_SUCCESS=0
+ERR_ERROR=1
+ERR_INVALID_CMD=128
+ERR_NO_TTS=129
+ERR_PPP_IF=130
+ERR_DMD_FAIL=131
+ERR_PPP_FAIL=132
+ERR_WANID_FAIL=133
+ERR_LOWBATT=134
+ERR_EN_URC=135
+
+wait_for_sim_ready()
+{
+    local _COUNT=0
+    local _MAX_COUNT=10
+
+    while [ ${_COUNT} -lt ${_MAX_COUNT} ]; do
+        ${MODEMCMD} -t 5 -e -v -q -r 1 -c "AT+CPIN?" | head -n1 | grep -q READY
+        if [ $? -eq 0 ]; then
+            return 0
+        fi
+        sleep 1
+        _COUNT=$((${_COUNT} + 1))
+    done
+
+    return 1
+}
+
+wait_for_tts()
+{
+    local _COUNT=0
+    local _TTS_RETRIES=15
+
+    while [ ! -r ${TTS_WAN} -o ! -r ${TTS_DM} -o ! -r ${TTS_AT} -o ! -r ${TTS_URC} ]; do
+        _COUNT=`expr ${_COUNT} + 1`
+        if [ ${_COUNT} -ge ${_TTS_RETRIES} ]; then
+            f_log E wan error "USB serial device failure"
+            return ${ERR_NO_TTS}
+        fi
+        sleep 1
+    done
+
+    return ${ERR_SUCCESS}
+}
+
+wait_for_power_cycle()
+{
+    local _COUNT=0
+    local _MAX_COUNT=15
+
+    while [ ${_COUNT} -lt ${_MAX_COUNT} ]; do
+        local _DIAGS="`cat /proc/wan/fw_ready`"
+        if [ ${_DIAGS} -eq "1" ]; then
+            sleep 1
+        else
+            break
+        fi
+
+        _COUNT=$((${_COUNT} + 1))
+    done
+
+    if [ ${_COUNT} -ge ${_MAX_COUNT} ]; then
+        f_log E wan error "Wait for power cycle failed! (wanoff)"
+    fi
+
+    _COUNT=0
+    while [ ${_COUNT} -lt ${_MAX_COUNT} ]; do
+        local _DIAGS="`cat /proc/wan/fw_ready`"
+        if [ ${_DIAGS} -eq "0" ]; then
+            sleep 1
+        else
+            break
+        fi
+
+        _COUNT=$((${_COUNT} + 1))
+    done
+
+    if [ ${_COUNT} -ge ${_MAX_COUNT} ]; then
+        f_log E wan error "Wait for power cycle failed! (wanon)"
+    fi
+
+    return 0
+}
+
+set_carrier_configuration()
+{
+    f_log I wan info "Verifying carrier configuration..."
+
+    wait_for_tts
+    if [ $? -ne 0 ]; then
+        f_log E wan error "USB serial port failure -- aborting"
+        RET=1
+        return 1
+    fi
+
+    wait_for_sim_ready
+    if [ $? -ne 0 ]; then
+        f_log E wan error "SIM initialization failed!"
+        RET=1
+        return 1
+    fi
+
+    local GTFDCAR=`${MODEMCMD} -t 5 -e -n -v -q -r 1 -c "AT+GTFDCAR?" | head -n1 | awk '{ print $2 }'`
+    local CIMI=`${MODEMCMD} -t 5 -e -n -v -q -r 1 -c "AT+CIMI" | head -n1 | awk '{ print $2 }'`
+    case "$CIMI" in
+        310410*)
+            if [ $GTFDCAR -ne 201 ]; then
+                f_log I wan info "Set carrier configuration to AT&T"
+                ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+GTFDCAR=201"
+                if [ $? -eq 0 ]; then
+                    f_log I wan info "Set carrier configuration to AT&T done"
+                else
+                    f_log E wan error "Set carrier configuration to AT&T failed!"
+                    RET=1
+                fi
+                wait_for_power_cycle
+            fi
+            ;;
+
+        302720*)
+            if [ $GTFDCAR -ne 201 ]; then
+                f_log I wan info "Set carrier configuration to Rogers"
+                ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+GTFDCAR=201"
+                if [ $? -eq 0 ]; then
+                    f_log I wan info "Set carrier configuration to Rogers done"
+                else
+                    f_log E wan error "Set carrier configuration to Rogers failed!"
+                    RET=1
+                fi
+                wait_for_power_cycle
+            fi
+            ;;
+
+        23415* | 20404*)
+            if [ $GTFDCAR -ne 202 ]; then
+                f_log I wan info "Set carrier configuration to Vodafone"
+                ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+GTFDCAR=202"
+                if [ $? -eq 0 ]; then
+                    f_log I wan info "Set carrier configuration to Vodafone done"
+                else
+                    f_log E wan error "Set carrier configuration to Vodafone failed!"
+                    RET=1
+                fi
+                wait_for_power_cycle
+            fi
+            ;;
+
+        44010*)
+            if [ $GTFDCAR -ne 216 ]; then
+                f_log I wan info "Set carrier configuration to Docomo"
+                ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+GTFDCAR=216"
+                if [ $? -eq 0 ]; then
+                    f_log I wan info "Set carrier configuration to Docomo done"
+                else
+                    f_log E wan error "Set carrier configuration to Docomo failed!"
+                    RET=1
+                fi
+                wait_for_power_cycle
+            fi
+            ;;
+
+        *)
+            f_log E wan error "Unknown IMSI"
+            RET=1
+            ;;
+    esac
+}
+
+set_apn_configuration()
+{
+    f_log I wan info "Verifying apn configuration..."
+
+    wait_for_tts
+    if [ $? -ne 0 ]; then
+        f_log E wan error "USB serial port failure -- aborting"
+        RET=1
+        return 1
+    fi
+
+    wait_for_sim_ready
+    if [ $? -ne 0 ]; then
+        f_log E wan error "SIM initialization failed!"
+        RET=1
+        return 1
+    fi
+
+    local APN=`${MODEMCMD} -t 5 -e -n -v -q -r 1 -c "AT+CGDCONT?" | head -n1 | awk '{ print $2 }'`
+    local CIMI=`${MODEMCMD} -t 5 -e -n -v -q -r 1 -c "AT+CIMI" | head -n1 | awk '{ print $2 }'`
+    case "$CIMI" in
+        310410*)
+            case "$APN" in
+                *kindleatt1.amazon.com*)
+                    ;;
+                *)
+                    f_log I wan info "Set apn configuration for AT&T"
+                    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+CGDCONT=1,\"IP\",\"kindleatt1.amazon.com\",\"\",0,0"
+                    if [ $? -eq 0 ]; then
+                        f_log I wan info "Set apn configuration for AT&T done"
+                    else
+                        f_log E wan error "Set apn configuration for AT&T failed!"
+                        RET=1
+                        return 1
+                    fi
+                    ;;
+            esac
+            ;;
+        *)
+            case "$APN" in
+                *kindle.amazon.com*)
+                    ;;
+                *)
+                    f_log I wan info "Set apn configuration for PAT"
+                    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+CGDCONT=1,\"IP\",\"kindle.amazon.com\",\"\",0,0"
+                    if [ $? -eq 0 ]; then
+                        f_log I wan info "Set apn configuration for PAT done"
+                    else
+                        f_log E wan error "Set apn configuration for PAT failed!"
+                        RET=1
+                        return 1
+                    fi
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+set_carrier_configuration
+set_apn_configuration
+
+exit $RET

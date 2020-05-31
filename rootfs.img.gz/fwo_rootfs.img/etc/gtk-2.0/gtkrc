@@ -1,0 +1,244 @@
+gtk-cursor-blink = 0
+
+# Global color definitions for use inside style elements
+#
+gtk_color_scheme = "fg_color: #000000\nbg_color: #ffffff\ntitle_grey: #dddddd\nwhite: #fffffe"
+
+# Style for scrollbars
+#
+style "kindle-scrollbar"
+{
+    GtkScrollbar::has-backward-stepper  = 0
+    GtkScrollbar::has-forward-stepper   = 0
+    GtkScrollbar::slider-width          = 20
+    GtkScrollbar::trough-border         = 0
+
+    engine "pixmap"
+    {
+        # Sliders background (trough)
+        #=============================
+        image 
+        {
+            function                = BOX
+            detail                  = "trough"
+            file                    = "Themes/Images/Scrollbars/trough-scrollbar-horiz.png"
+            # The border is used to define the area that should not be stretched.
+            border                  = { 6, 6, 2, 7 }
+            stretch                 = TRUE
+            orientation             = HORIZONTAL
+        }
+
+        image 
+        {
+            function                = BOX
+            detail                  = "trough"
+            file                    = "Themes/Images/Scrollbars/trough-scrollbar-vert.png"
+            # The border is used to define the area that should not be stretched.
+            border                  = { 2, 7, 6, 6 }
+            stretch                 = TRUE
+            orientation             = VERTICAL
+        }
+
+        # Sliders - horizontal
+        #=============================
+        image 
+        {
+           function                = SLIDER
+           detail                  = "slider"
+           file                    = "Themes/Images/Scrollbars/slider-horiz.png"
+           # The border is used to define the area that should not be stretched.
+           border                  = { 6, 6, 3, 8 }
+           stretch                 = TRUE
+           orientation             = HORIZONTAL
+        }
+
+        # Sliders - vertical
+        #=============================
+        image 
+        {
+            function                = SLIDER
+            detail                  = "slider"
+            file                    = "Themes/Images/Scrollbars/slider-vert.png"
+            # The border is used to define the area that should not be stretched. 
+            border                  = { 3, 8, 6, 6 }
+            stretch                 = TRUE
+            orientation             = VERTICAL
+        }
+   }
+}
+
+
+# Style for scrolled windows
+#
+style "kindle-scrolled-window"
+{
+    GtkScrolledWindow::scrollbar-spacing = 2
+}
+
+# Style for windows
+#
+style "kindle-window"
+{
+    bg[NORMAL] = @bg_color
+    bg[ACTIVE] = @bg_color
+    bg[PRELIGHT] = @bg_color
+    bg[INSENSITIVE] = @bg_color
+    bg[SELECTED] = @bg_color
+}
+
+# Set touch screen mode, this makes the scroll arrows on menu's work better for touch
+gtk-touchscreen-mode = 1
+
+#
+# Style for Juno Menus
+#
+style "JunoMenu" {
+    bg[NORMAL] = "white"
+    bg[INSENSITIVE] = "white"
+    bg[PRELIGHT] = "white"
+    GtkWidget::scroll-arrow-vlength = 60
+
+    engine "pixmap"
+    {
+        image
+        {
+                function = ARROW
+                state = NORMAL
+                arrow_direction = DOWN
+                file = "Themes/Images/Menu/down_arrow.png"
+                stretch = TRUE
+        }
+        
+        image
+        {
+                function = ARROW
+                state = PRELIGHT
+                arrow_direction = DOWN
+                file = "Themes/Images/Menu/down_arrow.png"
+                stretch = TRUE
+        }
+        
+        image
+        {
+                function = ARROW
+                state = ACTIVE
+                arrow_direction = DOWN
+                file = "Themes/Images/Menu/down_arrow.png"
+                stretch = TRUE
+        }
+        image
+        {
+                function = ARROW
+                state = SELECTED
+                arrow_direction = DOWN
+                file = "Themes/Images/Menu/down_arrow.png"
+                stretch = TRUE
+        }
+        
+        image
+        {
+                function = ARROW
+                state = INSENSITIVE
+                arrow_direction = DOWN
+                file = "Themes/Images/Menu/down_arrow_disabled.png"
+                stretch = TRUE
+        }
+        
+        image
+        {
+                function = BOX
+                detail = "menu_scroll_arrow_down"
+        }
+        image
+        {
+                function = ARROW
+                state = NORMAL
+                arrow_direction = UP 
+                file = "Themes/Images/Menu/up_arrow.png"
+                stretch =  TRUE
+        }
+        
+        image
+        {
+                function = ARROW
+                state = ACTIVE
+                arrow_direction = UP 
+                file = "Themes/Images/Menu/up_arrow.png"
+                stretch =  TRUE
+        }
+        image
+        {
+                function = ARROW
+                state = PRELIGHT
+                arrow_direction = UP 
+                file = "Themes/Images/Menu/up_arrow.png"
+                stretch =  TRUE
+        }
+        image
+        {
+                function = ARROW
+                state = SELECTED
+                arrow_direction = UP 
+                file = "Themes/Images/Menu/up_arrow.png"
+                stretch =  TRUE
+        }
+        image
+        {
+                function = ARROW
+                state = INSENSITIVE
+                arrow_direction = UP 
+                file = "Themes/Images/Menu/up_arrow_disabled.png"
+                stretch =  TRUE
+        }
+        
+        image
+        {
+                function = BOX
+                detail = "menu_scroll_arrow_up"
+        }
+    }
+}
+
+style "JunoMenuItem" {
+    bg[NORMAL] = @bg_color
+    bg[ACTIVE] = @bg_color
+    bg[PRELIGHT] = @bg_color
+    bg[INSENSITIVE] = @bg_color
+    bg[SELECTED] = @bg_color
+}
+
+style "JunoLabel" {
+    font_name = "Helvetica Neue LT 9"
+    fg[NORMAL] = @fg_color
+    fg[ACTIVE] = @fg_color
+    fg[PRELIGHT] = @fg_color
+    fg[INSENSITIVE] = @fg_color
+    fg[SELECTED] = @fg_color
+}
+
+style "JunoEventBox" {
+    bg[NORMAL] = @title_grey
+    bg[ACTIVE] = @title_grey
+    bg[PRELIGHT] = @title_grey
+    bg[INSENSITIVE] = @title_grey
+    bg[SELECTED] = @title_grey
+}
+
+style "JunoCheckButton" {
+   base[NORMAL] = @white
+   base[ACTIVE] = @white
+   base[PRELIGHT] = @white
+   base[INSENSITIVE] = @white
+   base[SELECTED] = @white
+}
+
+# Matches
+class "GtkScrollbar" style "kindle-scrollbar"
+class "GtkScrolledWindow" style "kindle-scrolled-window"
+class "GtkWindow" style "kindle-window"
+class "GtkMenu" style "JunoMenu"
+class "GtkMenuItem" style "JunoMenuItem"
+class "GtkLabel" style "JunoLabel"
+class "GtkCheckButton" style "JunoCheckButton"
+widget "*.gtk-menu-event-box" style "JunoEventBox"
+

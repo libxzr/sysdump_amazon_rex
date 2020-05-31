@@ -1,0 +1,1 @@
+KERNEL=="imx_epdc_fb", SUBSYSTEM=="firmware", ACTION=="add", ATTR{loading}=="0", RUN+="/lib/udev/bin/waveform.sh", OPTIONS+="last_rule"

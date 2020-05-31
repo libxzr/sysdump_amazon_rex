@@ -1,0 +1,285 @@
+/*
+ * quick_actions.css
+ *
+ * Copyright (c) 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+ *
+ * PROPRIETARY/CONFIDENTIAL
+ *
+ * Use is subject to license terms.
+ */
+
+body {
+    -webkit-user-select: none;
+    -webkit-box-sizing: border-box;
+    height: auto;
+    width: auto;
+    display: block;
+    border-bottom: 8.2pt solid #000000;
+}
+
+.quick-actions-dialog {
+    margin-left: auto;
+    margin-right: auto;
+    width: 257.5pt;
+}
+
+
+button {
+    -webkit-box-sizing: border-box;
+    overflow: hidden;
+    display: block;
+    background-color: transparent;
+}
+
+button:focus {
+    outline: none;
+}
+
+#light-popup {
+    height: auto;
+    border: none;
+}
+
+#light-info, #info, #info-turbobrightness {
+    height: 13.5pt;
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: justify;
+    padding-right: 2pt;
+    padding-left: 2pt;
+}
+
+#light-controls-settings {
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-pack: justify;
+}        
+
+#auto {
+    height: auto;
+    font-family: dialog;
+    font-size: 8.5pt;
+    padding-right: 6pt;
+    padding-top: 3pt;
+}
+
+#check-box {
+    width: 13.5pt;
+    height: 13.5pt;
+    padding-top: 16pt;
+}
+
+.controls {
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-sizing: border-box;
+    -webkit-box-pack: justify;
+    margin-left: 12pt;
+    margin-right: 12pt;
+    margin-bottom: 13.5pt;
+    height: auto;
+}
+
+#light-slider {
+    height: 13.5pt;
+    padding: 0pt;
+}
+
+#light-slider > .box {
+    width: 6.7pt;
+    height : 3.36pt;
+    padding: 0pt;
+    margin-right: 1.5pt;
+    -webkit-box-pack: justify;
+}
+
+#light-slider > .box > .vb {
+    width: 6.7pt;
+    height : 3.6pt;
+    padding: 0pt;
+}
+
+#TurboBrightnessSelector {
+    border: 1.0pt solid #000000;
+    border-radius: 3pt;
+    -webkit-box-pack: end;
+    text-align: center;
+    height: 15.3pt;
+    width: 45pt;
+    font-family: dialog;
+    font-weight: bold;
+    font-size: 8pt;
+}
+ 
+#info > .selected {
+    background-color: #000000;
+    color: #FFFFFF;
+}
+
+#info > .unselected {
+    background-color: #FFFFFF;
+    color: #000000;
+}
+
+#info > .text {
+    font-family: dialog;
+    font-weight: bold;
+    font-size: 8pt;
+}
+
+.controls > button, #light-info > button, #light-controls-settings > button, #action > button, .quick-actions-item-icon, .quick-actions-item-icon.xor {
+    background-position: center;
+    background-repeat: no-repeat;
+    border: none;
+}
+
+.controls > button.xor {
+    background-color: #000000;
+}
+
+.alsON {
+    background-image: url('../assets/checkbox_check.png');
+}
+
+.alsOFF {
+    background-image: url('../assets/checkbox.png');
+}
+
+
+#light-decr {
+    background-image: url('../assets/ic_brightness_low_default.png');
+}
+
+#light-incr {
+    background-image: url('../assets/ic_brightness_high_default.png');
+}
+
+#light-decr, #light-incr {
+    width: 13.5pt;
+    height: 13.5pt;
+    margin-top: 5pt;
+}
+
+#light-decr.xor {
+    background-image: url('../assets/ic_brightness_low_active.png');
+}
+
+#light-incr.xor {
+    background-image: url('../assets/ic_brightness_high_active.png');
+}
+
+#light-controls-text {
+    font-family: dialog;
+    font-weight: bold;
+    font-size: 8pt;
+    align: left;
+    width: auto;
+    margin-top: 3pt;
+}
+
+#light-info {
+    margin-top: 7.7pt;   
+    margin-bottom: 7.7pt;
+    margin-left: 11.04pt;
+    margin-right: 10pt;
+}
+
+hr {
+    color: #E8E8E8;
+}
+
+.quick-actions {
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-box-sizing: border-box;
+    -webkit-box-pack: center;
+    -webkit-column-count: 3;
+    
+    padding-top: 12.48pt;
+    padding-bottom: 12.48pt;
+    height: auto;
+    width: 100%;
+}
+
+.quick-actions-item, .quick-actions-item-xor {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-box-sizing: border-box;
+    -webkit-box-align: center;
+
+    padding-top: 3.84pt;
+    padding-bottom: 3.84pt;
+    margin: 4.8pt;
+    border: none;
+}
+
+.quick-actions-item-xor, .quick-actions-item-xor > .quick-actions-item-text {
+    color: #FFFFFF;
+    background-color: #000000;
+}
+
+.quick-actions-item-text {
+    font-family: dialog;
+    font-size: 8pt;
+    padding-top: 5pt;
+    height: auto;
+    width: 70pt;
+    border: none;
+}
+
+.quick-actions-item-icon {
+    width: 20.64pt;
+    height: 20.64pt;
+    margin: 0 auto;
+    background-position: center;
+    border: none;
+}
+
+.quick-actions-item > .airplaneMode-icon-on {
+    background-image: url('../assets/ic_actions_airplane_mode_on.png');
+}
+
+.airplaneMode-icon-on-disabled {
+    background-image: url('../assets/ic_actions_airplane_mode_on_disabled.png');
+}
+
+.quick-actions-item-xor > .airplaneMode-icon-on {
+    background-image: url('../assets/ic_actions_airplane_mode_on_active.png');
+}
+
+.quick-actions-item > .airplaneMode-icon-off {
+    background-image: url('../assets/ic_actions_airplane_mode_off.png');
+}
+
+.airplaneMode-icon-off-disabled {
+    background-image: url('../assets/ic_actions_airplane_mode_off_disabled.png');
+}
+
+.quick-actions-item-xor > .airplaneMode-icon-off {
+    background-image: url('../assets/ic_actions_airplane_mode_off_active.png');
+}
+
+.quick-actions-item >.syncAndCheck-icon {
+    background-image: url('../assets/ic_actions_sync_default.png');
+}
+
+.quick-actions-item-xor > .syncAndCheck-icon {
+    background-image: url('../assets/ic_actions_sync_active.png');
+}
+
+.syncAndCheck-icon-disabled {
+    background-image: url('../assets/ic_actions_sync_disabled.png');
+}
+
+
+.quick-actions-item > .settings-icon {
+    background-image: url('../assets/ic_actions_settings_default.png');
+}
+
+.quick-actions-item-xor > .settings-icon {
+    background-image: url('../assets/ic_actions_settings_active.png');
+}
+
+.settings-icon-disabled {
+    background-image: url('../assets/ic_actions_settings_disabled.png');
+}

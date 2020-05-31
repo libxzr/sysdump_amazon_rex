@@ -1,0 +1,9 @@
+#!/bin/sh
+if [ "$ACTION" = "add" ] ; then
+	/usr/bin/lipc-send-event -r 3 com.lab126.hal audioHS -i 1
+elif [ "$ACTION" = "remove" ] ; then
+	/usr/bin/lipc-send-event -r 3 com.lab126.hal audioHS -i 0
+fi
+
+exit 0
+

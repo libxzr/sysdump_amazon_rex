@@ -1,0 +1,6 @@
+XK_F14 VK_BACK_SPACE # Back key
+XK_Return VK_ENTER
+XK_F24 VK_F24 # Five-way select
+XK_Page_Up VK_UP
+XK_Page_Down VK_DOWN
+XK_L3 VK_F2 # Menu

@@ -1,0 +1,27 @@
+#!/bin/sh
+# usbserial needs to be called backgrounded in order to avoid trouble !!!!!
+
+_GETTY_CMD="/sbin/getty -L 115200 ttygserial -l /bin/login"
+
+# if -r then rmmod and go back to regular stuff
+if [ "x$1" == "x-r" ]; then
+	#First kill the other usbserial
+	_OTHER=`ps ax | grep "$0" | grep -v grep | awk '{print $1}' | xargs echo`
+	for pid in $_OTHER; do
+		if [ "$$" != "$pid" ]; then
+			kill $pid
+		fi
+	done
+	sleep 1
+	kill `ps ax | grep "$_GETTY_CMD" | grep -v grep | awk '{print $1}'` | xargs echo 
+	lipc-set-prop com.lab126.volumd useUsbForSerial 0
+else
+	if [ "`lipc-get-prop com.lab126.volumd useUsbForSerial`" == "1" ]; then
+		echo "Already in SerialOverUSB mode"
+	else
+		lipc-set-prop com.lab126.volumd useUsbForSerial 1
+		while [ 1 ]; do
+			$_GETTY_CMD
+		done;
+	fi
+fi

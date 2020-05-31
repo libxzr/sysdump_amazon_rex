@@ -1,0 +1,35 @@
+#!/bin/sh
+
+FW_DIR="/lib/firmware/cyttsp4"
+SYS_FW_VER="/sys/devices/platform/imx-i2c.1/i2c-1/1-0024/main_ttsp_core.cyttsp4_i2c_adapter/ic_ver"
+SYS_LOADER="/sys/devices/platform/imx-i2c.1/i2c-1/1-0024/main_ttsp_core.cyttsp4_i2c_adapter/cyttsp4_loader.main_ttsp_core"
+
+source /etc/upstart/functions
+
+
+if [ ! -e $SYS_FW_VER ]; then
+	echo "cyttsp4:udev:missing sys entry, no touch panel?" >&2 
+	exit 1
+fi
+
+FW_FILE=`ls $FW_DIR/$(f_board)*.bin`
+
+echo "cyttsp4_loader:loading $FW_FILE" >&2
+
+for FILE in "$FW_FILE"; do
+	[ -n "$FILE" ] || [ -e "$FILE" ] || continue
+	
+	modprobe cyttsp4_device_access
+	
+	echo 1 > /sys$DEVPATH/loading
+	cat "$FILE" > /sys$DEVPATH/data
+	echo 0 > /sys$DEVPATH/loading
+	
+	# have to wait until the firmware loading finishes before unloading the module
+	sleep 40
+	modprobe -r cyttsp4_device_access
+	modprobe -r cyttsp4_loader	
+	exit 0
+done
+
+exit 1

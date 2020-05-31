@@ -1,0 +1,151 @@
+/*
+* search_results.css
+*
+* Copyright (c) 2012-2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+*
+* PROPRIETARY/CONFIDENTIAL
+*
+* Use is subject to license terms.
+*/
+
+body {
+    margin: 0;
+    padding: 0;
+    -webkit-user-select: none;
+}
+
+#results {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.searchResultCell {
+    display: -webkit-box;
+    position:relative;
+    -webkit-box-orient: vertical;
+    -webkit-box-flex:1;
+}
+
+.label.text-replace-field { 
+    -webkit-box-flex: 1;
+    font-size: 8pt;
+    height:12pt;
+}
+
+.secondary-label.text-replace-field {
+    position:relative;
+    -webkit-box-flex: 1;
+    height:9pt;
+    font-size: 6pt;
+}
+
+.singlelabel.text-replace-field { 
+    -webkit-box-flex:1;
+    font-size: 8pt;
+    padding-left:0;
+    padding-top:8pt;
+    padding-bottom:9pt;
+}
+
+#resultsHeader {
+    margin-left: 6.5pt;
+    margin-right: 6.5pt;
+    line-height: 12pt;
+    height: 13pt;
+    font-family: dialog;
+
+}                     
+
+#spacing {
+    height:12pt;
+    display:none;
+}
+
+
+#noResultsTextDiv{
+    height:21pt;
+    display:none;
+    font-size: 7pt;
+    font-weight: 550;
+    margin-top: 6.5pt;
+    margin-left: 6.5pt;
+    margin-right: 10pt;
+    font-family: dialog;
+}
+
+#moreResults {
+    border-top: 1pt solid black;
+    margin-right: 6.5pt;
+    margin-left: 6.5pt;
+    display: none;
+    background-color:#FFFFFF;
+    
+}
+
+#moreResults > .items > .item {
+    margin-left: 0;     
+    padding-left: 0;
+}               
+         
+#moreResults > .items > .item.xor {  
+    margin-left: 0;   
+    padding-left: 0;    
+} 
+
+#clear {       
+    font-size: 7pt;
+    float: right;  
+    text-decoration:underline;
+}
+
+.disabledClear {
+    color: #A0A0A0;
+}
+
+#title {
+    font-weight: 600;
+    font-size: 7pt;
+}
+
+.xor {
+    color: #FFFFFF;
+    background-color: #000000;
+}
+
+.list {
+    padding-left:0;
+}
+
+.list > .items > .item {
+    padding-top: 5pt;
+    padding-bottom: 5pt;
+    margin-left:4pt;
+}
+
+
+.items > .item > .image.icon, .items > .item.xor .image.icon {
+    width: 15.6pt;
+    margin-top:7pt;
+    margin-right:4pt;
+    margin-left:0;
+}
+
+.items > .item > .book.image.icon {
+	background-image:url('../assets/search_results/book_small.png');
+}
+
+.items > .item.xor > .book.image.icon {
+	background-image:url("../assets/search_results/book_small_active.png");
+} 
+
+.items > .item > .store.image.icon {
+    background-image: url('../assets/search_results/store_small.png');
+}
+
+.items > .item.xor .store.image.icon {
+    background-image: url('../assets/search_results/store_small_active.png');
+}
+
+.boldSpan {
+    font-weight: 700;
+}

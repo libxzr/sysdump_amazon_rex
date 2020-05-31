@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=amazon.device.messaging
+Exec=/usr/bin/AdmDaemonLauncher.sh
+User=framework

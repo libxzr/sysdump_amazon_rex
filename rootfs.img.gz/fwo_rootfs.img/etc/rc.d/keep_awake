@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# Default to 10 seconds between fake user-input events.
+#
+_KEEP_AWAKE_DELAY=${1:-10}
+
+# Loop forever.
+#
+while [ true ]; do
+
+    # Have powerd send a fake user-input event.
+    #
+    powerd_test -i >/dev/null
+    
+    # Delay a bit before the next fake event is sent.
+    #
+    sleep ${_KEEP_AWAKE_DELAY}
+
+done

@@ -1,0 +1,48 @@
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8">
+        <link rel="stylesheet" type="text/css" href="stylesheets/pillow.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/sample_custom_dialog.css" />
+        <script src="json2.js"></script>
+        <script type="text/javascript" src="strings/sample_custom_dialog_strings.js"></script>
+        <script type="text/javascript" src="javascripts/local_debug.js"></script>
+        <script type="text/javascript" src="javascripts/constants.js"></script>
+        <script type="text/javascript" src="javascripts/pillow.js"></script>
+        <script type="text/javascript" src="javascripts/sample_custom_dialog.js"></script>
+        <script type="text/javascript" src="javascripts/window_title.js"></script>
+    </head>
+    <body class="pillowDialogBody" onload="SampleCustomDialog.init();">
+        <div style="display:none">
+            <div class="mainDiv" id="mainDiv">
+                <div class="pillowDialogTitle2">
+                    <span id="title"></span>
+                </div>
+                <div class="pillowDialogMainText">
+                    <span id="text"></span>
+                </div>
+                <div class="searchDiv" id="searchDiv">
+                    <form name="myform">
+                        <input id="searchEntry" class="graySearchText" type="text" onFocus="SampleCustomDialog.searchFieldFocused();" onBlur="SampleCustomDialog.searchFieldBlured();" onkeyup="SampleCustomDialog.searchFieldKeyUp();" size="20" value="">
+                    </form>
+                </div>
+                <div class="pillowDialogButtonBar">
+                    <div class="buttonCell">
+                        <div class="pillowCustomButton2 pillowDialogBarButton2" id="buttonZero" onclick="SampleCustomDialog.buttonZeroSelect();">
+                            <span id="buttonZeroText"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="padding: 6pt"> 
+            <p><span style="font-family: Futura; font-weight: bold">J Sample?</span> (Futura/Bold)</p>
+            <p><span style="font-family: Futura; font-weight: 600">J Sample?</span> (Futura/600)</p>
+            <p><span style="font-family: Futura; font-weight: 500">J Sample?</span> (Futura/500)</p>
+            <p><span style="font-family: Futura; font-weight: normal">J Sample?</span> (Futura/Normal)</p>
+            <p><span style="font-family: dialog; font-weight: bold">J Sample?</span> (Dialog Bold)</p>
+            <p><span style="font-family: dialog; font-weight: 600">J Sample?</span> (Dialog 600)</p>
+            <p><span style="font-family: dialog; font-weight: 500">J Sample?</span> (Dialog 500)</p>
+            <p><span style="font-family: dialog; font-weight: normal">J Sample?</span> (Dialog Normal)</p>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,6 @@
+# NTP server to use
+NTP_SERVER=ntp-g7g.amazon.com
+
+# minimum NTP check window, in seconds
+NTP_CHECK_TIME=86400
+

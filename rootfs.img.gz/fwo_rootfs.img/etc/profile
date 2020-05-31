@@ -1,0 +1,27 @@
+# system /etc/profile
+
+umask 002
+
+export PATH=/usr/local/bin:/bin:/usr/bin:/usr/sbin:/sbin:/app/bin
+
+# use local X display if none set
+if [ -z "$DISPLAY" ]; then
+    export DISPLAY=:0.0
+fi
+
+# If running interactively, then:
+if [ "$PS1" ]; then
+
+    export PS1="[\u@\h \W]\\$ "
+    export USER=`id -un`
+    export LOGNAME=$USER
+    export HOSTNAME=`/bin/hostname`
+    export HISTSIZE=1000
+    export HISTFILESIZE=1000
+    export PAGER='/bin/more '
+    export EDITOR='/bin/vi'
+    export INPUTRC=/etc/inputrc
+    export LANG=en_US.UTF-8
+    export LC_ALL=en_US.UTF-8
+fi
+

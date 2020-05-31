@@ -1,0 +1,207 @@
+body {
+  margin : 0;
+  background-color: #ffffff;
+  -webkit-user-select: none;
+}
+
+#main{
+  overflow : hidden;
+  height: 170px;
+  width: 100%;
+  font-family: dialog;
+  font-size: 10.8pt;
+  font-weight: normal;
+}
+
+#navigationPanel{
+   height: 97px;
+   padding: 0px 30px 0px 30px;
+}
+
+#volumePanel{
+   height: 40px;
+   padding: 14px 30px 15px 30px;
+}
+
+#previousDiv{
+   height: 40px;
+   width: 40px;
+   position:fixed;
+   left:30px;
+   top:28px;
+}
+
+#previous{
+   height: 100%;
+   width: 100%;
+   border: 0;    
+   background: transparent url('../assets/previous.png') no-repeat;        
+}
+
+#previous.xor {
+    background: transparent url('../assets/previous_active.png') no-repeat;
+}
+
+#nextDiv{
+   height: 40px;
+   width: 40px;
+   position:fixed;
+   right:30px;   
+   top:28px;
+}
+
+#next{
+   height: 100%;
+   width: 100%;
+   border:0;
+   background: transparent url('../assets/next.png') no-repeat;    
+}
+
+#next.xor {
+    background: transparent url('../assets/next_active.png') no-repeat;
+}
+
+#trackInfo{        
+   text-align:center;
+   color:#000000;
+   width : 80%;
+   white-space: nowrap;
+   margin:10px auto;
+}
+
+#trackInfo p{
+   margin:0;
+   text-overflow: ellipsis;
+   overflow: hidden;
+}
+
+#title{    
+   font-size: 10pt;
+}
+
+#artist{    
+   font-size: 6pt;
+}
+
+#track{    
+   font-size:6pt;
+}
+
+#playPauseDiv{
+   height: 40px;
+   width: 40px;    
+   position:fixed;
+   left:30px;
+   /* preloading pause icon */
+   background: url('../assets/pause.png') no-repeat -9999px -9999px;
+}
+
+.playPause{
+   height :100%;
+   width: 100% ;    
+}
+
+.buttonHide{    
+   display: none;
+}
+
+.buttonVisible{    
+   display: block;
+}
+
+.play{    
+   border: 0;
+   background: url('../assets/play.png') no-repeat center;
+}
+
+.playXOR {
+   border: 0;
+   background: url('../assets/play_active.png') no-repeat center;
+}
+
+.pause{    
+   border:0;
+   background: url('../assets/pause.png') no-repeat center;
+}
+
+.pauseXOR {
+   border: 0;
+   background: url('../assets/pause_active.png') no-repeat center;
+}
+
+#volumeController{
+   margin-left:auto;
+   margin-right:auto;
+   width:340px;
+}
+
+#volumeDecreaseDiv{
+   width:40px;
+   height:40px; 
+   float:left;
+}
+
+#volumeDecreaseButton{
+   height :100%;
+   width: 100% ;    
+   border: 0;
+   background: url('../assets/volume_decrease.png') no-repeat center;
+}
+
+#volumeDecreaseButton.xor {
+    background: url('../assets/volume_decrease_active.png') no-repeat center;
+}
+
+#volumeIncreaseDiv{
+   width:40px;
+   height:40px;
+   float:left;
+}
+
+#volumeIncreaseButton{
+   height :100%;
+   width: 100% ;    
+   border: 0;
+   background: url('../assets/volume_increase.png') no-repeat center;
+}
+
+#volumeIncreaseButton.xor {
+    background: url('../assets/volume_increase_active.png') no-repeat center;
+}
+
+#volumeMeterDiv{
+   width:255px;   
+   height:40px;
+   float:left;
+   margin-left:5px;
+}
+
+#turnOffDiv{
+   height: 40px;
+   width: 40px;    
+   position:fixed;
+   right:30px;
+}
+
+#turnOffButton{
+   height :100%;
+   width: 100% ;    
+   border: 0;
+   background: url('../assets/off.png') no-repeat center;    
+}
+
+#turnOffButton.xor {
+    background: url('../assets/off_active.png') no-repeat center;
+}
+
+.thickLineSeparator{
+   height: 3px;
+   background-color: #000000;
+}
+.thinLineSeparator{
+   height: 1px;
+   background-color: #000000;    
+}
+
+button:focus{ outline:none; }
+

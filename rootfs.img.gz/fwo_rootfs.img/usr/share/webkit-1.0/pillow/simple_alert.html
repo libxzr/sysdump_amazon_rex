@@ -1,0 +1,29 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <link rel="stylesheet" type="text/css" href="stylesheets/dialog.css" />
+        <link rel="stylesheet" type="text/css" href="stylesheets/widget_button_bar.css" />
+        <script type="text/javascript" src="javascripts/local_debug.js"></script>
+        <script type="text/javascript" src="javascripts/constants.js"></script>
+	<script type="text/javascript" src="javascripts/constants_override.js"></script> <!-- must be first -->
+        <script type="text/javascript" src="javascripts/common_utils.js"></script> <!-- must be loaded if dialog supports large mode -->
+        <script type="text/javascript" src="javascripts/pillow.js"></script>
+        <script type="text/javascript" src="javascripts/window_title.js"></script>
+        <script type="text/javascript" src="javascripts/widget_button_bar.js"></script>
+        <script type="text/javascript" src="strings/simple_alert_strings.js"></script>
+        <script type="text/javascript" src="javascripts/simple_alert_config.js"></script>
+        <script type="text/javascript"
+            src="/usr/local/tests/pillow/javascripts/mock_alert_config.js"></script>
+        <script type="text/javascript" src="javascripts/xor_button.js"></script>
+        <script type="text/javascript" src="javascripts/simple_alert.js"></script>
+    </head>
+    <body onload="simpleAlert.init();" class="dialog">
+        <div id="main">
+            <div class="dialog-title">
+                <div class="dialog-title-text" id="title"></div>
+            </div>
+            <div class="dialog-text" id="text"></div>
+            <div id="buttonBar"></div>
+        </div>
+    </body>
+</html>

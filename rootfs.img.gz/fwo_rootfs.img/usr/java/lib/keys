@@ -1,0 +1,10 @@
+XK_F14 VK_F14 # Back
+XK_F16 VK_F16 # Symbol
+XK_F18 VK_F18 # Volume down
+XK_F19 VK_F19 # Volume up
+XK_F20 VK_F20 # Font
+XK_F21 VK_F21 # Next-page right
+XK_F22 VK_F22 # Next-page left
+XK_F23 VK_F23 # Previous-page left
+XK_F24 VK_F24 # Five-way select
+XK_Return VK_ENTER

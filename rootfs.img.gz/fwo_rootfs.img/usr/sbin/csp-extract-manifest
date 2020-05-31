@@ -1,0 +1,103 @@
+#!/bin/sh
+#
+# Copyright (c) 2013 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# PROPRIETARY/CONFIDENTIAL
+#
+# Use is subject to license terms.
+#
+# csp-extract-manifest
+#     Validates and extract the signed manifest bundle
+#
+# usage: csp-extract-manifest
+#
+#
+
+source /etc/upstart/bundlefuncs
+source /usr/lib/contentpack/csp_functions
+
+###############################################################################
+
+cleanup() {
+    if [ -d "${TMPDIR}" ] ; then
+        rm -rf "${TMPDIR}"
+    fi
+
+    if [ -e "${SIGNED_MANIFEST_FILE_PATH}" ]; then
+        rm -f "${SIGNED_MANIFEST_FILE_PATH}"
+    fi
+    
+}
+
+err_exit() {
+    local _ERR_CODE=${1}
+    cleanup
+    exit ${_ERR_CODE}
+}
+
+usage() {
+    echo "csp-extract-manifest" >&2
+}
+
+###############################################################################
+readonly TMPDIR="/tmp/.manifest-tmp.$$"
+readonly SIGNED_MANIFEST_FILE_PATH="/var/local/java/prefs/master.smanifest.bin"
+readonly MANIFEST_FILE_NAME="master.manifest"
+readonly MANIFEST_FILE_PATH="/var/local/java/prefs/master.manifest"
+
+readonly CSP_MANIFEST_EXTRACT_SUCCESS=0
+readonly CSP_SIGNED_MANIFEST_NOT_FOUND=1
+readonly CSP_MANIFEST_VERIFY_FAILED=2
+readonly CSP_MANIFEST_EXTRACT_FAILED=3
+readonly CSP_MANIFEST_UPDATE_FAILED=4
+readonly CSP_MANIFEST_FILE_NOT_FOUND=5
+
+if [ ! -e "${SIGNED_MANIFEST_FILE_PATH}" ]; then
+    csp_log_err "Signed manifest file not available"
+    err_exit ${CSP_SIGNED_MANIFEST_NOT_FOUND}
+fi
+
+csp_verify_bundle "${SIGNED_MANIFEST_FILE_PATH}"
+if [ $? -ne 0 ]; then
+    csp_log_err "Parsing the manifest file failed"
+    err_exit ${CSP_MANIFEST_VERIFY_FAILED}
+fi
+
+if [ "$OTA_VERSION" != "$SPBUNDLEVER" ]; then
+    csp_log_err "Signed bundle is not found. Unsigned bundle is not supported."
+    err_exit ${CSP_MANIFEST_VERIFY_FAILED}
+fi
+
+mkdir -p ${TMPDIR} && cd ${TMPDIR}
+csp_extract_bundle "${SIGNED_MANIFEST_FILE_PATH}"
+if [ $? -ne 0 ]; then
+    csp_log_err "Extracting the manifest file failed"
+    err_exit ${CSP_MANIFEST_EXTRACT_FAILED}
+fi
+
+if [ -e "${TMPDIR}/${PAYLOADFILE}" ] ; then
+    csp_extract_bundle "${TMPDIR}/${PAYLOADFILE}" "${TMPDIR}"
+    if [ $? -ne 0 ]; then
+        csp_log_err "Extracting the manifest file failed"
+        err_exit ${CSP_MANIFEST_EXTRACT_FAILED}
+    fi
+else
+    csp_log_err "Payload file not found"
+    err_exit ${CSP_MANIFEST_EXTRACT_FAILED}
+fi
+
+if [ -e "${TMPDIR}/${MANIFEST_FILE_NAME}" ] ; then
+    csp_log_info "Updating the manifest file"
+    cp "${TMPDIR}/${MANIFEST_FILE_NAME}" "${MANIFEST_FILE_PATH}"
+    RET=$?
+    if [ ${RET} -ne 0 ] ; then
+	csp_log_err "Updating the manifest file failed with errorcode ${RET}"
+	err_exit ${CSP_MANIFEST_UPDATE_FAILED}
+    fi
+else
+    csp_log_err "Manifest file not found inside bundle"
+    err_exit ${CSP_MANIFEST_FILE_NOT_FOUND}
+fi
+
+cleanup
+exit ${CSP_MANIFEST_EXTRACT_SUCCESS}

@@ -1,0 +1,1006 @@
+#!/bin/sh
+
+# master wancontrol script for rex
+# Copyright (C) 2006-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+TTS_WAN=/dev/ttyACM0
+TTS_DM=/dev/ttyACM1
+TTS_AT=/dev/ttyACM2
+TTS_URC=/dev/ttyACM3
+
+PPP_INTF=ppp0
+B_PPPD=pppd
+PPPD=/usr/sbin/${B_PPPD}
+
+NCM_INTF=wwan0
+
+#DEFAULT_INTF=${PPP_INTF}
+DEFAULT_INTF=${NCM_INTF}
+
+DROPDTR=/usr/sbin/dropdtr
+
+PIDF_PPPD=/var/run/${PPP_INTF}.pid
+
+PPP_IP_START=/var/run/ppp/ip_start
+PPP_IP_STOP=/var/run/ppp/ip_stop
+WAN_LINK_ACTIVE=/var/run/wan_link_active
+
+PROC_WAN_POWER=/proc/wan/power
+PROC_WAN_TYPE=/proc/wan/type
+PROC_WAN_USB_EN=/proc/wan/usb_en
+PROC_WAN_USB_PHY_VCC=/sys/kernel/debug/ci_hdrc.1/phy_vcc
+
+SYS_USB_INIT_DESC_TIMEOUT=/sys/module/usbcore/parameters/initial_descriptor_timeout
+SYS_USB_GLOBAL_AUTOSUSPEND=/sys/module/usbcore/parameters/autosuspend
+SYS_USB_POWER_STATUS=/sys/devices/soc0/soc/2100000.aips-bus/2184200.usb/ci_hdrc.1/usb1/power/runtime_status
+SYS_USB_POWER_WAKEUP=/sys/devices/soc0/soc/2100000.aips-bus/2184200.usb/ci_hdrc.1/usb1/1-1/power/wakeup
+SYS_USB_POWER_AUTOSUSPEND=/sys/devices/soc0/soc/2100000.aips-bus/2184200.usb/ci_hdrc.1/usb1/1-1/power/autosuspend
+SYS_USB_POWER_CTRL=/sys/devices/soc0/soc/2100000.aips-bus/2184200.usb/ci_hdrc.1/usb1/1-1/power/control
+AUTOSUSPEND_TIMEOUT_DEFAULT=2
+AUTOSUSPEND_TIMEOUT_PPP=5
+
+ERR_SUCCESS=0
+ERR_ERROR=1
+ERR_INVALID_CMD=128
+ERR_NO_TTS=129
+ERR_PPP_IF=130
+ERR_DMD_FAIL=131
+ERR_PPP_FAIL=132
+ERR_WANID_FAIL=133
+ERR_LOWBATT=134
+ERR_EN_URC=135
+
+_FUNCTIONS=/etc/rc.d/functions
+[ -f ${_FUNCTIONS} ] && . ${_FUNCTIONS}
+
+DTR_PAUSE=4
+
+RECONNECT_RETRIES=3
+
+PPP_IF_UP_RETRIES=60
+PPP_IF_DOWN_RETRIES=65
+
+MODEMCMD=/usr/sbin/modemcmd
+
+unset WAN_TYPE WAN_PEER
+
+WAN_MODULE_INFO_GEN=/usr/sbin/waninfo
+WAN_MODULE_INFO_BASE=/var/local/wan
+WAN_MODULE_INFO=${WAN_MODULE_INFO_BASE}/info
+WAN_MODULE_INFO_FLAG=/var/run/waninfo.ok
+COREDUMP_ENABLED=${WAN_MODULE_INFO_BASE}/COREDUMP_ENABLED
+WAN_COREDUMPING=/tmp/wancoredump
+
+#JTEN-426 NTT EVT DVT need to use different APN
+WAN_APN_OVERWRITE=/mnt/us/apn
+NTT_TEMP_APN="mopera.net"
+NTT_EVT_DSN=0T303
+NTT_EVT1P1_DSN=0T304
+NTT_EVT1P1B_DSN=0T305
+NTT_DVT_DSN=0T304
+NTT_DVT_SIM_LIST1="8981100025506226405,8981100025506226413,8981100025506226421,8981100025506226439,8981100025506226447,"
+NTT_DVT_SIM_LIST2="8981100025506226454,8981100025506226462,8981100025506226470,8981100025506226488,8981100025506226496,"
+NTT_DVT_SIM_LIST3="8981100025506226504,8981100025506226512,8981100025506226520,8981100025506226538,8981100025506226546,"
+NTT_DVT_SIM_LIST4="8981100025506226553,8981100025506226561,8981100025506226579,8981100025506226587,8981100025506226595,"
+NTT_DVT_SIM_LIST="${NTT_DVT_SIM_LIST1}${NTT_DVT_SIM_LIST2}${NTT_DVT_SIM_LIST3}${NTT_DVT_SIM_LIST4}"
+
+source_wan_info()
+{
+    [ -e ${WAN_MODULE_INFO} ] && . ${WAN_MODULE_INFO}
+}
+
+source_wan_info
+
+exit_wancontrol()
+{
+    exit $1
+}
+
+init_wan_info()
+{
+    local _RES=0
+
+    if [ ! -f ${WAN_MODULE_INFO_FLAG} -o -z "${WAN_PEER}" ]; then
+        if [ -z "${WAN_PEER}" ]; then
+            rm -f ${WAN_MODULE_INFO}
+        fi
+
+        ${WAN_MODULE_INFO_GEN} -q -r 1
+        _RES=$?
+
+        if [ ${_RES} -eq 0 ]; then
+            touch ${WAN_MODULE_INFO_FLAG}
+        fi
+    fi
+
+    source_wan_info
+
+    if [ ${_RES} -ne ${ERR_SUCCESS} ]; then
+        msg "WAN information determination failure -- aborting" E "wdf"
+
+        usb_control wanoffkill
+        wan_control kill
+
+        exit_wancontrol ${ERR_WANID_FAIL}
+    fi
+
+    echo ${WAN_TYPE} >${PROC_WAN_TYPE}
+}
+
+drop_dtr()
+{
+    ${DROPDTR} ${TTS_WAN} >/dev/null
+    sleep ${DTR_PAUSE}
+}
+
+# PPP INTF (ppp0)
+wait_for_ppp_up()
+{
+    local _COUNT=0
+    local _MAX_FAIL_COUNT=5
+    local _FAIL_COUNT=0
+
+    while [ ${_COUNT} -lt ${PPP_IF_UP_RETRIES} ]; do
+        sleep 1
+
+        if [ -r ${PPP_IP_START} ]; then
+            return
+        fi
+
+        if [ -z "`pidof ${B_PPPD}`" ]; then
+            _FAIL_COUNT=`expr ${_FAIL_COUNT} + 1`
+
+            if [ ${_FAIL_COUNT} -gt ${_MAX_FAIL_COUNT} ]; then
+                break
+            fi
+        fi
+
+        _COUNT=`expr ${_COUNT} + 1`
+    done
+
+    msg "${PPP_INTF} interface bringup failed" E "ibf"
+
+    # revert usb autosuspend timeout
+    echo ${AUTOSUSPEND_TIMEOUT_DEFAULT} >${SYS_USB_POWER_AUTOSUSPEND}
+
+    drop_dtr
+
+    exit_wancontrol ${ERR_PPP_IF}
+}
+
+wait_for_ppp_down()
+{
+    local _COUNT=0
+
+    while [ ${_COUNT} -lt ${PPP_IF_DOWN_RETRIES} ]; do
+        sleep 1
+
+        if [ -z "`pidof ${B_PPPD}`" ]; then
+            return ${ERR_SUCCESS}
+        fi
+
+        _COUNT=`expr ${_COUNT} + 1`
+    done
+
+    msg "${B_PPPD} termination failure" E "ptf"
+
+    return ${ERR_PPP_IF}
+}
+
+start_ppp()
+{
+    local _RES=0
+
+    if [ -n "${WAN_PEER}" ]; then
+        msg "starting ${PPPD} peer-${WAN_PEER}-generic" I "sp"
+        ${PPPD} call "peer-${WAN_PEER}-generic"
+        _RES=$?
+    else
+        _RES=1
+    fi
+
+    return ${_RES}
+}
+
+ppp_control()
+{
+    local _RES=0
+
+    if [ "$1" != "pppstart" -a "$1" != "pppstop" ]; then
+        msg "invalid control command \"$1\"" E "icc"
+        exit_wancontrol ${ERR_INVALID_CMD}
+    fi
+
+    rm -f ${PPP_IP_START} 2>/dev/null
+    rm -f ${WAN_LINK_ACTIVE} 2>/dev/null
+
+    if [ -r ${PIDF_PPPD} ]; then
+
+         touch ${PPP_IP_STOP}
+
+        _PID=`cat ${PIDF_PPPD}`
+
+        if [ "$1" = "pppstart" -a -n "${_PID}" ]; then
+            msg "${B_PPPD} is active on a \"pppstart\"" W "psnbp"
+        fi
+
+
+        # msg "sending SIGINT to process ${_PID}" I "sstp"
+
+        kill -INT ${_PID} 2>/dev/null
+        _RES=$?
+
+        if [ ${_RES} -ne 0 ]; then
+            rm -f ${PIDF_PPPD}
+
+            msg "kill ${_PID} failed (${_RES})" W "kpf"
+
+            killall -KILL ${B_PPPD} 2>/dev/null
+            rm -f ${PPP_IP_STOP} 2>/dev/null
+        fi
+
+        wait_for_ppp_down
+        _RES=$?
+
+        if [ ${_RES} -ne ${ERR_SUCCESS} ]; then
+            # timeout occurred; force termination
+            killall -KILL ${B_PPPD} 2>/dev/null
+
+            sleep 1
+
+            # if the process is still there, log a critical message
+            wait_for_ppp_down
+            _RES=$?
+
+            if [ ${_RES} -ne ${ERR_SUCCESS} ]; then
+                msg ":${B_PPPD} can't be killed" C "kp2"
+            fi
+        fi
+
+    else
+        if [ "$1" = "pppstop" ]; then
+            # msg "pid file not found: ${PIDF_PPPD}" I "pfnf"
+
+            # make sure there are no strays
+            killall -KILL ${B_PPPD} 2>/dev/null
+        fi
+    fi
+
+    if [ "$1" = "pppstart" ]; then
+        killall -KILL ${B_PPPD} 2>/dev/null
+        rm -f ${PIDF_PPPD} 2>/dev/null
+
+        # do not start ppp while a coredump
+        if [ -f "$WAN_COREDUMPING" ]; then
+            msg "can't start ppp while a coredump" E "psf"
+            exit_wancontrol ${ERR_ERROR}
+        fi
+
+        # increase usb autosuspend timeout
+        echo ${AUTOSUSPEND_TIMEOUT_PPP} >${SYS_USB_POWER_AUTOSUSPEND}
+
+        start_ppp
+        _RES=$?
+
+        if [ ${_RES} -ne 0 ]; then
+            msg "${PPPD} start failed (${_RES})" E "psf"
+
+            # revert usb autosuspend timeout
+            echo ${AUTOSUSPEND_TIMEOUT_DEFAULT} >${SYS_USB_POWER_AUTOSUSPEND}
+            exit_wancontrol ${_RES}
+        fi
+
+        wait_for_ppp_up
+
+        # revert usb autosuspend timeout
+        echo ${AUTOSUSPEND_TIMEOUT_DEFAULT} >${SYS_USB_POWER_AUTOSUSPEND}
+    fi
+
+    return ${ERR_SUCCESS}
+}
+
+# NCM INTF (wwan0)
+RESOLV_CONF=$(readlink /etc/resolv.conf)
+RESOLV_SAVE=/var/run/resolv.conf.save
+RESOLV_NEW="/etc/resolv.d/resolv.conf.${WAN_PEER}"
+RESOLV_OPTIONS="options timeout:5 attempts:2 rotate\n"
+
+LIPC_HASH_PROP=/usr/bin/lipc-hash-prop
+LIPC_GET_PROP=/usr/bin/lipc-get-prop
+LIPC_SEND_EVENT=/usr/bin/lipc-send-event
+
+start_ncm()
+{
+    # disable echo
+    ${MODEMCMD} -n -q -r 1 -c "ATE0"
+
+    ${MODEMCMD} -t 150 -n -q -r 1 -c "AT+CGACT=1,1"
+    if [ $? -ne 0 ]; then
+        msg "PDP context activate failed!" E "npcaf"
+        return ${ERR_PPP_IF}
+    fi
+
+    ${MODEMCMD} -t 5 -n -q -r 1 -c "AT+XDATACHANNEL=1,1,\"/USBCDC/0\",\"/USBHS/NCM/0\",0,1"
+    if [ $? -ne 0 ]; then
+        msg "Configure the Data Channel failed!" E "ncdcf"
+        return ${ERR_PPP_IF}
+    fi
+
+    ${MODEMCMD} -t 40 -n -q -r 1 -c "AT+CGDATA=\"M-RAW_IP\",1"
+    if [ $? -ne 0 ]; then
+        msg "Enter Data State failed!" E "nedsf"
+        return ${ERR_PPP_FAIL}
+    fi
+
+    local LOCAL_IP=`${MODEMCMD} -t 5 -n -v -q -r 1 -c "AT+CGPADDR=1" | head -n1 | awk 'BEGIN{ FS="\"" } { print $2 }'`
+    local GATEWAY_IP=${LOCAL_IP}
+    ifconfig ${NCM_INTF} ${LOCAL_IP} netmask 255.255.255.255 -arp
+    route add default ${NCM_INTF}
+
+    if [ 0 -ne "$(${LIPC_GET_PROP} -i com.lab126.wan shouldRoute)" ]; then
+        msg "NCM adding route to default gw and resolv.conf file" I
+        cp ${RESOLV_CONF} ${RESOLV_SAVE}
+        cp ${RESOLV_NEW} ${RESOLV_CONF}
+        route add default gw "${GATEWAY_IP}" "${NCM_INTF}"
+    fi
+
+    local USEPEERDNS=1
+    local DNS1_NAMESERVER=""
+    local DNS2_NAMESERVER=""
+    if [ -n "${WAN_PEER}" -a "${WAN_PEER}" == "3" ]; then
+        unset USEPEERDNS
+    fi
+    if [ -n "${USEPEERDNS}" ]; then
+        local DNS12=`${MODEMCMD} -t 5 -n -v -q -r 1 -c "AT+XDNS?" | head -n1 | awk 'BEGIN{ FS="\"" } { print $2,$4 }'`
+        DNS1=`echo ${DNS12} | awk '{ print $1 }'`
+        DNS2=`echo ${DNS12} | awk '{ print $2 }'`
+        msg "Using Peer DNS (xxx.xxx.$(echo ${DNS1} | cut -d '.' -f 3,4)) and (xxx.xxx.$(echo ${DNS2} | cut -d '.' -f 3,4))" I
+    else
+        if [ ! -r ${RESOLV_NEW} ]; then
+            msg "unknown WAN peer (${WAN_PEER})" E
+        else
+            local DNSSERVER=1
+            for DNS in $(cat ${RESOLV_NEW} \
+                        | sed -e 's/^nameserver[ \t]\+\([0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+\).*$/\1/; t; d'); do
+                if [ "${DNSSERVER}" == "1" ]; then
+                    DNS1=${DNS}
+                elif [ "${DNSSERVER}" == "2" ]; then
+                    DNS2=${DNS}
+                fi
+                let "DNSSERVER += 1"
+            done
+            msg "Using DNS from ${RESOLV_NEW} nameservers xxx.xxx.$(echo ${DNS1} | cut -d '.' -f 3,4) and xxx.xxx.$(echo ${DNS2} | cut -d '.' -f 3,4)" I
+        fi
+    fi
+    if [ -n "{DNS1}" -a "${DNS1}" != "0.0.0.0" ]; then
+        route add -host ${DNS1} gw ${GATEWAY_IP} ${NCM_INTF}
+        DNS1_NAMESERVER="nameserver ${DNS1}\n"
+    fi
+    if [ -n "{DNS2}" -a "${DNS2}" != "0.0.0.0" ]; then
+        route add -host ${DNS2} gw ${GATEWAY_IP} ${NCM_INTF}
+        DNS2_NAMESERVER="nameserver ${DNS2}\n"
+    fi
+
+    echo -e "{ cmIpAddr = \"${LOCAL_IP}\",
+            cmDefaultGW = \"${GATEWAY_IP}\",
+            cmNetMask = \"255.255.255.255\",
+            cmResolvConf = \"${DNS1_NAMESERVER}${DNS2_NAMESERVER}${RESOLV_OPTIONS}\" }" \
+                | ${LIPC_HASH_PROP} com.lab126.wan cmIntfInfo
+
+    msg "NCM interface up ${NCM_INTF} xxx.xxx.$(echo ${LOCAL_IP} | cut -d '.' -f 3,4) xxx.xxx.$(echo ${GATEWAY_IP} | cut -d '.' -f 3,4) nameserver xxx.xxx.$(echo ${DNS1} | cut -d '.' -f 3,4) nameserver xxx.xxx.$(echo ${DNS2} | cut -d '.' -f 3,4)" I
+    return ${ERR_SUCCESS}
+}
+
+stop_ifplugd()
+{
+    local _PID=`ps -e | grep ifplugd | grep -v grep | awk '{print $1}'`
+    if [[ "" != "$_PID" ]]; then
+        killall ifplugd
+    fi
+    while [ "" != "$_PID" ]; do
+        sleep 1
+        _PID=`ps -e | grep ifplugd | grep -v grep | awk '{print $1}'`
+    done
+}
+
+detach_and_attach_network()
+{
+    local _RES=1
+    msg "Deregister from the network" I "daln"
+    ${MODEMCMD} -t 40 -n -q -r 1 -c "AT+COPS=2"
+    if [ $? -ne 0 ]; then
+        msg "Deregistration failed!" W "daln"
+        # Send a simple dummy command with a short timeout.
+        # The modem aborts the ongoing +COPS=2 command and returns "ABORTED".
+        ${MODEMCMD} -t 1 -n -q -r 1 -c "ATE0"
+        sleep 1
+    fi
+
+    msg "Attach to the network" I "daln"
+    ${MODEMCMD} -t 60 -n -q -r 1 -c "AT+CGATT=1"
+    _RES=$?
+    if [ ${_RES} -ne 0 ]; then
+        msg "Attaching failed" W "daln"
+    else
+        msg "Attaching succeeded" I "daln"
+    fi
+
+    return ${_RES}
+}
+
+ncm_control()
+{
+    local _RES=0
+    if [ "$1" != "pppstart" -a "$1" != "pppstop" ]; then
+        msg "invalid control command \"$1\"" E "icc"
+        exit_wancontrol ${ERR_INVALID_CMD}
+    fi
+
+    stop_ifplugd
+
+    ifconfig | grep -q ${NCM_INTF}
+    if [ $? -eq 0 ]; then
+        # disable echo
+        ${MODEMCMD} -n -q -r 1 -c "ATE0"
+
+        ${MODEMCMD} -t 40 -n -q -r 1 -c "AT+CGACT=0,1"
+        _RES=$?
+
+        ifconfig ${NCM_INTF} down 2>/dev/null
+
+        modprobe -r cdc_ncm
+
+        ${LIPC_SEND_EVENT} com.lab126.hal wanPPPDown
+
+        mv ${RESOLV_SAVE} ${RESOLV_CONF}
+
+        if [ ${_RES} -ne 0 ]; then
+            # Workaround for BANFF-97
+            # Solden responses 'ERROR' at all if it attached LTE network.
+            msg "PDP context deactivation failed. Forcing reattach..." W "sn"
+            detach_and_attach_network
+        fi
+    fi
+
+    if [ "$1" = "pppstart" ]; then
+        modprobe cdc_ncm
+
+        start_ncm
+        _RES=$?
+        if [ ${_RES} -ne 0 ]; then
+            msg "ncm start failed (${_RES})" E "nsf"
+            exit_wancontrol ${_RES}
+        fi
+
+        ifplugd -i ${NCM_INTF} -a -p -q -d 1
+    fi
+
+    return ${ERR_SUCCESS}
+}
+
+wait_for_tts()
+{
+    local _COUNT=0
+    local _TTS_RETRIES=15
+
+    while [ ! -r ${TTS_WAN} -o ! -r ${TTS_DM} -o ! -r ${TTS_AT} -o ! -r ${TTS_URC} ]; do
+        _COUNT=`expr ${_COUNT} + 1`
+        if [ ${_COUNT} -ge ${_TTS_RETRIES} ]; then
+            msg "USB serial device failure" E "usdf"
+            return ${ERR_NO_TTS}
+        fi
+        sleep 1
+    done
+
+    return ${ERR_SUCCESS}
+}
+
+wait_for_sim_ready()
+{
+    local _COUNT=0
+    local _MAX_COUNT=10
+
+    while [ ${_COUNT} -lt ${_MAX_COUNT} ]; do
+        ${MODEMCMD} -t 5 -e -v -q -r 1 -c "AT+CPIN?" | head -n1 | grep -q READY
+        if [ $? -eq 0 ]; then
+            return 0
+        fi
+        sleep 1
+        _COUNT=$((${_COUNT} + 1))
+    done
+
+    return 1
+}
+
+wait_for_power_cycle()
+{
+    local _COUNT=0
+    local _MAX_COUNT=15
+
+    while [ ${_COUNT} -lt ${_MAX_COUNT} ]; do
+        local _DIAGS="`cat /proc/wan/fw_ready`"
+        if [ ${_DIAGS} -eq "1" ]; then
+            sleep 1
+        else
+            break
+        fi
+
+        _COUNT=$((${_COUNT} + 1))
+    done
+
+    if [ ${_COUNT} -ge ${_MAX_COUNT} ]; then
+        msg "Wait for power cycle failed!" E "wanoff"
+    fi
+
+    _COUNT=0
+    while [ ${_COUNT} -lt ${_MAX_COUNT} ]; do
+        local _DIAGS="`cat /proc/wan/fw_ready`"
+        if [ ${_DIAGS} -eq "0" ]; then
+            sleep 1
+        else
+            break
+        fi
+
+        _COUNT=$((${_COUNT} + 1))
+    done
+
+    if [ ${_COUNT} -ge ${_MAX_COUNT} ]; then
+        msg "Wait for power cycle failed!" E "wanon"
+    fi
+
+    return 0
+}
+
+wait_for_option_close()
+{
+    if [ -n "`lsmod | grep ^cdc_acm`" ]; then
+        local _OPTION_RETRIES=5
+        local _OPTION_COUNT=0
+
+        while [ "`lsmod | awk /^cdc_acm/' { print $3 }'`" -ne "0" ]; do
+            sleep 1
+
+            _OPTION_COUNT=`expr ${_OPTION_COUNT} + 1`
+            if [ ${_OPTION_COUNT} -ge ${_OPTION_RETRIES} ]; then
+                msg "USB option driver still in use" C "uodsiu"
+                return ${_OPTION_COUNT}
+            fi
+        done
+        return ${_OPTION_COUNT}
+    fi
+    return 0
+}
+
+load_usb_modules()
+{
+    if [ "${DEFAULT_INTF}" == "${NCM_INTF}" ]; then
+        modprobe cdc_ncm
+    elif [ "${DEFAULT_INTF}" == "${PPP_INTF}" ]; then
+        modprobe ppp_async
+    fi
+    modprobe cdc_acm
+
+    echo 1 >${PROC_WAN_USB_PHY_VCC}
+    echo 1 >${PROC_WAN_USB_EN}
+}
+
+unload_usb_modules()
+{
+    wait_for_option_close
+    ref_cnt=$?
+
+    echo 0 >${PROC_WAN_USB_EN}
+    echo 0 >${PROC_WAN_USB_PHY_VCC}
+
+    if [ $ref_cnt -ne 0 ] ; then
+        # USB disconect event will progagate from ehci to option
+        # to user space. If option driver was still used before
+        # de-asserting USB, wait for option ref count to reach 0
+        # before removing usb modules.
+        wait_for_option_close
+
+        # if ref cnt was 0, wait for hub event to propagate
+        if [ $? -eq 0 ] ; then
+            usleep 100
+        fi
+    fi
+    modprobe -r cdc_acm
+    if [ "${DEFAULT_INTF}" == "${NCM_INTF}" ]; then
+        modprobe -r cdc_ncm
+    fi
+}
+
+usb_control()
+{
+    case "$1" in
+        wanon | devicewake | wanontph)
+           local _COUNT=0
+           local _MAX_COUNT=10
+
+           while [ ${_COUNT} -lt ${_MAX_COUNT} ]; do
+              local _DIAGS="`cat /proc/wan/fw_ready`"
+              echo "wanon_ready : ${_DIAGS}"
+              if [ ${_DIAGS} -eq "1" ]; then
+                  load_usb_modules $1
+                  return 0
+              else
+                  sleep 1
+              fi
+
+                _COUNT=$((${_COUNT} + 1))
+            done
+            ;;
+        wanoffkill | wanoff | devicesleep)
+            unload_usb_modules $1 2>/dev/null
+            ;;
+        *)
+            msg "invalid usb control request" E "iucr"
+            ;;
+    esac
+}
+
+wan_control()
+{
+    local _RES=0
+
+    case "$1" in
+        off)
+            echo 0 >${PROC_WAN_POWER}
+            ;;
+        on)
+            echo 1 >${PROC_WAN_POWER}
+            _RES=$?
+            if [ ${_RES} -ne 0 ]; then
+                echo "wanon_ready : 0"
+                exit_wancontrol ${ERR_ERROR}
+            fi
+            ;;
+        kill)
+            echo 2 >${PROC_WAN_POWER}
+            ;;
+        *)
+            msg "invalid power state request" E "ipsr"
+            ;;
+    esac
+}
+
+power_wan_on()
+{
+    local _RES=0
+
+    wait_for_tts
+    _RES=$?
+
+    if [ ${_RES} -ne ${ERR_SUCCESS} ]; then
+        msg "WAN USB serial port failure -- aborting" E "wspf"
+
+        usb_control wanoffkill
+        wan_control kill
+
+        exit_wancontrol ${ERR_NO_TTS}
+    fi
+    msg "WAN USB serial ports initialized" I "wspi"
+
+    if [ "$1" = "wanon" ]; then
+        init_wan_info
+    fi
+
+    echo enabled >${SYS_USB_POWER_WAKEUP}
+    echo auto >${SYS_USB_POWER_CTRL}
+}
+
+power_wan_off()
+{
+    if [ "${DEFAULT_INTF}" == "${NCM_INTF}" ]; then
+        ncm_control pppstop
+    else
+        ppp_control pppstop
+    fi
+
+    local _WAN_USB_EN=`cat ${PROC_WAN_USB_EN}`
+
+    # perform an explicit network detach for devicesleep and wanoff
+    if [ "$1" == "devicesleep" -o "$1" == "wanoff" ] ; then
+        if [ ${_WAN_USB_EN} -eq 1 ]; then
+            msg "explicit network detach" I "pwr"
+            ${MODEMCMD} -t 10 -q -r 1 -c "AT+CPWROFF"
+        fi
+    fi
+
+    usb_control $1
+
+    case "$1" in
+        wanoff | devicesleep)
+            if [ ${_WAN_USB_EN} -eq 1 ]; then
+                wan_control off
+            else
+                wan_control kill
+            fi
+            ;;
+        wanoffkill)
+            wan_control kill
+            ;;
+    esac
+
+    # wait for ehci suspend
+    if [ -r "${SYS_USB_POWER_STATUS}" ]; then
+        local _WAIT_RETRIES=${AUTOSUSPEND_TIMEOUT_DEFAULT}
+        local _WAIT_COUNT=0
+
+        while [ "`cat ${SYS_USB_POWER_STATUS}`" != "suspended" ]; do
+            sleep 1
+            _WAIT_COUNT=`expr ${_WAIT_COUNT} + 1`
+            if [ ${_WAIT_COUNT} -gt ${_WAIT_RETRIES} ]; then
+                msg "ehci suspend timed out" E "pwrusb"
+                break
+            fi
+        done
+    fi
+}
+
+modify_rf_params()
+{
+    local _RES=0
+    local _SR_SETUP_109=`${MODEMCMD} -t 5 -e -v -q -r 1 -c "AT@NVM:FIX_S4G_LUT.INTERNAL.SR_SETUP_109?" | head -n1 | awk '{ print $1 }'`
+
+    case "$_SR_SETUP_109" in
+        8961)
+            _RES=1
+            ;;
+        *)
+            ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@NVM:FIX_S4G_LUT.INTERNAL.SR_SETUP_109=8961"
+            if [ $? -eq 0 ]; then
+                ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@NVM:STORE_NVM(FIX_S4G_LUT)"
+                if [ $? -ne 0 ]; then
+                    msg "Store NVM(FIX_S4G_LUT) failed!" E "mdfyrfprms"
+                    _RES=1
+                fi
+            else
+                msg "Set NVM for SR_SETUP_109 failed!" E "mdfyrfprms"
+                _RES=1
+            fi
+            ;;
+    esac
+
+    # Workaround for JNINE-4264
+    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@GTICOM:SIO_PSVCTRL(0)"
+
+    # A module power cycle is needed to apply the modifications.
+    # But skip it at this time to avoid additional delay. The item is not a critical to operations.
+}
+
+enable_usb_cdc_ncm()
+{
+    local _RES=0
+    local _WAN_PRODUCT=`cat /sys/devices/soc0/soc/2100000.aips-bus/2184200.usb/ci_hdrc.1/usb1/1-1/product`
+
+    if [ ${_WAN_PRODUCT} = "L816-AM" ] ; then
+        if [ ! -d "/sys/devices/soc0/soc/2100000.aips-bus/2184200.usb/ci_hdrc.1/usb1/1-1/1-1:1.8/net/wwan0/cdc_ncm" ] ; then
+            ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+GTMULTIOS=0"
+            ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@USBMWTESTFW:USB_PROFILE_SET_NVM_CONFIGURATION(USBPOW_ID_DEFAULT,\"4ACM;1NCM;SS\",\"HS_SIDEBAND_REMOTE_WAKEUP;HS_HOST_WAKEUP_PAD=0x023;HS_HOST_WAKEUP_ACTIVE_LEVEL=0x1\",0x1519,\"4600490042004f0043004f004d00\",0x0443,\"4c003800310036002d0041004d00\")"
+            if [ $? -eq 0 ]; then
+                sleep 1
+                ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+CFUN=15"
+                wait_for_power_cycle
+                wait_for_tts
+                sleep 2
+                msg "USB CDC NCM enabled" I "ncmena"
+            else
+                msg "Enabling USB CDC NCM failed!" E "ncmena"
+                _RES=1
+            fi
+        fi
+    fi
+
+    return ${_RES}
+}
+
+disable_lte_bas()
+{
+    local LTE_BAS_MODE=`${MODEMCMD} -t 5 -e -v -q -r 1 -c "AT@NVM:FIX_4G_LTE.L1CC_NVM.BAS_MODE.VAL1?" | head -n1 | awk '{ print $1 }'`
+
+    case "$LTE_BAS_MODE" in
+        0)
+            msg "LTE BAS disabled" I "basdis"
+            ;;
+        *)
+            sleep 5
+            ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@EPHY:EPHY_BAS_SET(0)"
+            if [ $? -eq 0 ]; then
+                ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@NVM:FIX_4G_LTE.L1CC_NVM.BAS_MODE.VAL1=0"
+                if [ $? -eq 0 ]; then
+                    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@NVM:STORE_NVM(FIX_4G_LTE)"
+                    if [ $? -eq 0 ]; then
+                        msg "LTE BAS disabled" I "basstrnvm"
+                    else
+                        msg "Store NVM failed!" E "basstrnvm"
+                    fi
+                else
+                    msg "Set NVM for disabling LTE BAS failed!" E "basmode"
+                fi
+            else
+                msg "Disabling LTE BAS failed!" E "basset"
+            fi
+            ;;
+    esac
+
+    # Workaround for JNINE-4264
+    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@GTICOM:SIO_PSVCTRL(0)"
+}
+
+check_apn_setting()
+{
+    local WAN_DSN_TYPE=`cat /proc/serial | cut -c 4-8`
+
+    if [ ! -f ${WAN_APN_OVERWRITE} ] && [ "${WAN_TYPE}" = "7" ]; then
+        if [ "${WAN_DSN_TYPE}" = "${NTT_EVT_DSN}" ] || [ "${WAN_DSN_TYPE}" = "${NTT_EVT1P1_DSN}" ] || [ "${WAN_DSN_TYPE}" = "${NTT_EVT1P1B_DSN}" ] || [ "${WAN_DSN_TYPE}" = "${NTT_DVT_DSN}" ]; then
+            # Workaround for JTEN-1047
+            # first check if it's kindle NTT sim or mopera
+            local ICCID=`${MODEMCMD} -t 5 -e -v -q -r 1 -c at+ccid | head -n1 | cut -c 8-`
+            local ret=`echo "${NTT_DVT_SIM_LIST}" | grep "${ICCID}"`
+            if [ -n "${ICCID}" ] && [ -n "${ret}" ]; then
+                # ICCID is part of 20 real NTT kindle sim, do nothing and use default APN
+                msg "NTT kindle SIM detected"
+            else
+                echo ${NTT_TEMP_APN} > ${WAN_APN_OVERWRITE}
+                msg "APN set to ${NTT_TEMP_APN}" I "wapn"
+            fi
+        fi
+    fi
+}
+
+coredump_control()
+{
+    local _RES=0
+
+    case "$1" in
+        enable)
+            if [ -f "$COREDUMP_ENABLED" ]; then
+                msg "coredump enabled" I "coredump"
+                return 0
+            fi
+            local PARAM_HANDLE=`${MODEMCMD} -t 5 -e -v -q -r 1 -c "AT@CDD:PARAMOPEN(CDD_SETTINGS_ACCESS_NVM)" | head -n1 | awk 'BEGIN{ FS="=" } { print $2 }'`
+            case "$PARAM_HANDLE" in
+                *0[xX]*)
+                    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@CDD:PARAMWRITE(${PARAM_HANDLE},COREDUMP_DEVICE,4)"
+                    if [ $? -ne 0 ]; then
+                        msg "AT@CDD:PARAMWRITE(${PARAM_HANDLE},COREDUMP_DEVICE,4) failed!" E "coredump"
+                        _RES=1
+                    fi
+                    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@CDD:PARAMWRITE(${PARAM_HANDLE},USB_CONFIG,1)"
+                    if [ $? -ne 0 ]; then
+                        msg "AT@CDD:PARAMWRITE(${PARAM_HANDLE},USB_CONFIG,1) failed!" E "coredump"
+                        _RES=1
+                    fi
+                    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@CDD:PARAMWRITE(${PARAM_HANDLE},YMODEM_PROTOCOL_ENABLED,1)"
+                    if [ $? -ne 0 ]; then
+                        msg "AT@CDD:PARAMWRITE(${PARAM_HANDLE},YMODEM_PROTOCOL_ENABLED,1) failed!" E "coredump"
+                        _RES=1
+                    fi
+                    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@CDD:PARAMWRITE(${PARAM_HANDLE},YMODEM_DISABLE_TIMEOUT,1)"
+                    if [ $? -ne 0 ]; then
+                        msg "AT@CDD:PARAMWRITE(${PARAM_HANDLE},YMODEM_DISABLE_TIMEOUT,1) failed!" E "coredump"
+                        _RES=1
+                    fi
+                    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@CDD:PARAMWRITE(${PARAM_HANDLE},AUTOSETTING_ENABLED,0)"
+                    if [ $? -ne 0 ]; then
+                        msg "AT@CDD:PARAMWRITE(${PARAM_HANDLE},AUTOSETTING_ENABLED,0) failed!" E "coredump"
+                        _RES=1
+                    fi
+                    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@CDD:PARAMCLOSE(${PARAM_HANDLE})"
+                    if [ $? -ne 0 ]; then
+                        msg "AT@CDD:PARAMCLOSE(${PARAM_HANDLE}) failed!" E "coredump"
+                        _RES=1
+                    fi
+
+                    # Workaround for JNINE-4264
+                    ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT@GTICOM:SIO_PSVCTRL(0)"
+
+                    if [ ${_RES} -eq 0 ]; then
+                        ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+GTSET=\"SWCOREDUMP\",1"
+                        if [ $? -eq 0 ]; then
+                            mkdir -p ${WAN_MODULE_INFO_BASE}
+                            touch ${COREDUMP_ENABLED}
+                            msg "coredump enabled" I "coredump"
+
+                            ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+CFUN=15"
+                            if [ $? -ne 0 ]; then
+                                msg "AT+CFUN=15 failed!" E "coredump"
+                                _RES=1
+                            else
+                                wait_for_power_cycle
+                            fi
+                        fi
+                    fi
+                    ;;
+                *)
+                    msg "AT@CDD:PARAMOPEN(CDD_SETTINGS_ACCESS_NVM) failed!" E "coredump"
+                    _RES=1
+                    ;;
+            esac
+            ;;
+        disable)
+            if [ ! -f "$COREDUMP_ENABLED" ]; then
+                msg "coredump disabled" I "coredump"
+                return 0
+            fi
+            ${MODEMCMD} -t 5 -e -n -q -r 1 -c "AT+GTSET=\"SWCOREDUMP\",0"
+            if [ $? -eq 0 ]; then
+                rm -f ${COREDUMP_ENABLED}
+                msg "coredump disabled" I "coredump"
+            else
+                msg "Disabling coredump failed!" E "coredump"
+                _RES=1
+            fi
+            ;;
+        *)
+            if [ -f "$COREDUMP_ENABLED" ]; then
+                echo "coredump: enabled"
+            else
+                echo "coredump: disabled"
+            fi
+            ;;
+    esac
+
+    return ${_RES}
+}
+
+# change to root directory
+cd /
+echo ${AUTOSUSPEND_TIMEOUT_DEFAULT} >${SYS_USB_GLOBAL_AUTOSUSPEND}
+echo 20000 >${SYS_USB_INIT_DESC_TIMEOUT}
+
+if [ "$#" -eq 1 -o "$#" -eq 2 ]; then
+    msg "processing \"$1\"" I "pc"
+    case "$1" in
+        wanon | devicewake | wanontph)
+            batt=`cat /sys/class/power_supply/bd71827_bat/capacity`
+            if [ $batt -lt 3 ]; then
+                msg "wancontrol: too low battery to run..."
+                exit_wancontrol ${ERR_LOWBATT}
+            fi
+            wan_control on
+            sleep 1
+            usb_control wanontph
+            power_wan_on "$1"
+            modify_rf_params
+            enable_usb_cdc_ncm
+            disable_lte_bas
+            check_apn_setting
+            ;;
+        rfoff)
+            ${MODEMCMD} -t 10 -q -r 1 -c "AT+CFUN=4"
+            unload_usb_modules $1 2>/dev/null
+            ;;
+        wanoff | wanoffkill | devicesleep)
+            power_wan_off "$1"
+            ;;
+        rfon)
+            load_usb_modules $1
+            wait_for_tts
+            echo enabled >${SYS_USB_POWER_WAKEUP}
+            echo auto >${SYS_USB_POWER_CTRL}
+            ## CFUN=1 will be sent at elmo_open()
+            ## ${MODEMCMD} -t 10 -q -r 1 -c "AT+CFUN=1"
+            ;;
+        coredump)
+            if [ "$#" -eq 1 ] ; then
+                coredump_control "status"
+            elif [ "$#" -eq 2 ] ; then
+                coredump_control "$2"
+            fi
+            ;;
+        *)
+            if [ "${DEFAULT_INTF}" == "${NCM_INTF}" ]; then
+                ncm_control "$1"
+            else
+                ppp_control "$1"
+            fi
+            ;;
+    esac
+else
+    msg "usage: $0 [wanon|wanontph|wanoff|wanoffkill|devicewake|devicesleep|rfoff|rfon|pppstart|pppstop|coredump [enable|disable]]" W "wu"
+    exit_wancontrol ${ERR_INVALID_CMD}
+fi
+
+exit_wancontrol ${ERR_SUCCESS}

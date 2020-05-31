@@ -1,0 +1,7 @@
+# See /etc/upstart/system.conf if we run out of /dev/loop/*
+/usr/share/X11/xkb
+/usr/java/lib/fonts
+/etc/kdb.src
+/usr/lib/locale
+/usr/share/keyboard
+/opt/var/local
