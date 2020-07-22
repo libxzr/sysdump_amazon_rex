@@ -26,7 +26,7 @@ local qc = nil
 -- not be indexed etc.
 local integer_max_value = 2147483647
 
---Indexing state is decremented with every retry starting at 0. This is 
+--Indexing state is decremented with every retry starting at 0. This is
 --the max retry count
 local indexing_stat_retries_done = -3
 
@@ -62,7 +62,7 @@ local previous_search_column_rank = nil
 local previous_search_term = nil
 local previous_sorted_search_words = { }
 --As per design, we use U+FFC as delimiter for separating strings.
---Lua does byte comparison. 
+--Lua does byte comparison.
 --This STRING_DELIMITER has the equivalent code for U+FFC
 local STRING_DELIMITER     = string.char(0xEF, 0xBF, 0xBC);
 local STRING_DELIMITER_LEN = string.len(STRING_DELIMITER);
@@ -333,7 +333,7 @@ do
         if not isArchived then
             return 0
         end
-        
+
         local cdeTypeKey = tostring(cdeType) .. "_" .. tostring(cdeKey)
         return match_count(cdeTypeKey, cdeType, 0, 0, 1, 0, term)
     end
@@ -346,14 +346,14 @@ do
             count = match_count_cde(cde_type, cde_key, is_archived, term)
         end
 
-        --match_count_location_cde is used for ordering search results based on 
+        --match_count_location_cde is used for ordering search results based on
         -- search match , with prefix match based on p_metadataStemWords, if match_count
         -- returns zero , it means it was only metadata match, so we can return metadataMatch
         -- value here
         if count == 0 then
             count = integer_max_value
         end
-        return count 
+        return count
     end
 
     -- The function will check if the catalog item is yet to be indexed.
@@ -373,7 +373,7 @@ do
 
     function query.set_db(db_)
         db = db_
-       table_name = [[ Entries ]] 
+       table_name = [[ Entries ]]
         assert(db:set_function("match_count", 7, match_count))
         assert(db:set_function("match_count_cde", 4, match_count_cde))
         assert(db:set_function("match_count_location_cde", 8, match_count_location_cde))
@@ -433,7 +433,7 @@ do
     do
         local function subselectCollections(uuid_column, match_column, deleted_column)
                 prefix = [[ (SELECT   1
-                        FROM     Collections  
+                        FROM     Collections
                         WHERE  p_isVisibleInHome = 1
                                AND ]] .. uuid_column .. [[ = p_uuid
                                AND ]]
@@ -509,7 +509,7 @@ do
                           "memberCount",
                           "homeMemberCount",
                           "collectionSyncCounter",
-                          "collectionDataSetName", 
+                          "collectionDataSetName",
                           "mimeType",
                           "modificationTime",
                           "percentFinished",
@@ -533,7 +533,8 @@ do
                           "totalContentSize",
                           "visibilityState",
                           "seriesState",
-                          "readState"
+                          "readState",
+                          "subType"
                       } do
         filter_column_defs[v] = { "", "p_" .. v, "" }
     end
@@ -565,7 +566,7 @@ do
         name = name:gsub("[.%[%]]+", "_"):gsub("_+$", "")
 
         local fcd = filter_column_defs[name]
-        
+
         if not fcd then
             fcd = filter_column_defs_collections[name]
         end
@@ -746,7 +747,7 @@ do
                       .. self.binder:bind(pspec.prefix:gsub("([[*?{])", "[%1]") .. '*')
                       .. " " .. postfix
     end
-    
+
     -- FullTextSearch is used to perform a full text search on the item's content
     -- and metadata using a particula phrase
     function pred_by_type:FullTextSearch(pspec)
@@ -757,9 +758,9 @@ do
         if pspec.id then
             self.have_fts[pspec.id] = pspec.fragment
         end
-        
+
         local content_match_query = "((match_count(p_location, p_cdeType, p_contentIndexedState, p_isVisibleInHome, p_isArchived, p_isDownloading, " .. self.binder:bind(pspec.fragment) .. ") <> 0) OR (match_count_cde(p_cdeType, p_cdeKey, p_isArchived, " .. self.binder:bind(pspec.fragment) .. ") <> 0))"
-        
+
         return content_match_query
     end
 
@@ -770,12 +771,12 @@ do
 
     -- MetadataSearch is used to perform a title/author search on the item's metadata
     -- using the given searchTerm. This is based on the match_rank API which gives us the
-    -- top results with the best match. 
-    function pred_by_type:MetadataSearch(pspec) 
+    -- top results with the best match.
+    function pred_by_type:MetadataSearch(pspec)
         searchableString = pspec.searchTerm
         return "( bp_matchRank > 0 )"
     end
-    
+
     -- PrefixQueryCount is used to count the number of items that precede the item that starts
     -- with the given prefix in the given field according to the collation set for cc.db.
     function pred_by_type:PrefixQueryCount(pspec)
@@ -795,7 +796,7 @@ do
         end
         return ret_string
     end
-    
+
     -- An Or filter passes if any of its list of sub-filters pass.  Maps to a series of
     -- expression OR expression OR expression OR expression ... in SQL.
     function pred_by_type:Or(pspec)
@@ -965,7 +966,7 @@ do
                 ]]) or
                 (query.resultType == "metadata_full" and
                     get_match_rank_column_sql(searchableString, self) .. [[ as bp_matchRank,
-                ]]) or 
+                ]]) or
                 [[ ]])
                 ..
                 [[
@@ -973,7 +974,7 @@ do
                     p_percentFinished,
                     p_cdeKey,
                     p_cdeType,
-                    j_displayTags, 
+                    j_displayTags,
                     p_type,
 
                     p_uuid,
@@ -1025,7 +1026,8 @@ do
                     p_visibilityState,
                     p_companionCdeKey,
                     p_seriesState,
-                    p_readState
+                    p_readState,
+                    p_subType
 
                 FROM
                     Entries
@@ -1101,8 +1103,8 @@ do
                     p_titles_0_nominal,
                     p_guid,
                     p_originType
-                FROM 
-                    Entries 
+                FROM
+                    Entries
                 WHERE
                     ]]
 
@@ -1175,17 +1177,17 @@ do
             rv[#rv + 1] = [[
                 SELECT
                     i_collection_uuid
-                FROM 
-                    Collections 
+                FROM
+                    Collections
                 WHERE
                     ]]
-                    
+
         elseif query.resultType == "collectioncdekeys" then
             rv[#rv + 1] = [[
                 SELECT
                     i_member_cde_key
-                FROM 
-                    Collections 
+                FROM
+                    Collections
                 WHERE
                     ]]
 
@@ -1287,6 +1289,7 @@ do
                     p_titles_0_collation,
                     p_seriesState,
                     p_readState,
+                    p_subType,
                     d_itemPositionLabel,
                     d_itemPosition
 
@@ -1350,8 +1353,8 @@ do
                     p_originType,
                     p_titles_0_collation,
                     p_seriesState,
-                    p_readState
-
+                    p_readState,
+                    p_subType
                     FROM
                     Entries WHERE ]]
 
@@ -1613,12 +1616,12 @@ local function normalize_results(results, count, options)
 
                 end
             end
-    
+
             if options.have_fts then
                 local loc_match_info
                 if obj.location then
                     loc_match_info = match_info(obj.location, options.have_fts)
-                else 
+                else
                     loc_match_info = match_info(obj.cdeType .. "_" .. obj.cdeKey, options.have_fts)
                 end
                 obj.matchInfo = { }
@@ -1626,7 +1629,7 @@ local function normalize_results(results, count, options)
                     obj.matchInfo[id] = { }
                     obj.matchInfo[id].matchCount = mi.matchCount
                     obj.matchInfo[id].metadataMatches = mi.metadataMatches
-    
+
                     if options.full_search then
                         -- TODO: later, when we have separate calls for count vs position
                         -- data, this will need to change to explicitly request position
@@ -1635,7 +1638,7 @@ local function normalize_results(results, count, options)
                     end
                 end
             end
-    
+
             if not options.nohack then
                 -- TODO HACK: eliminate this once Home is fixed to handle null credits and
                 -- missing language tags in LStrings.
@@ -1649,7 +1652,7 @@ local function normalize_results(results, count, options)
                     obj.titles[1].language = ""
                 end
             end
-    
+
             result_list[#result_list + 1] = obj
         end
     end
@@ -1676,7 +1679,7 @@ local function normalize_results(results, count, options)
         for _, _ in pairs(unindexed_content_set) do
             unindexed_content_count = unindexed_content_count + 1
         end
-        
+
         local search_stats_by_id
             = {
                    totalSearched = total_content_count,
@@ -1698,7 +1701,7 @@ local function normalize_results(results, count, options)
            }
 end
 
-local function json_encode_err_msg(err_msg) 
+local function json_encode_err_msg(err_msg)
     if err_msg and err_msg:len() > 0 and err_msg:sub(1, 1) ~= "{" then
         err_msg = json.encode({ error = err_mgs, http_status_code = 400 })
     end
@@ -1750,17 +1753,17 @@ function query.internal.query(query_spec)
     local stmt_c
     local function t()
         local rows_result, count_result, msg, code
-        
+
         if not options.have_pqc then
             if tostring(content_source) == on_device_content_source then
                 stmt = assert(cc_db_util.package_for_assert(dcm.prepare_query(q.sql)))
             else
                 stmt = assert(cc_db_util.package_for_assert(db:prepare(q.sql)))
             end
-            
+
             assert(cc_db_util.package_for_assert(stmt:bind(q.bind_vars)))
             stmt_bind_time = perf_clock()
-    
+
             rows_result, msg, code = stmt:rows()
             if rows_result == nil and code and code ~= 0 then
                 assert(cc_db_util.package_for_assert(false, msg, code))
@@ -1779,7 +1782,7 @@ function query.internal.query(query_spec)
         if count_result == nil and code and code ~= 0 then
             assert(cc_db_util.package_for_assert(false, msg, code))
         end
-        
+
         return rows_result, count_result or 0
     end
     local ok, results, count = pcall(t)
@@ -1812,24 +1815,24 @@ end
 -- to C.
 function query.query(post_data, profile_data)
     local ok, query_spec = pcall(
-        function() 
-            return json.decode(post_data) 
-        end)      
+        function()
+            return json.decode(post_data)
+        end)
 
     if not ok then
         local err_msg = json_encode_err_msg(query_spec)
         assert(false, err_msg)
     end
-    
+
     content_source = query_spec.contentSource
-    
+
     llog.debug4("ccat", "query.query", "profile_data=%s content_source=%s", "", profile_data, tostring(content_source))
 
     local ok, query_result = pcall(
         function()
             return query.internal.query(query_spec)
           end)
-    -- Clear global variables. See comment at the top. 
+    -- Clear global variables. See comment at the top.
     search_result_cache = { }
     previous_search_column = nil
     previous_search_column_rank = nil

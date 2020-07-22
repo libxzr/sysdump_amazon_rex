@@ -1,4 +1,4 @@
-/* 
+/*
  * cc.sqls
  *
  * Copyright (c) 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -60,7 +60,7 @@
  * to duplicate the CREATE TABLE statement.  (The CREATE TABLE XY (placeholder) is there only
  * so that DROP TABLE XY can remove it.  If the database already had a v1 XY, the update
  * will start with DROP TABLE XY.)
- 
+
  * The metadata added at the end of directive is added as a parameter to the db changed event sent from CCAT.
  * It should be of the following format:
  * --## Update: XY:1:2: metadata: {<some_data>}
@@ -72,13 +72,13 @@
  *  ALTER TABLE XY ADD COLUMN Z DATATYPE<optional>
  * 2. Remove the existing older create statement for the table from this file
  * 3. Add a create statement for the same table along with the newly added column with the newer version number
- *  --## Create: XY:new_version# 
+ *  --## Create: XY:new_version#
  *  CREATE TABLE XY(......, Z)
  *
  * The above mentioned steps should be followed while adding a column so that:
  * 1. Creating a new database does not un-necessarily run all update commands that are following the create command.
  *    This saves a lot of time during db-creation
- * 2. Also, updating existing database does not run the Create statements: reason for having the same version 
+ * 2. Also, updating existing database does not run the Create statements: reason for having the same version
  *    in the last update statement and create table statement.
  */
 
@@ -261,9 +261,9 @@ ALTER TABLE Entries ADD COLUMN p_contentState
 
 --## Update: Entries:49:50
 Update Entries SET p_contentState=0 where 1=2
-  
+
 --## Update: Entries:50:51
-UPDATE Entries SET p_contentState= 1 WHERE p_isArchived=0 AND p_isVisibleInHome=1 AND p_cdeKey IN (SELECT B.p_cdeKey FROM Entries as B WHERE B.p_cdeKey=p_cdeKey AND B.p_cdeType=p_cdeType AND B.p_isArchived=1)    
+UPDATE Entries SET p_contentState= 1 WHERE p_isArchived=0 AND p_isVisibleInHome=1 AND p_cdeKey IN (SELECT B.p_cdeKey FROM Entries as B WHERE B.p_cdeKey=p_cdeKey AND B.p_cdeType=p_cdeType AND B.p_isArchived=1)
 
 --## Update: Entries:51:52: metadata:{"archiveSync_ALL"}
 ALTER TABLE Entries ADD COLUMN p_metadataUnicodeWords
@@ -338,7 +338,11 @@ ALTER TABLE Entries ADD COLUMN p_readState
 
 --## Update: Entries:76:77: metadata:{"icu_update"}
 
---## Create: Entries:77
+--## Update: Entries:77:78
+ALTER TABLE Entries ADD COLUMN p_subType
+
+--## Create: Entries:78
+
 CREATE TABLE Entries
 (
     p_uuid PRIMARY KEY NOT NULL,       -- ID of entry (UUID)
@@ -383,7 +387,7 @@ CREATE TABLE Entries
                                        -- Typically used for periodicals and blogs.
                                        -- Will be null for books etc. which should not
                                        -- be purged.)
-                                       
+
     p_publisher,                       -- StringValue
     p_isDRMProtected,                  -- Has DRM? (bool)
     p_isVisibleInHome,                 -- Should appear in Home? (bool)
@@ -419,8 +423,8 @@ CREATE TABLE Entries
     p_percentFinished,                 -- What percentage of the total content length the
                                        -- lastAccessedPosition represents (float)
     p_isTestData,                      -- Is this test data? (bool)
-    
-    p_contentIndexedState,             -- The state of indexing the content, 
+
+    p_contentIndexedState,             -- The state of indexing the content,
     p_metadataIndexedState,            -- metadata, and
     p_noteIndexedState,                -- notes/annotations of this entry
     p_credits_0_name_pronunciation,    -- authors pronunciation
@@ -441,7 +445,8 @@ CREATE TABLE Entries
     p_totalContentSize REAL,           -- Total size(including sidecars) occupied by the content on the device (long)
     p_visibilityState,                 -- Used to determine whether an entry should be visible or not
     p_isProcessed,                     -- Flag to specify whether the entry should be processed or has already been processed
-    p_readState                        -- Indicates the read state of an entry (int)
+    p_readState,                       -- Indicates the read state of an entry (int)
+    p_subType                          -- Integer to specify the sub type of the entry
 )
 
 --## Create: EntriesMetadataStemLanguageIndex:1
@@ -482,7 +487,7 @@ ALTER TABLE Collections ADD COLUMN i_member_cde_key
 ALTER TABLE Collections ADD COLUMN i_member_is_present
 
 --## Update: Collections:6:7
-UPDATE Collections SET 
+UPDATE Collections SET
 i_member_cde_type = (SELECT p_cdetype FROM Entries WHERE Entries.p_uuid = i_member_uuid),
 i_member_cde_key = (SELECT p_cdekey FROM Entries WHERE Entries.p_uuid = i_member_uuid),
 i_member_is_present = 1

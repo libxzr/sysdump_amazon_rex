@@ -1,7 +1,7 @@
 /*
  * constants.js
  *
- * Copyright (c) 2012-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2012-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -204,19 +204,17 @@ var BtActivity = {
 
 const EM_NO_WIFI_FOUND_ERROR = "noWifiFound";
 
-// Keys for logging Non-DEM clickstream error metrics
-const EM_KEY_TEAM_NAME = "team-name";
-const EM_KEY_SITE_VARIANT = "site_variant";
-const EM_KEY_PAGE_ACTION = "page-action";
-const EM_KEY_APP_CAUSING_ERROR = "appCausingError";
-const EM_KEY_ERROR_REASON = "errorReason";
-const EM_KEY_SELECTED_VALUE = "selectedValue";
-
-// Values for logging Non-DEM clickstream error metrics
-const EM_VALUE_PROGRAM_NAME = "METRICS_S3_FORWARDING";
-const EM_VALUE_SOURCE_NAME = "7470017d-c5eb-4ec5-bcff-c29703f1729e/1/00830003";
-const EM_VALUE_TEAM_NAME = "EinkFramework";
-const EM_VALUE_SITE_VARIANT = "EinkApplication";
-const EM_VALUE_PAGE_ACTION = "ERROR_DIALOGS";
+/**
+ * Fast Metrics constants
+ */
+// Wifi connection time constants
+const SCHEMA_WIFI_CONNECTION_TIME = "ereader_wifi_conn_time_taken";
+const SCHEMA_VERSION_WIFI_CONNECTION_TIME = 0;
+const KEY_WIFI_CONN_TIME_TAKEN = "time_ms";
+// Wifi error dialog
+const SCHEMA_WIFI_ERROR_DIALOGS = "ereader_wifi_error_dialogs";
+const SCHEMA_VERSION_WIFI_ERROR_DIALOGS = 0;
+const KEY_WIFI_ERROR_DIALOG_ERROR_REASON = "error_reason";
+const KEY_WIFI_ERROR_DIALOG_SELECTED_OPTION = "selected_option";
 
 Object.freeze(BtActivity);

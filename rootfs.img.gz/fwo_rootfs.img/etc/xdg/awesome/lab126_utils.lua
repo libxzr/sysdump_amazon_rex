@@ -1,4 +1,4 @@
--- Copyright (c) 2013 Amazon Technologies, Inc.  All rights reserved.
+-- Copyright (c) 2013-2020 Amazon Technologies, Inc.  All rights reserved.
 -- PROPRIETARY/CONFIDENTIAL
 -- Use is subject to license terms.
 
@@ -355,9 +355,20 @@ function print_dbg_info()
 
 end
 
+--[[
+check if GM build
+]]--
+function is_gm_build()
+    local f=io.open("/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC","r")
+    if f~=nil then io.close(f) return false else return true end
+end
 
 function screenshot()
-    os.execute ("xwininfo -root -tree | logger; screenshot -x &")
+    if is_gm_build() then
+        os.execute ("xwininfo -root -tree | logger; screenshot &")
+    else
+        os.execute ("xwininfo -root -tree | logger; screenshot -x &")
+    end
     liglReflashWholeScreen()
 end
 

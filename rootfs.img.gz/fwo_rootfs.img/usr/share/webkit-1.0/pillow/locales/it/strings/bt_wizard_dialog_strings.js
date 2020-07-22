@@ -1,7 +1,7 @@
 /*
  * bt_wizard_dialog_strings.js
  *
- * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -14,6 +14,7 @@ var BTWizardDialogStringTable = {
     btWizardTitle: new MessageFormat("({numDevices,number,integer}) dispositivi Bluetooth"),
     subtitle: new MessageFormat("Dispositivi ({numDevices,number,integer})"),
     btWizardHeaderText: "Associa Kindle ad un dispositivo audio Bluetooth per ascoltare contenuti Audible o utilizzare il Lettore schermo VoiceView.",
+    btWizardHeaderTextForTTS: "Associa un dispositivo audio Bluetooth per usare la funzionalit\u00e0 di lettura Da Testo a Voce o il Lettore schermo VoiceView.",
     rescan: "RIAVVIA RICERCA RETI",
     rescanDescription: "Cerca nuovi dispositivi",
     pairNewDevice: "PROCEDURA GUIDATA BLUETOOTH",

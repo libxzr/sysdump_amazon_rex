@@ -46,20 +46,19 @@ end
 -- @param cdeType cde Type of the AI.
 -- @param isVisibleInHome When the AI needs to be visible in HOME.
 -- @param updateLastAccessTime Whether lastAccessTime of AI needs to be updated.
-function archived_items.set_archive_item_visibility (db, cdekey, cdetype, isVisibleInHome, updateLastAccessTime)
+function archived_items.set_archive_item_visibility (db, cdekey, cdetype, isVisibleInHome, updateLastAccessTime, shouldUpdateIsDownloadingState)
     if cdekey == nil or cdetype == nil then
         llog.debug4("archived_items.set_archive_item_visibility", "exit", "cdekey_or_cdetype_is_nil", "")
         return
     end
 
     llog.debug4("archived_items.set_archive_item_visibility", "enter", "cdekey=%s:cdetype=%s:is_visible_in_home=%d:updateLastAccessTime=%s", "", cdekey, cdetype, isVisibleInHome, tostring(updateLastAccessTime))
-    
-    local sql = [[UPDATE Entries SET p_isVisibleInHome = ]] .. isVisibleInHome .. [[ WHERE (p_cdekey = ']] .. cdekey .. [[' AND (p_cdetype = ']] .. cdetype .. [[' AND p_isArchived = 1 AND p_contentState != 2 ))]]
-    if updateLastAccessTime == true then
-        local currentTime = tonumber(os.date('%s'))
-        sql = [[UPDATE Entries SET p_lastAccess = ]] ..currentTime.. [[ ,p_isVisibleInHome = ]] .. isVisibleInHome .. [[ WHERE (p_cdekey = ']] .. cdekey .. [[' AND (p_cdetype = ']] .. cdetype .. [[' AND p_isArchived = 1 AND p_contentState != 2 ))]]
-    end
-    
+
+    local sql = [[UPDATE Entries SET p_isVisibleInHome = ]] .. isVisibleInHome .. (updateLastAccessTime and [[ ,p_lastAccess = ]] .. tonumber(os.date('%s')) or '')
+    .. (shouldUpdateIsDownloadingState and [[ ,p_isDownloading = 0]]  or '') .. [[ WHERE (p_cdekey = ']] .. cdekey .. [[' AND (p_cdetype = ']] .. cdetype .. [[' AND p_isArchived = 1 AND p_contentState != 2 ))]]
+
+    llog.debug4("archived_items.set_archive_item_visibility", "QUERY", "sql=%s", "", sql)
+
     assert(cc_db_util.package_for_assert(db:exec( sql)))
     llog.debug4("archived_items.set_archive_item_visibility", "exit", "cdekey=%s:cdetype=%s:is_visible_in_home=%d", "", cdekey, cdetype, isVisibleInHome)
 end

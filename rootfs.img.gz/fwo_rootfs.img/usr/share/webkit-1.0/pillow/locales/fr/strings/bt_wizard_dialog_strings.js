@@ -1,7 +1,7 @@
 /*
  * bt_wizard_dialog_strings.js
  *
- * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -14,6 +14,7 @@ var BTWizardDialogStringTable = {
     btWizardTitle: new MessageFormat("Appareils Bluetooth ({numDevices,number,integer})"),
     subtitle: new MessageFormat("Appareils ({numDevices,number,integer})"),
     btWizardHeaderText: "Veuillez jumeler un appareil audio Bluetooth pour \u00e9couter du contenu Audible ou utiliser le lecteur d\u02bc\u00e9cran VoiceView.",
+    btWizardHeaderTextForTTS: "Veuillez jumeler un appareil audio Bluetooth pour utiliser la lecture de synth\u00e8se vocale ou le lecteur d\u02bc\u00e9cran VoiceView.",
     rescan: "R\u00c9ANALYSER",
     rescanDescription: "Recherche de nouveaux appareils",
     pairNewDevice: "ASSISTANT BLUETOOTH",

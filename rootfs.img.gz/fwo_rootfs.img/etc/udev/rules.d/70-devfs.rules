@@ -50,7 +50,7 @@ SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/u
 				NAME="%c"
 
 # serial devices
-KERNEL=="ttyS[0-9]*",		NAME="tts/%n"
+#KERNEL=="ttyS[0-9]*",		NAME="tts/%n"
 KERNEL=="ttyUSB[0-9]*",		NAME="tts/USB%n"
 KERNEL=="rfcomm[0-9]*",		NAME="bluetooth/rfcomm/%n",
 KERNEL=="capi",			NAME="capi20", SYMLINK+="isdn/capi20"

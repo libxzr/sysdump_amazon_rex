@@ -1,7 +1,7 @@
 /*
  * bt_wizard_dialog_strings.js
  *
- * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -14,6 +14,7 @@ var BTWizardDialogStringTable = {
     btWizardTitle: new MessageFormat("Dispositivos Bluetooth ({numDevices,number,integer})"),
     subtitle: new MessageFormat("Dispositivos ({numDevices,number,integer})"),
     btWizardHeaderText: "Emparelhe um dispositivo de \u00e1udio com Bluetooth para escutar conte\u00fado do Audible ou usar o leitor de tela VoiceView.",
+    btWizardHeaderTextForTTS: "Emparelhe um dispositivo de \u00e1udio com Bluetooth para usar a leitura do Conversor de texto para fala ou o leitor de tela VoiceView.",
     rescan: "PESQUISAR NOVAMENTE",
     rescanDescription: "Pesquisar novos dispositivos",
     pairNewDevice: "ASSISTENTE BLUETOOTH",

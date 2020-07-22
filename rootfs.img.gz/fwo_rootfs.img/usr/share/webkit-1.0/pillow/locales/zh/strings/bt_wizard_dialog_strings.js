@@ -1,7 +1,7 @@
 /*
  * bt_wizard_dialog_strings.js
  *
- * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -14,6 +14,7 @@ var BTWizardDialogStringTable = {
     btWizardTitle: new MessageFormat("\u84dd\u7259\u8bbe\u5907 ({numDevices,number,integer})"),
     subtitle: new MessageFormat("\u8bbe\u5907 ({numDevices,number,integer})"),
     btWizardHeaderText: "\u60a8\u5fc5\u987b\u5c06\u84dd\u7259\u97f3\u9891\u8bbe\u5907\u914d\u5bf9\u624d\u80fd\u6536\u542c Audible \u5185\u5bb9\u6216\u4f7f\u7528 VoiceView \u5c4f\u5e55\u6717\u8bfb\u5668\u3002",
+    btWizardHeaderTextForTTS: "\u60a8\u5fc5\u987b\u4e0e\u84dd\u7259\u97f3\u9891\u8bbe\u5907\u914d\u5bf9\u624d\u80fd\u4f7f\u7528Kindle \u6717\u8bfb\u529f\u80fd\uff0c\u6216\u4f7f\u7528 VoiceView \u5c4f\u5e55\u6717\u8bfb\u5668\u3002",
     rescan: "\u91cd\u65b0\u626b\u63cf",
     rescanDescription: "\u626b\u63cf\u65b0\u8bbe\u5907",
     pairNewDevice: "\u84dd\u7259\u5411\u5bfc",

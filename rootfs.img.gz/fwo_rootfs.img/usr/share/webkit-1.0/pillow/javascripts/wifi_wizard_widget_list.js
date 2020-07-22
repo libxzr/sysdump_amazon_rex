@@ -1,7 +1,7 @@
 /*
  * wifi_wizard_widget_list.js
  *
- * Copyright 2012-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2012-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -86,7 +86,7 @@ function WifiList(m_listMaxHeight, m_dialogCallback, m_xor) {
         if (m_items.length === 0){
             m_noNetworks.style.display = "inline";
             m_noNetworks.innerHTML = WifiWizardDialogStringTable.noWifiFound;
-            logErrorDialogMetric(EM_NO_WIFI_FOUND_ERROR, null);
+            recordWifiErrorDialogMetric(EM_NO_WIFI_FOUND_ERROR, null);
         }
         else {
             m_noNetworks.style.display = "none";

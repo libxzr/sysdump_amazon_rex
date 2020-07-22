@@ -12,7 +12,7 @@ source /etc/upstart/functions
 bootmode=`cat /proc/bootmode`
 CYTTSP5_LOADER_DELAY=40
 
-if [ "$(f_platform)" = "zelda" -o "$(f_platform)" = "rex" ]; then
+if [ "$(f_platform)" = "zelda" -o "$(f_platform)" = "rex" -o "$(f_platform)" = "bellatrix" ]; then
 	# set FW version
 	if [ "$(f_board)" = "cognac" ]; then
 		FILE_VER=0025
@@ -22,6 +22,8 @@ if [ "$(f_platform)" = "zelda" -o "$(f_platform)" = "rex" ]; then
 		FILE_VER=0027
 	elif [ "$(f_board)" = "jaeger" ]; then
 		FILE_VER=307
+	elif [ "$(f_board)" = "malbec" ]; then
+		FILE_VER=002F
 	fi
 
 	modprobe cyttsp5_i2c
@@ -31,12 +33,19 @@ if [ "$(f_platform)" = "zelda" -o "$(f_platform)" = "rex" ]; then
 		exit 0
 	fi
 
+	# set I2C_addr for touch devices
+	if [ "$(f_platform)" = "bellatrix" ]; then
+		I2C_ADDR="0-0024"
+	else
+		I2C_ADDR="1-0024"
+	fi
+
 	DO_UPDATE=1
 	FW_DIR="/lib/firmware/cyttsp5"
-	SYS_FW_VER="/sys/bus/i2c/devices/1-0024/ic_ver"
-	SYS_TOUCH_INPUT="/sys/bus/i2c/devices/1-0024/input"
-	MANUAL_UPDATE="/sys/bus/i2c/devices/1-0024/manual_upgrade"
-	ENSKY_MFG="/sys/bus/i2c/devices/1-0024/ensky_mfg"
+	SYS_FW_VER="/sys/bus/i2c/devices/$I2C_ADDR/ic_ver"
+	SYS_TOUCH_INPUT="/sys/bus/i2c/devices/$I2C_ADDR/input"
+	MANUAL_UPDATE="/sys/bus/i2c/devices/$I2C_ADDR/manual_upgrade"
+	ENSKY_MFG="/sys/bus/i2c/devices/$I2C_ADDR/ensky_mfg"
 
 	# Handle FW corrupted case
 	if [ ! -e $SYS_TOUCH_INPUT -a -e $SYS_FW_VER ]; then
@@ -51,7 +60,7 @@ if [ "$(f_platform)" = "zelda" -o "$(f_platform)" = "rex" ]; then
 	# auto FW update is available only in pre-GM builds or enable auto update process flag
 	if [ -e "/PRE_GM_DEBUGGING_FEATURES_ENABLED__REMOVE_AT_GMC" -o "$DO_UPDATE" = "1" ] ; then
 
-		if [ "$(f_platform)" = "zelda" -o "$(f_platform)" = "rex" ]; then
+		if [ "$(f_platform)" = "zelda" -o "$(f_platform)" = "rex" -o "$(f_platform)" = "bellatrix" ]; then
 
 			if [ ! -e $SYS_FW_VER -o ! -e $FW_DIR ]; then
 				f_log E cyttsp5 update "cannot find firmware version!!"

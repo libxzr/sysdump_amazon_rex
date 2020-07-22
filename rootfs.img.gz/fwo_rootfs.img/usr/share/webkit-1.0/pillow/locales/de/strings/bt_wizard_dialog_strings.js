@@ -1,7 +1,7 @@
 /*
  * bt_wizard_dialog_strings.js
  *
- * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -14,6 +14,7 @@ var BTWizardDialogStringTable = {
     btWizardTitle: new MessageFormat("Bluetooth-Ger\u00e4te ({numDevices,number,integer})"),
     subtitle: new MessageFormat("Ger\u00e4te ({numDevices,number,integer})"),
     btWizardHeaderText: "Verbinden Sie sich bitte mit einem Bluetooth-Audioger\u00e4t, um Audible-H\u00f6rb\u00fccher zu h\u00f6ren oder den VoiceView-Screenreader zu verwenden.",
+    btWizardHeaderTextForTTS: "Wenn Sie sich Text mit Text-to-Speech vorlesen lassen oder den VoiceView-Screenreader verwenden m\u00f6chten, m\u00fcssen Sie ein Bluetooth-Audioger\u00e4t koppeln.",
     rescan: "ERNEUT SUCHEN",
     rescanDescription: "Nach neuen Ger\u00e4ten scannen",
     pairNewDevice: "BLUETOOTH-ASSISTENT",

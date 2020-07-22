@@ -1,4 +1,4 @@
-KERNEL=="ttyS[0-9]",	NAME="tts/%n",		SYMLINK+="tts%n"
+#KERNEL=="ttyS[0-9]",	NAME="tts/%n",		SYMLINK+="tts%n"
 
 KERNEL=="mxc_mu[0-9]",	NAME="mxc_mu/%n",	SYMLINK+="mxc_mu%n"
 KERNEL=="i2c*",		NAME="i2c/%n"
@@ -68,6 +68,7 @@ KERNEL=="g_ether",	RUN+="/lib/udev/bin/notifyusb"
 KERNEL=="aplite_charger.0", RUN+="/lib/udev/bin/notifyusb"
 KERNEL=="max77696-charger.0", RUN+="/lib/udev/bin/notifyusb"
 KERNEL=="max77796-uic", RUN+="/lib/udev/bin/notifyusb"
+KERNEL=="11211000.usb", RUN+="/lib/udev/bin/notifyusb"
 
 # Accelerometer orientation notification
 DRIVER=="accelerometer", RUN+="/lib/udev/bin/notifyorientation $ENV{orientation}"

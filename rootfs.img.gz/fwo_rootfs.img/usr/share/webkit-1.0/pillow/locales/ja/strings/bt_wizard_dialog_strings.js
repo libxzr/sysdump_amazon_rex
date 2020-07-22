@@ -1,7 +1,7 @@
 /*
  * bt_wizard_dialog_strings.js
  *
- * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -14,6 +14,7 @@ var BTWizardDialogStringTable = {
     btWizardTitle: new MessageFormat("Bluetooth\u30c7\u30d0\u30a4\u30b9({numDevices,number,integer})"),
     subtitle: new MessageFormat("\u30c7\u30d0\u30a4\u30b9({numDevices,number,integer})"),
     btWizardHeaderText: "Audible\u30b3\u30f3\u30c6\u30f3\u30c4\u3092\u518d\u751f\u3057\u305f\u308a\u3001VoiceView\u30b9\u30af\u30ea\u30fc\u30f3\u30ea\u30fc\u30c0\u30fc\u3092\u4f7f\u7528\u3057\u305f\u308a\u3059\u308b\u306b\u306f\u3001Bluetooth\u30aa\u30fc\u30c7\u30a3\u30aa\u30c7\u30d0\u30a4\u30b9\u3092\u63a5\u7d9a\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+    btWizardHeaderTextForTTS: "\u97f3\u58f0\u8aad\u307f\u4e0a\u3052\u6a5f\u80fd\u3068VoiceView\u30b9\u30af\u30ea\u30fc\u30f3\u30ea\u30fc\u30c0\u30fc\u3092\u4f7f\u7528\u3059\u308b\u306b\u306f\u3001Bluetooth\u30aa\u30fc\u30c7\u30a3\u30aa\u30c7\u30d0\u30a4\u30b9\u3092\u63a5\u7d9a\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
     rescan: "\u518d\u30b9\u30ad\u30e3\u30f3",
     rescanDescription: "\u65b0\u3057\u3044\u30c7\u30d0\u30a4\u30b9\u3092\u691c\u51fa",
     pairNewDevice: "Bluetooth\u30a6\u30a3\u30b6\u30fc\u30c9",

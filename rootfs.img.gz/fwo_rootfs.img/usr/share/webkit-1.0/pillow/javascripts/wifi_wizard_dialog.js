@@ -1,7 +1,7 @@
 /*
  * wifi_wizard_dialog.js
  *
- * Copyright 2011-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2011-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -36,13 +36,16 @@ var WifiWizardDialog = function(){
     var m_windowIsVisible = false;
 
     // modality of the wifi wizard dialog window
-    var m_modality = WINMGR.MODALITY.DISMISSIBLE_MODAL;
+    var m_modality = WINMGR.MODALITY.MODAL;
 
     // current orientation of the window
     var m_orientation = null;
     
     // list object for list view
     var m_availableNetworksList;
+
+    // To maintain the start epoch time of a wifi connection
+    var wifi_conn_start_time;
 
     /**
      * set the orientation and update the class on the body
@@ -482,7 +485,7 @@ var WifiWizardDialog = function(){
              Pillow.logDbgHigh("not dismissing error dialog on connection success");
              return;
          }
-         
+
          m_activityIndicator.kill();
 
          //undefined is canceled
@@ -640,6 +643,8 @@ var WifiWizardDialog = function(){
          // this will return it to list view
          hideEntryPopup(false);
 
+         update_wifi_conn_start_time();
+
          //set a timer as a max time to waif for a profile to be created
          Wifi.createAndConnectToProfile(that.currentEntry, useWps);
 
@@ -760,7 +765,7 @@ var WifiWizardDialog = function(){
      var handleErrorBarSelect = function(button){
 
          Wifi.cleanupProfiles();
-         logErrorDialogMetric(WifiWizardErrors.currentDialog.error, button.id);
+         recordWifiErrorDialogMetric(WifiWizardErrors.currentDialog.error, button.id);
 
          switch(button.action){
              case WifiErrorActions.gotoList:
@@ -871,6 +876,18 @@ var WifiWizardDialog = function(){
          m_errorButtonBar.resetButtons(buttons, buttonLayout);
      };
 
+     var update_wifi_conn_start_time = function() {
+        wifi_conn_start_time = new Date().getTime();
+     };
+
+     var captureWifiConnectedMetric = function() {
+        if (wifi_conn_start_time > 0) {
+            var fmEmitter = new FMEmitter();
+            fmEmitter.addInt(KEY_WIFI_CONN_TIME_TAKEN, ((new Date().getTime()) - wifi_conn_start_time));
+            fmEmitter.emitFastMetrics(SCHEMA_WIFI_CONNECTION_TIME, SCHEMA_VERSION_WIFI_CONNECTION_TIME);
+        }
+     };
+
     /**
      * Called back when an event has occured in the WiFi layer. This 
      * method is registered with WiFi at init time
@@ -896,6 +913,7 @@ var WifiWizardDialog = function(){
                  if (Wifi.currentIsCaptive){
                      dismissWifiWizardDialog(DISMISS_CAPTIVE);
                  } else {
+                     captureWifiConnectedMetric();
                      dismissWifiWizardDialog(DISMISS_CONNECTED);
                  }
                  m_activityIndicator.stop("wifiConnecting", WifiWizardDialogStringTable.connected);
@@ -917,8 +935,8 @@ var WifiWizardDialog = function(){
         // parse clientParams
         var clientParams = JSON.parse(clientParamsString);
 
-        if(clientParams.windowDeleteEvent && WifiWizardErrors.currentDialog !== undefined) {
-            logErrorDialogMetric(WifiWizardErrors.currentDialog.error, "tapAway");
+        if(clientParams.windowDeleteEvent && WifiWizardErrors.currentDialog != undefined) {
+            recordWifiErrorDialogMetric(WifiWizardErrors.currentDialog.error, "tapAway");
         }
 
         //check for State check call
@@ -982,7 +1000,7 @@ var WifiWizardDialog = function(){
             return;
         }
 
-        if (clientParams.replySrc !== undefined){
+        if (clientParams.replySrc != undefined){
             Pillow.logDbgMid("wifi wizard reply src = ", clientParams.replySrc);
             if(m_replySrc.indexOf(clientParams.replySrc) == -1) {
 	    	//Do not add duplicate reply sources
@@ -1047,6 +1065,7 @@ var WifiWizardDialog = function(){
                 if (listItem.known){
                     // connect to known networks, no password required
                     Pillow.logDbgHigh("connecting to known network " + that.currentEntry.essid);
+                    update_wifi_conn_start_time();
                     Wifi.connectToProfile(that.currentEntry.essid);
                     that.disableMainArea();
                 } else if (listItem.secured){
@@ -1054,10 +1073,11 @@ var WifiWizardDialog = function(){
                     Pillow.logDbgHigh("creating profile for secured network " + that.currentEntry.essid);
                     m_simpleEntry.show();
                 } else {
-                    //open networks we go directly to create profile and conenct
+                    //open networks we go directly to create profile and connect
 
                     //open network
                     Pillow.logDbgHigh("creating profile for open network " + that.currentEntry.essid);
+                    update_wifi_conn_start_time();
                     that.currentEntry.securityType.setSelectedIdx(0);
                     Wifi.createAndConnectToProfile(that.currentEntry);
                     that.disableMainArea();

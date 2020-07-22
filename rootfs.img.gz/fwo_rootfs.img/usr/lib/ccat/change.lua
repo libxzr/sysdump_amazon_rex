@@ -1,6 +1,6 @@
 -- change.lua
 --
--- Copyright (c) 2010-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.--
+-- Copyright (c) 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.--
 -- PROPRIETARY/CONFIDENTIAL
 --
 -- Use is subject to license terms.
@@ -21,6 +21,8 @@ require 'post_processor'
 local modname = ...
 local change = {}
 _G[modname] = change
+
+local default_user_value = "DEFAULT_USER"
 
 -- We will determine title bidi direction for the mentioned mime types
 local allowed_mimetypes_title_dir_detection = { "text/plain", "application/pdf" }
@@ -45,10 +47,10 @@ local integer_max_value = 2147483647
 -- to indicate an indexing attempt
 local indexed_state_attempted = -1
 -- In an update to an indexedState column this will increment by 1
--- to add another retry. Not using '1' because that means indexing 
+-- to add another retry. Not using '1' because that means indexing
 -- has completed successfully.
 local indexed_state_revert  =  1000
--- If the Item is already indexed. This is possible if the item is 
+-- If the Item is already indexed. This is possible if the item is
 -- downloaded in the other profile
 local item_indexed = 1
 
@@ -106,7 +108,7 @@ local db
 
 function change.set_db(db_)
     db = db_
-    
+
     -- Set up some SQLite database functions.
     local function json_array()
         local array = { '[' }
@@ -155,7 +157,7 @@ local function updateOriginType( db, cdeKey, cdeType, originType )
                         AND p_isArchived = 1
                         LIMIT 1
                     )
-    
+
                     WHERE
                     p_cdeKey = "]] .. cdeKey .. [["
                     AND p_cdeType = "]] .. cdeType .. [["
@@ -174,14 +176,14 @@ end
 -- chance of needing a similar (but not the same) change in change_members().  Please
 -- keep this in mind when making fixes here.
 local function change_collections(obj, binder, change_type)
-    -- If the item is archived, ignore updating the collections.  
-     if obj.isArchived == true then                                                            
-        return { }, { }                                                                        
+    -- If the item is archived, ignore updating the collections.
+     if obj.isArchived == true then
+        return { }, { }
      end
 
     -- Used over and over
     local collections = obj.collections
-    
+
     -- List of SQL statements to use
     local sqls = { }
 
@@ -303,7 +305,7 @@ local function change_members(obj, binder, change_type)
     local sqls = { }
 
     if obj.cdeType ~= "Character" then
-    
+
         if change_type ~= change_types.insert then
             -- This generates a SQL statement that updates the j_collections field in all of
             -- the entries that were removed from the obj.members list.
@@ -343,7 +345,7 @@ local function change_members(obj, binder, change_type)
             sqls[#sqls + 1] = delete_old_members
         end
 
-    
+
         -- Insert any new collections (note that OR IGNORE will skip collection entries we
         -- already have). i_is_sideloaded field is used to distinguish sideloaded content from other items,
         -- And i_member_is_present distinguish "OnDevice" Content (sideloaded and downloaded items) from archive items.
@@ -378,7 +380,7 @@ local function change_members(obj, binder, change_type)
                                                         i_member_uuid,
                                                         i_member_cde_type,
                                                         i_member_cde_key,
-                                                        i_order,                                                    
+                                                        i_order,
                                                         i_member_is_present,
                                                         i_is_sideloaded)
                     VALUES ( ]] .. insert_binder:bind(obj.uuid) .. [[ ,
@@ -400,10 +402,10 @@ local function change_members(obj, binder, change_type)
                 local is_sideloaded_binder = make_binder()
                 local is_sideloaded_sql
                    = [[ UPDATE Collections
-                         SET     i_is_sideloaded = 
-                                     (SELECT count(*) 
-                                      FROM Entries 
-                                      WHERE p_uuid = ]] .. is_sideloaded_binder:bind(mem_uuid) .. [[ AND ((p_isArchived = 0 AND p_contentState = 0) OR p_isVisibleInHome = 0)) 
+                         SET     i_is_sideloaded =
+                                     (SELECT count(*)
+                                      FROM Entries
+                                      WHERE p_uuid = ]] .. is_sideloaded_binder:bind(mem_uuid) .. [[ AND ((p_isArchived = 0 AND p_contentState = 0) OR p_isVisibleInHome = 0))
                          WHERE i_member_uuid = ]] .. is_sideloaded_binder:bind(mem_uuid) .. [[ AND i_is_sideloaded = 1 ]]
                sqls[#sqls + 1] = { sql = is_sideloaded_sql, bind_vars = is_sideloaded_binder.bind_vars }
             end
@@ -412,14 +414,14 @@ local function change_members(obj, binder, change_type)
         local update_stale_data_binder = make_binder()
         local update_stale_data_sql
             = [[ UPDATE Collections
-                      SET    i_member_uuid = 
+                      SET    i_member_uuid =
                                  (SELECT p_uuid
-                                  FROM Entries 
-                                  WHERE p_cdeKey = (SELECT p_cdeKey 
-                                                    FROM Entries 
-                                                    WHERE p_uuid = i_member_uuid) AND 
+                                  FROM Entries
+                                  WHERE p_cdeKey = (SELECT p_cdeKey
+                                                    FROM Entries
+                                                    WHERE p_uuid = i_member_uuid) AND
                                         p_cdeType = (SELECT p_cdeType
-                                                    FROM Entries 
+                                                    FROM Entries
                                                     WHERE p_uuid = i_member_uuid) AND
                                         Entries.p_isVisibleInHome = 1),
                              i_member_is_present = 1,
@@ -429,7 +431,7 @@ local function change_members(obj, binder, change_type)
         sqls[#sqls + 1] = { sql = update_stale_data_sql, bind_vars = update_stale_data_binder.bind_vars }
 
         -- This will update the collectionCount, number of collections each book belongs to.
-        local unm_binder = make_binder()    
+        local unm_binder = make_binder()
 
         local unm_sql
             = [[ UPDATE Entries
@@ -438,9 +440,9 @@ local function change_members(obj, binder, change_type)
                              FROM   Collections
                              WHERE  i_member_uuid = Entries.p_uuid AND
                                     i_collection_uuid IN
-                                    ( SELECT p_uuid FROM Entries 
-                                            WHERE 
-                                            p_type='Collection' 
+                                    ( SELECT p_uuid FROM Entries
+                                            WHERE
+                                            p_type='Collection'
                                                     AND p_isVisibleInHome=1
                                     )
                             )
@@ -467,7 +469,7 @@ local function change_members(obj, binder, change_type)
         local update_new_collections_count = { sql = member_count_sql, bind_vars = member_count_binder.bind_vars }
 
         sqls[#sqls + 1] = update_new_collections_count
-    
+
     end
 
     return {
@@ -571,7 +573,7 @@ local function change_credits(obj, binder, change_type)
                     credit.name.direction = direction_detector(credit.name.language, credit.name.display)
                 end
             end
-            if credit.name.pronunciation then 
+            if credit.name.pronunciation then
                 credit.name.pronunciation = ctrl_chars_strip(credit.name.pronunciation)
             else
                 if credit.name.language and string.sub(credit.name.language,1,2) == "zh" then
@@ -634,7 +636,7 @@ local function change_languages(obj, binder, change_type)
                j_languages = binder:bind(json.encode(obj.languages)),
                p_languageCount = binder:bind(#obj.languages),
                p_languages_0 = binder:bind(obj.languages[1])
-           }, 
+           },
            { }
 end
 
@@ -669,11 +671,11 @@ local function change_location(obj, binder, change_type)
                 local asin =  cc_string_util.getObj(obj.cdeKey)
                 local guid =  cc_string_util.getObj(obj.guid)
                 local cdeType =  cc_string_util.getObj(obj.cdeType)
-        
-        if obj.languages == nil then                       
-                    obj.languages = { }                                         
+
+        if obj.languages == nil then
+                    obj.languages = { }
                 end
-        
+
         local content_language = cc_string_util.getObj(obj.languages[1])
                 index_title(asin, cdeType, guid, obj.location, obj.uuid, content_language, obj.mimeType)
             end
@@ -694,13 +696,13 @@ local function indexed_state(field_name)
                     return "UPDATE Entries SET " ..p_fieldName.. " = " ..p_fieldName..indexedStateModifier.." where p_uuid = \"" .. uuid .. "\""
             end
             --check for special values which modify existing indexed state
-            if obj[field_name] == indexed_state_attempted then 
+            if obj[field_name] == indexed_state_attempted then
                 --increase retry count by decrementing the indexed state by one
                 return { }, {{sql= getSQL(p_fieldName, obj.uuid, "- 1")}}
             elseif  obj[field_name] == indexed_state_revert then
                 --decrease retry count by inrementing the indexed state by one
-                return { }, {{sql= getSQL(p_fieldName, obj.uuid, "+ 1")}} 
-            end                
+                return { }, {{sql= getSQL(p_fieldName, obj.uuid, "+ 1")}}
+            end
         end
         return { [p_fieldName] = binder:bind(obj[field_name]) }, { }
     end
@@ -750,7 +752,7 @@ local column_specs =
     uuid                  = scalar_field("uuid", "p"),
     version               = scalar_field("version", "p"),
     watermark             = scalar_field("watermark", "p"),
-    contentIndexedState   = indexed_state("contentIndexedState"), 
+    contentIndexedState   = indexed_state("contentIndexedState"),
     noteIndexedState      = indexed_state("noteIndexedState"),
     collections           = change_collections,
     members               = change_members,
@@ -770,6 +772,7 @@ local column_specs =
     totalContentSize      = scalar_field("totalContentSize", "p"),
     visibilityState       = scalar_field("visibilityState", "p"),
     isProcessed           = scalar_field("isProcessed", "p"),
+    subType               = scalar_field("subType", "p"),
     seriesId              = scalar_field("seriesId", "d"),
     itemCdeKey            = scalar_field("itemCdeKey", "d"),
     itemType              = scalar_field("itemType", "d"),
@@ -832,9 +835,9 @@ local function update_visibility_state_on_companion_update(update_spec)
             local row, message, code = stmt:first_row()
             -- Update the visibility state accordingly
             -- If the entry is an ebook then set it to true
-            -- If it's an audible book and 
+            -- If it's an audible book and
                 -- if companionCdeKey is null set it to true or
-                -- if it's a downloaded entry and it has a donwloaded companion, set it to false   
+                -- if it's a downloaded entry and it has a donwloaded companion, set it to false
             update_spec.visibilityState = row == nil or string.len(companionCdeKey) == 0 or not (row.isArchived or is_companion_present(companionCdeKey, get_companion_cdeType(row.cdeType), row.isArchived))
             stmt:close()
         end
@@ -916,9 +919,9 @@ local function construct_update_sql(binder, update_spec)
             sqls[#sqls + 1] = v
         end
     end
-    
+
     metadata_to_reindex = false
-    
+
     sqls[#sqls + 1] = {
                           sql = table.concat{
                                                 [[ UPDATE Entries SET ]],
@@ -928,7 +931,7 @@ local function construct_update_sql(binder, update_spec)
                                             },
                           bind_vars = binder.bind_vars,
                           min_changes = 1,
-                          max_changes = 1 
+                          max_changes = 1
                       }
 
     return sqls
@@ -1001,7 +1004,7 @@ local function construct_delete_sql(binder, delete_spec)
                             {Equals = {path = "isArchived", value = 0}}
                         }
                  }
-                 
+
                 local downloaded_content_query = { noCount = true, filter = downloaded_content_filter, resultType = "min_downloaded_data" }
                 --Make the query
                 local downloaded_content_result_rows = assert(query.internal.query(downloaded_content_query))
@@ -1010,13 +1013,13 @@ local function construct_delete_sql(binder, delete_spec)
                     delete_downloaded_item(downloaded_content_result_rows.values[1].uuid, downloaded_content_result_rows.values[1].cdeKey, downloaded_content_result_rows.values[1].cdeType, downloaded_content_result_rows.values[1].titles_0_nominal, downloaded_content_result_rows.values[1].guid, downloaded_content_result_rows.values[1].location)
                 end
             end
-            
+
         end
     else
         -- Deletion of downloaded entry
         update_delete_spec_of_downloaded_entry(delete_spec)
     end
-    
+
     -- Removing this logic and moving this to DCM. We need to remove only content index as
     -- metadata index is done and store in CC DB itself and not separately.
     return {
@@ -1024,48 +1027,48 @@ local function construct_delete_sql(binder, delete_spec)
                    -- TODO : Need to optimize this code to avoid query duplications.
                    -- This is for the case that an item is being deleted.
                    --  Also when a cloud item gets deleted from MYK
-                   sql = [[ UPDATE  Collections 
-                           SET     i_member_is_present = (SELECT count(*) 
-                                                          FROM Entries 
-                                                          WHERE p_cdeKey = (SELECT p_cdeKey FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND 
-                                                                p_cdeType=(SELECT p_cdeType FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND 
+                   sql = [[ UPDATE  Collections
+                           SET     i_member_is_present = (SELECT count(*)
+                                                          FROM Entries
+                                                          WHERE p_cdeKey = (SELECT p_cdeKey FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND
+                                                                p_cdeType=(SELECT p_cdeType FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND
                                                                 p_uuid != ]] .. bound_uuid .. [[  AND p_isArchived = 0),
-                                   i_is_sideloaded = (SELECT count(*) 
-                                                      FROM Entries 
-                                                      WHERE (p_cdeKey = (SELECT p_cdeKey FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND 
-                                                             p_cdeType = (SELECT p_cdeType FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND 
-                                                             p_uuid != ]] .. bound_uuid .. [[ AND p_isArchived = 0) 
-                                                             OR 
+                                   i_is_sideloaded = (SELECT count(*)
+                                                      FROM Entries
+                                                      WHERE (p_cdeKey = (SELECT p_cdeKey FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND
+                                                             p_cdeType = (SELECT p_cdeType FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND
+                                                             p_uuid != ]] .. bound_uuid .. [[ AND p_isArchived = 0)
+                                                             OR
                                                             (p_uuid = ]] .. bound_uuid .. [[ AND p_isArchived = 0 AND p_contentState = 0)),
-                                   i_member_uuid = (SELECT p_uuid FROM Entries                                                                       
-                                                      WHERE (p_cdeKey = (SELECT p_cdeKey FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND       
-                                                             p_cdeType = (SELECT p_cdeType FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND     
-                                                             p_uuid != ]] .. bound_uuid .. [[)                                                         
-                                                             OR                                                                                        
+                                   i_member_uuid = (SELECT p_uuid FROM Entries
+                                                      WHERE (p_cdeKey = (SELECT p_cdeKey FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND
+                                                             p_cdeType = (SELECT p_cdeType FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND
+                                                             p_uuid != ]] .. bound_uuid .. [[)
+                                                             OR
                                                              (p_uuid = ]] .. bound_uuid .. [[))
-                            WHERE   ( i_member_cde_key = (SELECT p_cdeKey FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND 
-                                      i_member_cde_type = (SELECT p_cdeType FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[)) 
-                                    OR 
+                            WHERE   ( i_member_cde_key = (SELECT p_cdeKey FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND
+                                      i_member_cde_type = (SELECT p_cdeType FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[))
+                                    OR
                                     ( i_member_uuid = ]] .. bound_uuid .. [[)]],
                    bind_vars = binder.bind_vars,
                },
                {
                    -- This is for the case that an item is being deleted.
                    sql = [[ UPDATE Entries
-                            SET    p_memberCount = 
+                            SET    p_memberCount =
                                                 (SELECT COUNT(*)
                                                 FROM   Collections
                                                 WHERE  i_collection_uuid = Entries.p_uuid AND (i_member_uuid != ]] .. bound_uuid .. [[)),
-                                   p_homeMemberCount = 
+                                   p_homeMemberCount =
                                                 (SELECT COUNT(*)
                                                 FROM   Collections
                                                 WHERE  i_member_is_present = 1 AND i_collection_uuid = Entries.p_uuid)
                             WHERE  p_uuid IN
                                        (SELECT i_collection_uuid
                                         FROM   Collections
-                                        WHERE  (i_member_cde_key = (SELECT p_cdeKey FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND 
-                                                i_member_cde_type = (SELECT p_cdeType FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[)) 
-                                               OR 
+                                        WHERE  (i_member_cde_key = (SELECT p_cdeKey FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[) AND
+                                                i_member_cde_type = (SELECT p_cdeType FROM Entries WHERE p_uuid = ]] .. bound_uuid .. [[))
+                                               OR
                                                (i_member_uuid = ]] .. bound_uuid .. [[))]],
                     bind_vars = binder.bind_vars,
                },
@@ -1091,13 +1094,13 @@ local function construct_delete_sql(binder, delete_spec)
                    min_changes = 1,
                    max_changes = 1
                },
-               {                                                                                                                                                 
-                   -- This is for the case that an cloud item is deleted and remove the association of collection and item, if item not downloaded.                          
-                   sql = [[ DELETE FROM Collections                                                                                                              
-                            WHERE  (i_member_uuid = ]] .. bound_uuid .. [[)                                                                                      
-                            AND ( SELECT count(*) FROM entries WHERE p_cdekey = i_member_cde_key AND                                                             
-                                         p_cdetype = i_member_cde_type AND p_uuid != i_member_uuid ) = 0]],                                                      
-                   bind_vars = binder.bind_vars,                                                                                                                 
+               {
+                   -- This is for the case that an cloud item is deleted and remove the association of collection and item, if item not downloaded.
+                   sql = [[ DELETE FROM Collections
+                            WHERE  (i_member_uuid = ]] .. bound_uuid .. [[)
+                            AND ( SELECT count(*) FROM entries WHERE p_cdekey = i_member_cde_key AND
+                                         p_cdetype = i_member_cde_type AND p_uuid != i_member_uuid ) = 0]],
+                   bind_vars = binder.bind_vars,
                },
                {
                    -- This is for the case that a collection is being deleted.
@@ -1114,15 +1117,15 @@ end
 -- Otherwise it tries the location.
 local function update_collections_in_entries_on_insert (member_uuid)
     llog.debug4("update_collections_in_entries_on_insert", "enter", "member_uuid=%s", "", tostring(member_uuid))
-    
+
     -- add j_members and j_collections because the API needs it.
-    local sql =         
+    local sql =
         [[
-            UPDATE Entries 
-            SET 
+            UPDATE Entries
+            SET
                 p_memberCount = (SELECT COUNT(i_member_uuid) FROM Collections WHERE i_collection_uuid = Entries.p_uuid),
                 p_homeMemberCount = (SELECT COUNT(i_member_uuid) FROM Collections WHERE i_collection_uuid = Entries.p_uuid AND i_member_is_present = 1)
-            WHERE 
+            WHERE
                 p_uuid IN (SELECT i_collection_uuid FROM Collections WHERE i_member_uuid = ?)
         ]]
     local stmt = assert(cc_db_util.package_for_assert(db:prepare(sql)))
@@ -1138,10 +1141,10 @@ local function update_collections_in_entries_on_insert (member_uuid)
     end
     stmt:close()
 
-    local sql = 
+    local sql =
         [[
-            UPDATE Entries 
-            SET 
+            UPDATE Entries
+            SET
                 p_collectionCount = (SELECT COUNT(i_collection_uuid) FROM Collections WHERE i_member_cde_key = Entries.p_cdeKey AND i_collection_uuid IN (SELECT p_uuid FROM Entries WHERE p_type='Collection' AND p_isVisibleInHome=1))
             WHERE p_uuid = ?
         ]]
@@ -1164,10 +1167,10 @@ end
 local function create_collection_association(associations)
     local dirty_collection_rows = {}
     local dirty_member_rows = {}
-    for _,association in pairs(associations) do            
+    for _,association in pairs(associations) do
         local is_member_present = association.member_present
         local is_sideloaded = association.sideloaded
-        local should_query_entries = association.query_entries_for_member                        
+        local should_query_entries = association.query_entries_for_member
         if(should_query_entries ~= nil and should_query_entries == 1 and association.member_uuid == nil ) then
                 if association.cdetype and association.cdekey then
                         local stmt = assert(cc_db_util.package_for_assert(db:prepare("SELECT p_uuid AS uuid FROM Entries WHERE p_cdeType = ? AND p_cdeKey = ?")))
@@ -1203,18 +1206,18 @@ local function create_collection_association(associations)
                     binder:bind(association.cdetype)..[[,]]..
                     binder:bind(association.cdekey)..[[,]]..
                     binder:bind(is_member_present)..[[,]]..
-                    binder:bind(is_sideloaded)..[[)]]        
+                    binder:bind(is_sideloaded)..[[)]]
         cc_db_util.exec_sql(db,sql,binder.bind_vars)
         dirty_collection_rows[association.collection_uuid] = association.collection_uuid
         dirty_member_rows[association.member_uuid] = association.member_uuid
     end
-    
+
     local binder = make_binder()
     local sql = [[ UPDATE Entries
                     SET  p_memberCount = (SELECT COUNT(i_member_uuid) FROM Collections WHERE i_collection_uuid = Entries.p_uuid),
                          p_homeMemberCount = (SELECT COUNT(i_member_uuid) FROM Collections WHERE i_member_is_present = 1 AND i_collection_uuid = Entries.p_uuid)
                     WHERE p_uuid IN (]]
-                    
+
     local vars = {}
     for k,v in pairs(dirty_collection_rows) do
         vars[#vars+1] = binder:bind(v)
@@ -1229,7 +1232,7 @@ local function create_collection_association(associations)
                             (SELECT count(*)
                              FROM   Collections
                              WHERE  i_member_cde_key = Entries.p_cdeKey AND
-                             i_collection_uuid IN (SELECT p_uuid FROM 
+                             i_collection_uuid IN (SELECT p_uuid FROM
                                  Entries WHERE p_type='Collection' AND p_isVisibleInHome=1))
                    WHERE  p_uuid IN
                             (]]
@@ -1238,7 +1241,7 @@ local function create_collection_association(associations)
         vars[#vars+1]= binder:bind(v)
     end
     sql = sql..table.concat(vars,",")..[[ )]]
-    cc_db_util.exec_sql(db,sql,binder.bind_vars)   
+    cc_db_util.exec_sql(db,sql,binder.bind_vars)
 end
 
 -- This function tries to get the UUID from the cde_key and cde_type. If the
@@ -1250,14 +1253,14 @@ end
 -- @param cde_key New entry CDE key
 -- @param is_archived Whether the new entry is archived
 -- @param new_member_uuid The uuid of the new entry
--- @return new_member_uuid if the collection is to be updated, or nil if the update is ignored. 
+-- @return new_member_uuid if the collection is to be updated, or nil if the update is ignored.
 local function update_member_uuid_in_collections (cde_type, cde_key, is_archived, new_member_uuid)
     llog.debug4("update_member_uuid_in_collections", "enter", "cdeType=%s,cdeKey=%s,new_member_uuid=%s", "", tostring(cde_type), tostring(cde_key), tostring(new_member_uuid))
 
     if not cde_type or not cde_key or is_archived == true then
         return nil
     end
-        
+
     local stmt = assert(cc_db_util.package_for_assert(db:prepare("SELECT count(*) AS collection_count FROM Collections WHERE i_member_cde_type = ? AND i_member_cde_key = ?")))
     local ok, msg = cc_db_util.package_for_assert(stmt:bind(cde_type, cde_key))
     if not ok then
@@ -1273,7 +1276,7 @@ local function update_member_uuid_in_collections (cde_type, cde_key, is_archived
             assert(cc_db_util.package_for_assert(row, msg, code))
         end
     end
-            
+
     local stmt = assert(cc_db_util.package_for_assert(db:prepare("UPDATE Collections SET i_member_uuid = ?, i_member_is_present = 1 WHERE i_member_cde_type = ? AND i_member_cde_key = ?")))
     local ok, msg = cc_db_util.package_for_assert(stmt:bind(new_member_uuid, cde_type, cde_key))
     if not ok then
@@ -1284,7 +1287,7 @@ local function update_member_uuid_in_collections (cde_type, cde_key, is_archived
     local ok, msg = cc_db_util.package_for_assert(stmt:exec())
     stmt:close()
     assert(ok, msg)
-    
+
     return new_member_uuid
 end
 
@@ -1294,7 +1297,7 @@ local function read_uuid_from_entries_for_filter(filter)
     if filter == nil then
         return nil
     end
-    
+
     local uuid_query = { noCount = true, filter = filter, resultType = "fast" }
     --Make the query
     local result_rows = assert(query.internal.query(uuid_query))
@@ -1494,7 +1497,7 @@ local function update_downloaded_db_entry(insert_spec)
     llog.debug4("update_downloaded_db_entry", "exit", "cdeKey=%s, cdeType=%s", "", tostring(insert_spec.cdeKey), tostring(insert_spec.cdeType))
 end
 
-function construct_insert_sql(binder, insert_spec, ignore_or_replace)
+function construct_insert_sql(binder, insert_spec, profile_data, ignore_or_replace)
     local columns = { }
     local values = { }
     local sqls = { "<placeholder>" }
@@ -1587,17 +1590,25 @@ function construct_insert_sql(binder, insert_spec, ignore_or_replace)
     if insert_spec.originType == nil then
         insert_spec.originType = 0
     end
- 
+
     if insert_spec.contentState == nil then
         insert_spec.contentState = 0
     end
-    
+
     if insert_spec.collectionDataSetName == nil then
         insert_spec.collectionDataSetName = 0
     end
 
     if insert_spec.collectionSyncCounter == nil then
         insert_spec.collectionSyncCounter = 0
+    end
+
+    if insert_spec.isArchived == true and profile_data ~= nil and tostring(profile_data) ~= default_user_value then
+        insert_spec.isDownloading = 1
+    end
+
+    if insert_spec.isDownloading == nil and profile_data ~= nil and tostring(profile_data) ~= default_user_value then
+        insert_spec.isDownloading = 0
     end
 
     insert_spec.seriesState = 1
@@ -1608,6 +1619,10 @@ function construct_insert_sql(binder, insert_spec, ignore_or_replace)
 
     if insert_spec.totalContentSize == nil then
         insert_spec.totalContentSize = insert_spec.diskUsage
+    end
+
+    if insert_spec.subType == nil then
+        insert_spec.subType = 0
     end
 
     if insert_spec.visibilityState == nil then
@@ -1628,7 +1643,7 @@ function construct_insert_sql(binder, insert_spec, ignore_or_replace)
             sqls[#sqls + 1] = v
         end
     end
- 
+
     insert_spec.metadataUnicodeWords = ''
     -- Index the metadata to a searchable string.
     local col_changes, extra
@@ -1640,7 +1655,7 @@ function construct_insert_sql(binder, insert_spec, ignore_or_replace)
     for _, v in ipairs(extra) do
         sqls[#sqls + 1] = v
     end
-                                                                                                    
+
     local insert_partial
     if ignore_or_replace then
         if ignore_or_replace == "IGNORE" then
@@ -1668,7 +1683,7 @@ function construct_insert_sql(binder, insert_spec, ignore_or_replace)
     return sqls, collection_member_uuid
 end
 
-local function construct_insert_or_sql(binder, insert_spec)
+local function construct_insert_or_sql(binder, insert_spec, profile_data)
     local display = nil
     local original_uuid = nil
     local original_thumbnail = nil
@@ -1677,7 +1692,7 @@ local function construct_insert_or_sql(binder, insert_spec)
 
     if insert_spec.onConflict == "IGNORE_IF_SAME_VALUE" then
         local result = read_uuid_from_entries_for_filter(insert_spec.filter)
-        
+
         -- Ignore the insert if item matches the given filter else insert the item with replace option
         if result ~= nil then
             original_uuid = result.uuid
@@ -1687,10 +1702,10 @@ local function construct_insert_or_sql(binder, insert_spec)
                 return { }
             end
 
-            -- Use the existing visibility of the item 
+            -- Use the existing visibility of the item
             insert_spec.entry.isVisibleInHome = result.isVisibleInHome
         end
-    else    
+    else
         if insert_spec.entry.titles ~= nil and insert_spec.entry.titles[1] ~= nil then
             display = insert_spec.entry.titles[1].display
         end
@@ -1699,6 +1714,7 @@ local function construct_insert_or_sql(binder, insert_spec)
             original_lastAccess = read_lastAccess_from_entries(insert_spec.entry.cdeGroup, insert_spec.entry.type)
         end
     end
+
 
     if original_uuid then
         if insert_spec.onConflict == "IGNORE" then
@@ -1718,7 +1734,7 @@ local function construct_insert_or_sql(binder, insert_spec)
             if insert_spec.entry.isArchived then
                 --This is done so that we enforce same UUID's. Needed for Cloud Collections support.
                 insert_spec.entry.uuid = original_uuid
-                if original_thumbnail then 
+                if original_thumbnail then
                     insert_spec.entry.thumbnail = original_thumbnail
                 end
                 if original_lastAccess then
@@ -1732,8 +1748,7 @@ local function construct_insert_or_sql(binder, insert_spec)
             assert(ok, msg)
         end
     end
-    
-    local insert_sqls, collection_member_uuid = construct_insert_sql(binder, insert_spec.entry, insert_spec.onConflict)
+    local insert_sqls, collection_member_uuid = construct_insert_sql(binder, insert_spec.entry, profile_data, insert_spec.onConflict)
     return insert_sqls, collection_member_uuid
 end
 
@@ -1745,11 +1760,11 @@ local function construct_reset_indexer()
     return {
             {
                 sql = [[ UPDATE Entries SET
-                            p_contentIndexedState = 
-                                CASE 
-                                    WHEN (p_isArchived = 0 AND p_type = 'Entry:Item') THEN 
+                            p_contentIndexedState =
+                                CASE
+                                    WHEN (p_isArchived = 0 AND p_type = 'Entry:Item') THEN
                                         0
-                                    ELSE  
+                                    ELSE
                                         ]] .. integer_max_value .. [[
                                     END,
                             p_noteIndexedState = 0
@@ -1809,7 +1824,7 @@ local function construct_change_sql(change_spec, profile_data)
     for _, change in ipairs(change_spec.commands) do
         for k, u in pairs(change) do
             local skip_change = false
-            -- Check if Device Content Change Request 
+            -- Check if Device Content Change Request
             if tostring(content_source) == on_device_content_source then
                 local is_whitelisted = dcm.change_entry(k, u, profile_data, db)
 
@@ -1824,28 +1839,32 @@ local function construct_change_sql(change_spec, profile_data)
                     k = construct_change_types(k,u)
                 end
                 if change_types[k]  then
-                        local binder = make_binder()
-                        local sqls, collection_member_uuid = change_types[k](binder, u)
-
-                         -- constructs non_sql object based on change_spec entry type.
-                        if tostring(content_source) == on_device_content_source then
-                            if is_insert_or_delete(k) then
-                                non_sqls[#non_sqls + 1] = construct_non_sql(downloadedSeriesInfo, u)
-                            end
-                        else
-                            if k == 'delete' then
-                                -- Constructs non_sql to refresh the series when a cloud series item is being deleted
-                                non_sql = construct_non_sql("refreshSeriesIfRequired", u)
-                                if non_sql ~= nill then
-                                    non_sqls[#non_sqls + 1] = non_sql
-                                end
+                    local binder = make_binder()
+                    local sqls, collection_member_uuid
+                    if change_types[k] ~= change_types.insert and change_types[k] ~= change_types.insertOr then
+                        sqls, collection_member_uuid = change_types[k](binder, u)
+                    else
+                        sqls, collection_member_uuid = change_types[k](binder, u, profile_data)
+                    end
+                    -- constructs non_sql object based on change_spec entry type.
+                    if tostring(content_source) == on_device_content_source then
+                        if is_insert_or_delete(k) then
+                            non_sqls[#non_sqls + 1] = construct_non_sql(downloadedSeriesInfo, u)
+                        end
+                    else
+                        if k == 'delete' then
+                            -- Constructs non_sql to refresh the series when a cloud series item is being deleted
+                            non_sql = construct_non_sql("refreshSeriesIfRequired", u)
+                            if non_sql ~= nill then
+                                non_sqls[#non_sqls + 1] = non_sql
                             end
                         end
+                    end
 
-                        local pack_sql_coll = { }
-                        pack_sql_coll.sqls = sqls
-                        pack_sql_coll.collection_member_uuid = collection_member_uuid
-                        pack_sql_colls[#pack_sql_colls + 1] = pack_sql_coll
+                    local pack_sql_coll = { }
+                    pack_sql_coll.sqls = sqls
+                    pack_sql_coll.collection_member_uuid = collection_member_uuid
+                    pack_sql_colls[#pack_sql_colls + 1] = pack_sql_coll
                 else
                     -- Handle the other non-standard change types.
                     non_sqls[#non_sqls + 1] = construct_non_sql(k,u)
@@ -1853,7 +1872,6 @@ local function construct_change_sql(change_spec, profile_data)
             end
         end
     end
-
     return pack_sql_colls, non_sqls
 end
 
@@ -1888,7 +1906,7 @@ local function change_internal(post_data, profile_data, rv)
                 change_spec.commands[1].update.reIndexMetadata = nil
             end
         end)
-        
+
     --Set the global no_notify. If this is non-zero this message will not send
     --an update notification.
     no_notify = change_spec.noNotify
@@ -1909,7 +1927,7 @@ local function change_internal(post_data, profile_data, rv)
     -- updated.
     local deleted_archived_items_list = {}
     local UPDATE_TYPE_DELETE = "Delete"
-    
+
     for _, non_sql in ipairs(non_sqls) do
         if non_sql.command == "updateDeletedArchivedItem" then
             local deleted_cdekey, deleted_cdetype = archived_items.fetch_cdekey_and_cdetype( db, non_sql.args.deletedUuid)
@@ -1926,6 +1944,8 @@ local function change_internal(post_data, profile_data, rv)
             reset_origin_type_for_shared(db)
         elseif non_sql.command == "deleteSubscription" then
             change.delete_subscription(db)
+        elseif non_sql.command == "migrateChildDB" then
+            change.migrate_child_db(db, profile_data)
         elseif non_sql.command == "updateCollectionOnLocaleChange" then
             change.update_collection_on_locale_change(db)
         elseif non_sql.command == "updateCollectionItemsCount" then
@@ -1970,19 +1990,19 @@ local function change_internal(post_data, profile_data, rv)
         if pack_sql_coll.collection_member_uuid then
             update_collections_in_entries_on_insert(pack_sql_coll.collection_member_uuid)
         end
-        
+
         rv.changes = rv.changes + 1
     end
 
     -- Run through the list of non_sql content catalog commands. These commands
     -- are applied to the database within the change request transaction.
-    
+
     local isMaxArchiveCountConstraint = false
     local maxArchiveCount = 0
     for _, non_sql in ipairs(non_sqls) do
         if non_sql.command == "updateArchivedItem" then
             archived_items.set_archive_item_visibility( db, (non_sql.args.cdekey or non_sql.args.cdeKey),
-                (non_sql.args.cdetype or non_sql.args.cdeType), 0, false)
+                (non_sql.args.cdetype or non_sql.args.cdeType), 0, false, tostring(profile_data) ~= default_user_value)
             content_state.update_content_state( db, (non_sql.args.cdekey or non_sql.args.cdeKey),
                 (non_sql.args.cdetype or non_sql.args.cdeType))
             updateOriginType( db, (non_sql.args.cdekey or non_sql.args.cdeKey), (non_sql.args.cdetype or non_sql.args.cdeType), (non_sql.args.originType or non_sql.args.originType))
@@ -2003,6 +2023,8 @@ local function change_internal(post_data, profile_data, rv)
             non_sql.args.readState, non_sql.args.companionKey, non_sql.args.companionType)
         elseif non_sql.command == "resetReadState" then
             rv.changes = rv.changes + change.reset_read_state(db)
+        elseif non_sql.command == "updateDownloadingState" then
+            change.update_downloading_state(db)
         end
     end
 
@@ -2137,13 +2159,40 @@ end
 function change.delete_subscription (db)
     local startTime = perf_clock()
 
-    local sql = "DELETE FROM Entries WHERE p_originType = " .. subscription_origin_type .. " and p_contentState != " .. downloaded_item_content_state 
+    local sql = "DELETE FROM Entries WHERE p_originType = " .. subscription_origin_type .. " and p_contentState != " .. downloaded_item_content_state
     assert(cc_db_util.package_for_assert(db:exec(sql)))
     local endTime = perf_clock()
     llog.info("delete_subscription", "delete entries", "complete", "")
 
-    llog.perf("delete_subscription", "perf", "deleteTime=" .. tostring(endTime - startTime), "")    
-end 
+    llog.perf("delete_subscription", "perf", "deleteTime=" .. tostring(endTime - startTime), "")
+end
+
+------------------------------------------------------------------------------------------
+-- This function deletes all FTU Cloud books information and the character data,
+-- whitelisted books that are not downloaded
+-- from the given child's cc db
+-- @param db Database which to perform operations.
+------------------------------------------------------------------------------------------
+function change.migrate_child_db (db, profile_data)
+    if (tostring(profile_data) ~= default_user_value) then  
+        local startTime = perf_clock()
+        llog.info("migrate_child_db", "migrate child db", "start", "")
+
+        local deleteCharactersStmt = "DELETE FROM Entries WHERE p_cdeType = 'Character'"
+        assert(cc_db_util.package_for_assert(db:exec(deleteCharactersStmt)))
+
+        local deleteCloudItemsStmt = "DELETE FROM Entries WHERE p_cdeKey NOT IN (SELECT p_cdeKey FROM Entries WHERE p_isArchived = " .. DOWNLOADED_ENTRY .. " )"
+        assert(cc_db_util.package_for_assert(db:exec(deleteCloudItemsStmt)))
+
+        local updateIsDownloadingStmt = "UPDATE ENTRIES SET p_isDownloading = 0 where p_isDownloading IS NULL"
+        assert(cc_db_util.package_for_assert(db:exec(updateIsDownloadingStmt)))
+
+        local endTime = perf_clock()
+
+        llog.info("migrate_child_db", "migrate child db", "end", "")
+        llog.perf("migrate_child_db", "perf", "migrate kids db time=" .. tostring(endTime - startTime), "")
+    end
+end
 
 ------------------------------------------------------------------------------------------
 -- This function updates the collection when locale gets changed.
@@ -2166,8 +2215,8 @@ function change.update_collection_on_locale_change (db)
 
     local endTime = perf_clock()
     llog.info("update_collection_on_locale_change", "", "update complete", "")
-    llog.perf("update_collection_on_locale_change", "perf", "updateTime=" .. tostring(endTime - startTime), "")    
-end 
+    llog.perf("update_collection_on_locale_change", "perf", "updateTime=" .. tostring(endTime - startTime), "")
+end
 ------------------------------------------------------------------------------------------
 -- Update the Count for items belonging to the collection as the Collections Visibility got changed.
 ------------------------------------------------------------------------------------------
@@ -2214,12 +2263,12 @@ function change.migrate_collection_count (db)
     -- Update the member count for only Collections that contain sideloaded content.
     local stmt = assert(cc_db_util.package_for_assert(db:prepare(
                           [[ UPDATE Entries
-                             SET  p_memberCount = 
-                                        (SELECT count(i_collection_uuid) 
-                                         FROM Collections 
+                             SET  p_memberCount =
+                                        (SELECT count(i_collection_uuid)
+                                         FROM Collections
                                          WHERE i_collection_uuid=Entries.p_uuid)
                              WHERE p_uuid IN
-                                        (SELECT DISTINCT i_collection_uuid 
+                                        (SELECT DISTINCT i_collection_uuid
                                          FROM Collections
                                          WHERE i_is_sideloaded=1)]])))
 
@@ -2257,6 +2306,34 @@ function change.reset_read_state (db)
 
     local endTime = perf_clock()
     llog.perf("reset_read_state", "perf", "updateTime=" .. tostring(endTime - startTime), "")
+
+    return rows_updated
+end
+
+------------------------------------------------------------------------------------------
+-- Reset the downloading state for all entries to Default (0)
+------------------------------------------------------------------------------------------
+function change.update_downloading_state (db)
+
+    local startTime = perf_clock()
+
+    sql =  [[ UPDATE Entries SET p_isDownloading = 0 WHERE p_isDownloading = 1]]
+
+    -- Update the read state to given value.
+    local stmt = assert(cc_db_util.package_for_assert(db:prepare(sql)))
+
+    local ok, msg = cc_db_util.package_for_assert(stmt:exec())
+    if not ok then
+        stmt:close()
+        assert(ok, msg)
+    end
+
+    local rows_updated = db:changes();
+
+    llog.debug4("update_downloading_state", "completed", "rowsUpdates=%d", rows_updated)
+
+    local endTime = perf_clock()
+    llog.perf("update_downloading_state", "perf", "updateTime=" .. tostring(endTime - startTime), "")
 
     return rows_updated
 end

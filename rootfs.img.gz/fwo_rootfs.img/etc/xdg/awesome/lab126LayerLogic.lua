@@ -1,8 +1,10 @@
--- Copyright (c) 2011-2016 Amazon Technologies, Inc.  All rights reserved.
+-- Copyright (c) 2011-2020 Amazon Technologies, Inc.  All rights reserved.
 -- PROPRIETARY/CONFIDENTIAL
 -- Use is subject to license terms.
 require 'lab126_logging'
 
+-- Property holding the count of non-hidden dialogs
+local propActiveDialogCount
 
 -- Z Stack Layers matching
 -- internal layers in Awesome
@@ -66,6 +68,9 @@ function setClientLayer(win, newZStackLayer)
             notifyTapAwayParent(win, false)
             visibilityChanged(win, false)
 
+            if win.c.dialogLayer then
+                propActiveDialogCount.value = propActiveDialogCount.value - 1
+            end
             win.c:set_layer_without_restack(layerTo)
             removeFromFocusHistory(win.c)
 
@@ -90,6 +95,10 @@ function setClientLayer(win, newZStackLayer)
                     zLayerTop.pairDismiss = win
                     win.pairDismiss = zLayerTop
                 end
+            end
+
+            if layerTo == LAYERS.DIALOG then
+                propActiveDialogCount.value = propActiveDialogCount.value + 1
             end
 
             win.c:set_layer_without_restack(layerTo)
@@ -768,6 +777,11 @@ function removeClient(c)
     if layer.layoutFunc then
         log("calling relayout func, clientName = %s", tostring(updatedWindow.params.N))
         layer:layoutFunc(updatedWindow, "removed")
+
+        -- Update the dialogCount when window is removed
+        if c.dialogLayer then
+            propActiveDialogCount.value = propActiveDialogCount.value - 1;
+        end
     else
         log("no relayout func on this layer")
     end
@@ -819,3 +833,10 @@ function getVisibleWindowsJson()
    logTimeStamp("getVisibleWindowsJson end")
    return json.encode(winTab)
 end
+
+-- Register lab126LayerLogic lipc properties
+function registerLayerLogicLipcProperties()
+    propActiveDialogCount = registerLipcIntProp("activeDialogCount", "r");
+    propActiveDialogCount.value = 0
+end
+

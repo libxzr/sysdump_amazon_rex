@@ -1,2 +1,5 @@
 #!/bin/sh
-#
+#Emit an event to start x
+
+logger -t system "emitting start_x"
+initctl emit --no-wait start_x

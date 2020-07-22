@@ -136,7 +136,7 @@ local function check_item_whitelisted_for_profile( pcm_db, uuid, cde_key, cde_ty
         return nil
     end
 
-    llog.debug4("dcm", "sql", "sql=%s", "", tostring(sql))
+    llog.debug4("check_item_whitelisted_for_profile", "exit", "sql=%s", "", tostring(sql))
     return cc_db_util.select_first_row (pcm_db, sql, binder.bind_vars)
 end
 
@@ -404,7 +404,7 @@ local function dcm_insert(bind_variables, profile_data, pcm_db)
      --ensure that this is the newest item.
      if bind_variables.modificationTime == nil then               
          bind_variables.modificationTime = tonumber(os.date('%s'))
-     end   
+     end
 
     local is_white_listed = check_change_whitelisted(pcm_db, profile_data, nil, bind_variables.cdeKey, bind_variables.cdeType)
 

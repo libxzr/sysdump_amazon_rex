@@ -1,6 +1,6 @@
 -- devcap.lua
 --
--- Copyright (c) 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+-- Copyright (c) 2014-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 --
 -- PROPRIETARY/CONFIDENTIAL
 --
@@ -29,4 +29,9 @@ end
 -- Wrapper function for calling is_low_ram_device 
 function devcap.islowramdevice()
     return devcap_lua.is_low_ram_device()
+end
+
+-- Wrapper function for calling is_low_varlocal_device 
+function devcap.is_low_varlocal_device()
+    return devcap_lua.is_low_varlocal_device()
 end

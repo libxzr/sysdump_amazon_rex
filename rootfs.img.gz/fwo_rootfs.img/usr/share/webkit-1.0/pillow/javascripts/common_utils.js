@@ -1,7 +1,7 @@
 /*
  * common_utils.js
  *
- * Copyright (c) 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -79,24 +79,104 @@ function escapeHTML(text) {
 };
 
 /*
- * This function will log error dialogs metrics considering WhisperSync
- * If device is registered and Whispersync is enabled then metrics are emitted
- * non-anonymously else it goes anonymously
+ * Helper function will record wifi error dialogs metric in FM
+ * @param errorReason: Reason for the error
+ * @param errorDialogSelection: Selection in the error dialog
  */
-function logErrorDialogMetric(errorReason, errorDialogSelection) {
-
-    var clickstreamMetadata = {};
-    clickstreamMetadata[EM_KEY_TEAM_NAME] = EM_VALUE_TEAM_NAME;
-    clickstreamMetadata[EM_KEY_SITE_VARIANT] = EM_VALUE_SITE_VARIANT;
-    clickstreamMetadata[EM_KEY_PAGE_ACTION] = EM_VALUE_PAGE_ACTION;
-
-    var discreteMetadata = {};
-    discreteMetadata[EM_KEY_ERROR_REASON] = errorReason;
+function recordWifiErrorDialogMetric(errorReason, errorDialogSelection) {
+    var fmEmitter = new FMEmitter();
+    fmEmitter.addString(KEY_WIFI_ERROR_DIALOG_ERROR_REASON, errorReason);
     if (errorDialogSelection != null) {
-        discreteMetadata[EM_KEY_SELECTED_VALUE] = errorDialogSelection;
+        fmEmitter.addString(KEY_WIFI_ERROR_DIALOG_SELECTED_OPTION, errorDialogSelection);
+    }
+    fmEmitter.emitFastMetrics(SCHEMA_WIFI_ERROR_DIALOGS, SCHEMA_VERSION_WIFI_ERROR_DIALOGS);
+};
+
+/**
+ * Object to add values to FM payload and emit a metric in FM
+ */
+var FMEmitter = function() {
+
+    const INT_MAX = 2147483647;
+    const INT_MIN = -2147483648;
+
+    var fmPayload = {};
+
+    /**
+    * Const defining Payload Keys, used to process data by Native FM SDK
+    */
+    const fmPayloadKey = {
+        INT : "INT_",
+        STRING : "STRING_",
+        LONG : "LONG_"
+    };
+
+    /**
+    * Method to add int to Fast Metrics Payload
+    * @param key: key of metric emitted
+    * @param value: value of corresponding key
+    */
+    this.addInt = function(key, value) {
+        if (typeof value === 'number' && typeof key === 'string') {
+            if ((value >= 0 && value <= INT_MAX) || (value < 0 && value >= INT_MIN)) {
+                var payload_key = fmPayloadKey.INT + key;
+                fmPayload[payload_key] = value.toString();
+            } else {
+                Pillow.logError("RangeError: Int value out of range");
+            }
+        } else {
+            Pillow.logError("TypeError: key is not a string or value is not a number");
+        }
     }
 
-    nativeBridge.recordClickstreamMetricUserOpt(EM_VALUE_PROGRAM_NAME, EM_VALUE_SOURCE_NAME,
-        clickstreamMetadata, discreteMetadata);
+    /**
+    * Method to add long to Fast Metrics Payload
+    * @param key: key of metric emitted
+    * @param value: value of corresponding key
+    */
+    this.addLong = function(key, value) {
+        if (typeof value === 'number' && typeof key === 'string') {
+            var payload_key = fmPayloadKey.LONG + key;
+            fmPayload[payload_key] = value.toString();
+        } else {
+            Pillow.logError("TypeError: key is not a string or value is not a number");
+        }
+    }
 
+    /**
+    * Method to add string to Fast Metrics Payload
+    * @param key: key of metric emitted
+    * @param value: value of corresponding key
+    */
+    this.addString = function(key, value) {
+        if (typeof value === 'string' && typeof key === 'string') {
+            var payload_key = fmPayloadKey.STRING + key;
+            fmPayload[payload_key] = value;
+        } else {
+            Pillow.logError("TypeError: key or value is not a string");
+        }
+    }
+
+    /**
+    * Method to add bool to Fast Metrics Payload
+    * @param key: key of metric emitted
+    * @param value: value of corresponding key
+    */
+    this.addBool = function(key, value) {
+        if (typeof value === 'boolean' && typeof key === 'string') {
+            var payload_key = fmPayloadKey.STRING + key;
+            fmPayload[payload_key] = Boolean(value).toString();
+        } else {
+            Pillow.logError("TypeError: key is not a string or value is not a boolean");
+        }
+    }
+
+    /**
+     * This method is used to emit a FM metric via nativeBridge
+     * @param schema name: Name of the schema to be emitted to
+     * @param schema version: version of the schema to be emitted to
+     */
+    this.emitFastMetrics = function(schemaName, schemaVersion) {
+        nativeBridge.emitFastMetrics(schemaName, schemaVersion, fmPayload);
+    }
 };

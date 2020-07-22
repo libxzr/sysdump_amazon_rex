@@ -1,1 +1,1 @@
-AaMenuApplication=AaMenuApplication-1.0.3176.0
+AaMenuApplication=AaMenuApplication-1.0.4345.0

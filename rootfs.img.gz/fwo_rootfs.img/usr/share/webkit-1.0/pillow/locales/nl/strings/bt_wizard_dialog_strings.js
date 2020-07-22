@@ -1,7 +1,7 @@
 /*
  * bt_wizard_dialog_strings.js
  *
- * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -14,6 +14,7 @@ var BTWizardDialogStringTable = {
     btWizardTitle: new MessageFormat("Bluetooth-apparaten ({numDevices,number,integer})"),
     subtitle: new MessageFormat("Apparaten ({numDevices,number,integer})"),
     btWizardHeaderText: "Koppel een Bluetooth-audioapparaat om te luisteren naar Audible-content of om de VoiceView-schermlezer te gebruiken.",
+    btWizardHeaderTextForTTS: "Koppel een Bluetooth-audioapparaat om tekst-naar-spraak of de VoiceView-schermlezer te gebruiken.",
     rescan: "OPNIEUW SCANNEN",
     rescanDescription: "Scannen op nieuwe apparaten",
     pairNewDevice: "BLUETOOTHWIZARD",

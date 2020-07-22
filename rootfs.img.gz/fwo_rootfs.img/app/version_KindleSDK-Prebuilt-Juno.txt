@@ -1,1 +1,1 @@
-KindleSDK-Prebuilt-Juno=KindleSDK-Prebuilt-Juno-1.0.305.0
+KindleSDK-Prebuilt-Juno=KindleSDK-Prebuilt-Juno-1.0.447.0

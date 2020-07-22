@@ -1,7 +1,7 @@
 /*
  * bt_wizard_dialog.js
  *
- * Copyright (c) 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -168,8 +168,11 @@ Pillow.BtWizardDialog = function () {
 
         listCmdButtons = that.inASRMode ? cmdButtonsASR : cmdButtons;
 
+        var isTTSReaderAvailable = nativeBridge.getIntLipcProperty("com.lab126.btService", "isTTSReaderAvailable");
+
         btTitle = document.getElementById(TITLE_TEXT_ID).textContent = BTWizardDialogStringTable.btWizardTitle;
-        btHeaderText = document.getElementById(HEADER_TEXT_ID).textContent = BTWizardDialogStringTable.btWizardHeaderText;
+        btHeaderText = document.getElementById(HEADER_TEXT_ID).textContent = isTTSReaderAvailable ? 
+            BTWizardDialogStringTable.btWizardHeaderTextForTTS : BTWizardDialogStringTable.btWizardHeaderText;
 
         mButtonBar = new ButtonBar('BTDeviceCmdBar', listCmdButtons,
             handleListCommandBarSelect);

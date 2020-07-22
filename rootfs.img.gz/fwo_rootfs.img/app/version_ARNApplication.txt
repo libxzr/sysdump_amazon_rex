@@ -1,1 +1,1 @@
-ARNApplication=ARNApplication-1.0.2049.0
+ARNApplication=ARNApplication-1.0.2479.0

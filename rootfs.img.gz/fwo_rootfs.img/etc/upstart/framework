@@ -34,7 +34,7 @@ MEMTOTAL="$(devcap-get-feature -i memory size)"
 # Change Xmx and Xms values to 31m after grok memory leak is fixed
 
 if [ $MEMTOTAL -gt 511 ]; then
-  HEAP="-Xmx33m -Xms33m -XX:MaxNewSize=4m -XX:SurvivorRatio=3 -XX:TargetSurvivorRatio=80 -Xss100k -XX:ReservedCodeCacheSize=3m -XX:+InitialGenPreTouch"
+  HEAP="-Xmx49m -Xms49m -XX:MaxNewSize=4m -XX:SurvivorRatio=3 -XX:TargetSurvivorRatio=80 -Xss100k -XX:ReservedCodeCacheSize=3m -XX:+InitialGenPreTouch"
   HEAP="$HEAP -XX:CompileThreshold=5000 -XX:CodeCacheMinimumFreeSpace=100k"
   HEAP="$HEAP -XX:NmethodSweepFraction=6 -XX:NmethodSweepActivity=2 -XX:NmethodSweepMaxWaitTime=8 -XX:NmethodHotnessCounterResetValue=64"
 elif [ $MEMTOTAL -gt 255 ]; then

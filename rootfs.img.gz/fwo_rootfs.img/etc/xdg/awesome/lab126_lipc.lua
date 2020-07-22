@@ -1,4 +1,4 @@
--- Copyright (c) 2013-2018 Amazon Technologies, Inc.  All rights reserved.
+-- Copyright (c) 2013-2020 Amazon Technologies, Inc.  All rights reserved.
 -- PROPRIETARY/CONFIDENTIAL
 -- Use is subject to license terms.
 
@@ -113,6 +113,7 @@ function initLipcInterface()
     preference_register_properties()
     registerDebugInfo()
     registerEatTapModeProperties()
+    registerLayerLogicLipcProperties()
 
     -- subscribe events
     dialog_events_setup()

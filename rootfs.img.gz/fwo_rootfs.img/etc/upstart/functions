@@ -266,17 +266,17 @@ case "$_v_id" in
       1M8) _v_platform=rex ; _v_board=jaeger ; _f_do_rev $_v_id ; _v_wan=0 ;;
 
 
-# for new development boards, default to a wario until someone adds the
+# for new development boards, default to latest platform until someone adds the
 # specific TATTOO decode.  Give the poor H/W folks a chance :-)
       *)
-        _v_platform=wario ; _v_board=wario ; _f_do_rev $_v_id
+        _v_platform=bellatrix ; _v_board=malbec ; _f_do_rev $_v_id ; _v_wan=0
         f_log C hardware bad_id "id=$_v_id" "bad board ID V2, defaulting to $_v_platform !!!!!!"
         ;;
     esac
     ;;
 
   *) 
-    _v_platform=wario ; _v_board=wario ; _f_do_rev $_v_id
+    _v_platform=bellatrix ; _v_board=malbec ; _f_do_rev $_v_id ; _v_wan=0
     f_log C hardware bad_id "id=$_v_id" "bad board ID, defaulting to $_v_platform !!!!!!"
     ;;
 esac

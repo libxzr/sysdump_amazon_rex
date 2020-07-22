@@ -1,6 +1,6 @@
 -- periodicals_virtual_collections.lua
 
--- Copyright (c) 2014-2016 Amazon.com, Inc.  All rights reserved.
+-- Copyright (c) 2014-2019 Amazon.com, Inc.  All rights reserved.
 -- PROPRIETARY/CONFIDENTIAL
 -- Use is subject to license terms.
 
@@ -250,7 +250,8 @@ local function createPVC(db, title, cdeGroup, language, isArchived, count, lastA
         insert_spec["cdeGroup"] = cdeGroup
     end
     
-    local sqls, collection_uuid = construct_insert_sql(binder, insert_spec, "REPLACE");
+    -- Refer KFORK-1244. We pass nil to profile data param, construct_insert_sql will handle the nil case. In future if we need profile data we can get it from the caller.
+    local sqls, collection_uuid = construct_insert_sql(binder, insert_spec, nil, "REPLACE");
     cc_db_util.exec_sql(db, sqls[1].sql, sqls[1].bind_vars)
     
     llog.debug4("periodicals_virtual_collections.createPVC", "exit", "title=%s uuid=%s", "", tostring(title), tostring(insert_spec["uuid"]))

@@ -138,7 +138,7 @@ var SimpleAlertStringTable = {
     usbAudioUnpluggedAlertText          : "L\u02bcadaptateur USB a \u00e9t\u00e9 d\u00e9branch\u00e9. VoiceView sera d\u00e9sactiv\u00e9.",
     screenReaderStartedLangPickerAlertTitle       : "VoiceView",
     screenReaderStartedLangPickerAlertText        : "Le lecteur d\u02bc\u00e9cran VoiceView a \u00e9t\u00e9 activ\u00e9 sur votre Kindle.&nbsp<br><br>VoiceView fournira des commentaires audio quand vous toucherez l\u02bc\u00e9cran du Kindle.",
-    ScreenOff                           : "\u00c9TEINDRE",
+    ScreenOff                           : "\u00c9CRAN D\u00c9SACTIV\u00c9",
     cpUpdatingFontsTitle                : "Mise \u00e0 jour des polices",
     cpUpdatingFontsText                 : "Les polices Kindle sont en train d\u02bc\u00eatre mises \u00e0 jour. Cela peut prendre quelques minutes...",
     cpDeferRestart                      : "PLUS TARD",

@@ -1,0 +1,243 @@
+#!/bin/sh
+#
+# Copyright (c) 2013-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# PROPRIETARY/CONFIDENTIAL
+#
+# Use is subject to license terms.
+#
+
+#
+# csp-unbundle-vox
+#     unbundles Content Support Voice Pack bundle.
+#
+# usage: csp-unbundle-vox path_to_bundle
+#
+
+# parent directory to create work directory under
+readonly WORKDIR_PARENT="/mnt/us/system/tmp"
+
+# work directory template prefix
+readonly WORKDIR_PREFIX="csp_tmp"
+
+# size of file chunk to split bundle
+readonly BUNDLE_SPLIT_CHUNK_SIZE=20971520
+
+# chunk prefix
+readonly VOX_FILE_PREFIX="vox_"
+
+# whether to remove original bundle
+remove_original_bundle=1
+
+. /etc/upstart/bundlefuncs
+. /usr/lib/contentpack/csp_functions
+
+###############################################################################
+
+create_work_dir() {
+    ensure_directory "$WORKDIR_PARENT"
+    if [ $? -ne 0 ] || [ ! -d "$WORKDIR_PARENT" ]; then
+        csp_log_err "Can't create work directory at \"$WORKDIR_PARENT\""
+        exit $CSP_RETRIABLE_ERROR
+    fi
+
+    _workdir=`mktemp -d "$WORKDIR_PARENT"/"$WORKDIR_PREFIX".XXXXXX`
+    if [ $? -ne 0 ] || [ ! -n "$_workdir" ]; then
+        csp_log_err "Can't create work directory under \"$WORKDIR_PARENT\""
+        exit $CSP_RETRIABLE_ERROR
+    fi
+
+    echo $_workdir
+}
+
+get_bundle_name() {
+    _bundlepath="$1"
+    _suffix=""
+
+    for _s in ".vox.bin"
+    do
+        if echo $_bundlepath | grep ".${_s}\$" >/dev/null; then
+            _suffix=$_s
+            break;
+        fi
+    done
+
+    if [ ! -n "$_suffix" ]; then
+        echo ""
+        return
+    fi
+
+    # bundle name format is <lang> only
+    basename "$_bundlepath" "$_suffix"
+}
+
+clean_up() {
+    csp_log_info "Clean up..."
+
+    if [ -d "$work_dir" ]; then
+        rm -rf "$work_dir"
+    fi
+
+    if [ $remove_original_bundle -eq 1 ]; then
+        rm -f "$bundle_path"
+    fi
+
+    csp_log_info "Done."
+}
+
+available_work_dir_size() {
+    if [ -d $work_dir ]; then
+        echo `df -m $work_dir | grep fsp | awk '{print $4}'`
+    fi
+}
+
+chunk_vox_file() {
+    file_size=$(wc -c "$bundle_path" | cut -d ' ' -f 1)
+    chunk=$(((file_size-1)/BUNDLE_SPLIT_CHUNK_SIZE))
+    while [ $chunk -ge 0 ]; do
+        csp_log_info "Processing $chunk chunk"
+        if [ $chunk -eq 0 ]; then
+            offset=192
+        else
+            offset=$((chunk*BUNDLE_SPLIT_CHUNK_SIZE))
+        fi
+        tail -c +$((offset+1)) "$bundle_path" > "$work_dir/$VOX_FILE_PREFIX$chunk"
+        truncate -s $offset "$bundle_path"
+        chunk=$((chunk-1))
+    done
+}
+
+# Remove any work directories that was left behind by a previous incomplete
+# run of this script, like if the device rebooted while the script was still
+# running.
+remove_abandoned_work_dir() {
+    csp_log_info "Remove any abandoned work directories..."
+    rm -rf "$WORKDIR_PARENT"/"$WORKDIR_PREFIX".*
+}
+
+usage() {
+    _msg="Usage: csp-unbundle-vox /path/to/bundle"
+    csp_log_err $_msg
+    echo $_msg >&2
+}
+
+###############################################################################
+
+eval set -- `getopt -q -o h -- "$@"`
+while true
+do
+    case $1 in
+        -h)
+            usage; exit 1
+            ;;
+        --)
+            shift; break
+            ;;
+        *)
+            usage; exit 1
+        ;;
+    esac
+done
+
+if [ $# -ne 1 ]; then
+    usage
+    exit $CSP_HARD_ERROR
+fi
+
+# Remove any work directories that was left behind by a previous incomplete
+# run of this script.
+remove_abandoned_work_dir
+
+bundle_path="$1"
+
+if [ ! -f "$bundle_path" ]; then
+    csp_log_err "Error: the specified bundle doesn't exist: '$bundle_path'"
+    exit $CSP_HARD_ERROR
+fi
+
+# get bundle name
+name=`get_bundle_name $bundle_path`
+if [ ! -n "$name" ]; then
+    csp_log_err "Error: couldn't get the bundle name from the bundle path."
+    exit $CSP_HARD_ERROR
+fi
+
+csp_log_info "Bundle name = $name"
+
+# load bundle headers & verify bundle
+csp_verify_bundle $bundle_path $OTA_BLOCKSIZE
+if [ $? -ne 0 ]; then
+   csp_log_err "Error: bundle verification failed."
+   exit $CSP_HARD_ERROR
+fi
+
+# if bundle verification is okay, let's expand the bundle.
+csp_log_info "Extracting bundle contents..."
+
+# check bundle format
+if [ "$OTA_VERSION" != "$SPBUNDLEVER" ]; then
+    csp_log_err "Bundle is not signed. Unsigned bundle is not supported."
+    clean_up
+    exit $CSP_HARD_ERROR
+fi
+
+# create work directory
+work_dir=`create_work_dir`
+if [ ! -d "$work_dir" ] || [ ! -w "$work_dir" ]; then
+    csp_log_err "Can't create work directory."
+    clean_up
+    exit $CSP_RETRIABLE_ERROR
+fi
+
+space_available=`available_work_dir_size`
+
+if [ $space_available -le 110 ]; then
+    csp_log_err "Not enough space for install voice file."
+    clean_up
+    exit $CSP_RETRIABLE_ERROR
+
+elif [ $space_available -ge 390 ]; then
+    csp_log_info "Unbundling with regular (faster) path."
+
+    expand_spimg $bundle_path $work_dir
+    if [ $? -ne 0 ]; then
+        csp_log_err "Failed to expand signed image \"$bundle_path\"."
+        clean_up
+        exit $CSP_HARD_ERROR
+    fi
+
+    csp_log_info "Extracting VOX data..."
+    tar xvzf $bundle_path --no-same-owner -C /
+    if [ $? -ne 0 ]; then
+        csp_log_err "Can't unbundle voice package: \"$bundle_path\"."
+        clean_up
+        exit $CSP_HARD_ERROR
+    fi
+
+else
+    csp_log_info "Unbundling with chunks (slower) path."
+    
+    # Chunk file into separate voices
+    chunk_vox_file
+
+    # untar each chunk
+    chunk=0
+    while [ -e "$work_dir/$VOX_FILE_PREFIX$chunk" ]; do
+        cat "$work_dir/$VOX_FILE_PREFIX$chunk" && rm -f "$work_dir/$VOX_FILE_PREFIX$chunk"
+        chunk=$((chunk+1))
+    done | tar -xvz --no-same-owner -C / -f -
+
+    if [ $? -ne 0 ]; then
+        csp_log_err "Can't unbundle voice package: \"$bundle_path\"."
+        clean_up
+        exit $CSP_HARD_ERROR
+    fi
+fi
+
+# clean up
+clean_up
+
+csp_log_info "Voice installation done."
+exit 0
+
+# end.

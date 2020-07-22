@@ -1,4 +1,4 @@
--- Copyright (c) 2010-2017 Amazon Technologies, Inc.  All rights reserved.
+-- Copyright (c) 2010-2019 Amazon Technologies, Inc.  All rights reserved.
 -- PROPRIETARY/CONFIDENTIAL
 -- Use is subject to license terms.
 
@@ -232,6 +232,21 @@ function cc_db_util.select_first_row(db,sql,bind_vars)
     return nil
 end
 
+-- Util function to copy the table object into a new table and returns the new one
+function cc_db_util.clone_table(orig_table)
+    local table_type = type(orig_table)
+    local clone
+    if table_type == 'table' then
+        clone = {}
+        for orig_key, orig_value in next, orig_table, nil do
+            clone[cc_db_util.clone_table(orig_key)] = cc_db_util.clone_table(orig_value)
+        end
+        setmetatable(clone, cc_db_util.clone_table(getmetatable(orig_table)))
+    else -- number, string, boolean, etc
+        clone = orig_table
+    end
+    return clone
+end
 
 -- read database table version, possibly creating bookkeeping tables if they do
 -- not exist

@@ -1,5 +1,5 @@
-128 33ac488b8c678868f67cbd7fc8e10847 imx6sll_rex/bios.bin 0 bios.bin
-128 2f3f61e349c0e9ae893b99a689203651 imx6sll_rex/s-bios.bin 0 s-bios.bin
+128 fffafafa0c6ac811c281b8f5e5c04b57 imx6sll_rex/bios.bin 0 bios.bin
+128 5d7418e34618df803e60a610153ea165 imx6sll_rex/s-bios.bin 0 s-bios.bin
 128 bada22ade66859f3019db45bc2da6160 imx6sll_rex/u-boot.bin 3 bootloader_bin
-128 53e6c32068d104b9284a2d342b95fb78 imx6sll_rex/boot.img 95 update_image_boot
-128 c0a3574391443574e2261518e6e8d246 rootfs.img.gz 1964 update_image_rootfs
+128 3ec93c3512d705b5547d302481486620 imx6sll_rex/boot.img 95 update_image_boot
+128 d064e20d71b8edad46f69b7dbc741896 rootfs.img.gz 2026 update_image_rootfs

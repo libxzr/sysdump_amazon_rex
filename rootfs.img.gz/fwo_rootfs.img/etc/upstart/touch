@@ -8,6 +8,8 @@ if [ "$(f_platform)" = "yoshi" ]; then
 elif [ "$(f_platform)" = "zelda" ]; then
 	f_modprobe bma2x2
 	/etc/upstart/cyttsp5
+elif [ "$(f_platform)" = "bellatrix" ]; then
+	/etc/upstart/cyttsp5
 elif [ "$(f_platform)" = "yoshime3" ]; then
 	/etc/upstart/cyttsp
 elif [ "$(f_platform)" = "wario" ]; then
