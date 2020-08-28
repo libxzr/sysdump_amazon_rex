@@ -86,6 +86,14 @@ eink_device()
     echo '        Option      "Rotate"  "CCW"' >> $XCONFFILE
   elif [ "$(f_platform)" = "rex" ]; then
     echo '        Option      "Rotate"  "CCW"' >> $XCONFFILE
+  elif [ "$(f_platform)" = "bellatrix" ]; then
+    b_id=`cat /proc/board_id | cut -c 4-6`
+    if [ "${b_id}" != "BL7" ]; then
+      echo '        Option      "Rotate"  "CCW"' >> $XCONFFILE
+    else
+      # Default value for 7 inch device, TODOBELLATRIX Remove after v2 is widely available
+      echo '        Option      "Rotate"  "UR"' >> $XCONFFILE
+    fi
   fi
   # Only whiskey has accelerometer as of now. 
   if [ "$(f_board)" = "whisky" -o "$(f_board)" = "cognac" -o "$(f_board)" = "stinger" ]; then
@@ -207,6 +215,7 @@ do_input()
       cyttsp4_mt) multitouch $i $NAME ;;
       cyttsp5_mt) multitouch $i $NAME ;;
       goodix-ts) multitouch $i $NAME ;;
+      pt_mt) multitouch $i $NAME ;;
     esac
   done
 }

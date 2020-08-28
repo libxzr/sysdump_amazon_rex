@@ -209,7 +209,9 @@ loginfo_dbdata()
 		archived_content_count="select p_isArchived,p_contentState,count(*) as count from Entries group by p_isArchived,p_contentState;"
 		# Number of record entries in Collections table.
 		collection_count="select count(*) as collections_count from Collections;"
-		echo "${p_type_entries} ${archived_content_count} ${collection_count}" | sqlite3 -header -column -cmd ".width 30" /var/local/cc.db
+		# Number of record entries in Series table.
+		series_count="select count(*) as series_count from Series;"
+		echo "${p_type_entries} ${archived_content_count} ${collection_count} ${series_count}" | sqlite3 -header -column -cmd ".width 30" /var/local/cc.db
 	fi
 	wsyncdbsize=$(stat -c%s "/var/local/wsync.db")
 	if [ $wsyncdbsize -gt $logthreshold ]; then

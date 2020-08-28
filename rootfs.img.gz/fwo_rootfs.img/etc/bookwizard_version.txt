@@ -1,6 +1,6 @@
-Version: MAINLINE-v-14.1
+Version: SBR-v-15.0
 P4 Tag: ${tag}/
                     /
                     Lab126 Jenkins Official Build/
-                    jenkins-SBR-13-02_EInkBookWizard_SBR13_Release-3
+                    jenkins-SBR-15-02_EInkBookWizard_SBR15_Release-1
 

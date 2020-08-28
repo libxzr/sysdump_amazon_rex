@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2013-2019 Amazon Technologies, Inc.  All rights reserved.
+# Copyright (c) 2013-2020 Amazon Technologies, Inc.  All rights reserved.
 # PROPRIETARY/CONFIDENTIAL
 # Use is subject to license terms.
 
@@ -97,7 +97,7 @@ file_name=`date +%b_%d_%H.%M.%S_%Y` #default .pcap filename
 console=false                       #default to showing dialogue windows
 
 #default to active interface
-interface=$(ip route | grep default | awk '{print $NF}')
+interface=$(ip route | grep default | awk '{print $5}')
 
 
 ############  input flags parsing  ############

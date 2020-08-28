@@ -1,5 +1,5 @@
-Version: SBR-v-14.18
+Version: SBR-v-15.21
 P4 Tag: ${tag}/
 Lab126 Jenkins Official Build/
-jenkins-SBR-14-02_EInkReader_SBR14_Release-20
+jenkins-SBR-15-02_EInkReader_SBR15_Release-25
 

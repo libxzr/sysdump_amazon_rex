@@ -145,7 +145,7 @@ var SimpleAlertStringTable = {
     cpRestart                           : "JETZT",
     runningFSCKMessageTitle             : "Ger\u00e4tefehler",
     runningFSCKMessageText              : "Ein unerwarteter Fehler ist aufgetreten. Das kann vorkommen, wenn Sie Ihren Kindle k\u00fcrzlich von einem Computer getrennt haben, ohne ihn korrekt auszuwerfen. Bitte gedulden Sie sich einen Moment, w\u00e4hrend Ihr Kindle versucht, den Fehler zu beheben.",
-    invalidUpdateAlertMessageTitle      : "Update-Fehler",
+    invalidUpdateAlertMessageTitle      : "Fehler bei der Aktualisierung",
     invalidUpdateAlertMessageText       : "Es wurde eine ung\u00fcltige Update-Datei auf Ihr Ger\u00e4t geladen. Bitte besuchen Sie www.amazon.com/devicesupport, um die Seite mit den Kindle-Softwareupdates aufzurufen, oder wenden Sie sich an den Kundenservice, um Unterst\u00fctzung zu erhalten.",
     resellBatteryRangeFailedTitle       : "Akkuladung zu niedrig",
     resellBatteryRangeFailedText        : "Der Kindle muss aufgeladen werden, damit er weiterverkauft werden kann. Bitte schlie\u00dfen Sie ihn f\u00fcr mindestens eine Stunde an ein Ladeger\u00e4t an und versuchen es erneut.",

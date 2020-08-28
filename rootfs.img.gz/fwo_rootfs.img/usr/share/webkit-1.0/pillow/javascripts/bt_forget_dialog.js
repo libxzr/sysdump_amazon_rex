@@ -119,7 +119,8 @@ Pillow.BtForgetDialog = function () {
         this.disableWidgets(false);
         var dialogElem = document.getElementById('dialog');
         nativeBridge.setWindowSize(dialogElem.offsetWidth, dialogElem.offsetHeight);
-        Pillow.logInfo("Bt wizard item = " + m_item.device + "bt_address" + Pillow.obfuscateMac48Address(m_item.bdAddress, 4));
+        Pillow.logDbgHigh("Bt wizard item = " + m_item.device);
+        Pillow.logInfo("Bt wizard item = " + Pillow.obfuscateBTName(m_item.device) + "bt_address" + Pillow.obfuscateMac48Address(m_item.bdAddress, 4));
     };
 
     this.showRedirectDialog = function (args) {

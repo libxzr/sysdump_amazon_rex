@@ -13,9 +13,9 @@ var sIsDisplayModeLarge = nativeBridge.isDisplayModeLarge();
 //checks for large mode and constructs DialogStringTable based on the display mode
 function constructTableOnDisplayModeChange(defaultTable,LargeTable) {
     if (sIsDisplayModeLarge) {
-	return merge(defaultTable,LargeTable);
+       return merge(defaultTable,LargeTable);
     } else {
-    	return defaultTable;
+       return defaultTable;
     }
 }
 
@@ -90,6 +90,20 @@ function recordWifiErrorDialogMetric(errorReason, errorDialogSelection) {
         fmEmitter.addString(KEY_WIFI_ERROR_DIALOG_SELECTED_OPTION, errorDialogSelection);
     }
     fmEmitter.emitFastMetrics(SCHEMA_WIFI_ERROR_DIALOGS, SCHEMA_VERSION_WIFI_ERROR_DIALOGS);
+};
+
+/*
+ * Helper function will record Bluetooth Connection time taken metric in FM
+ * @param btConnTime: Elapsed time for BT connection
+ * @param isPaired: 0 if the device is originally not paired, 1 otherwise
+ */
+function captureBTConnTimeMetric(btConnTime, isPaired) {
+    if (btConnTime > 0) {
+        var fmEmitter = new FMEmitter();
+        fmEmitter.addInt(KEY_BT_CONN_TIME_TAKEN, btConnTime);
+        fmEmitter.addInt(KEY_BT_IS_PAIRED_DEVICE, isPaired);
+        fmEmitter.emitFastMetrics(SCHEMA_BT_CONNECTION_TIME, SCHEMA_VERSION_BT_CONNECTION_TIME);
+    }
 };
 
 /**
@@ -179,4 +193,120 @@ var FMEmitter = function() {
     this.emitFastMetrics = function(schemaName, schemaVersion) {
         nativeBridge.emitFastMetrics(schemaName, schemaVersion, fmPayload);
     }
+};
+
+/**
+ * TimeProfiler provides performance monitoring that can be used throughout the file
+ * with multiple scopes.
+ */
+var TimeProfiler = function() {
+
+    /** Scopes stored by identifier */
+    var m_mapped_scopes = {};
+
+    /**
+     * Specifies single profiling scope
+     */
+    var ProfilerScope = function(aScopeName) {
+        var m_name = aScopeName;
+        var m_startTime = 0;
+        var m_endTime = 0;
+        var m_elapsedTime = 0;
+
+        this.getScopeName = function() {
+            return m_name;
+        };
+
+        this.getStartTime = function() {
+            return m_startTime;
+        };
+
+        this.getEndTime = function() {
+            return m_endTime;
+        };
+
+        this.getElapsedTime = function() {
+            if(m_elapsedTime === 0 && m_startTime > 0) {
+                return (new Date().getTime() - m_startTime);
+            }
+            return m_elapsedTime;
+        };
+
+        this.startScope = function() {
+            m_startTime = new Date().getTime();
+            m_elapsedTime = 0;
+        };
+
+        this.endScope = function() {
+            m_endTime = new Date().getTime();
+            m_elapsedTime = m_endTime - m_startTime;
+            return m_elapsedTime;
+        };
+    };
+
+    /**
+     * Start profiling section.
+     *
+     * @param scopeName - Logical scope name
+     * @param identifier - identifying string to use for tracking Scope
+     *
+     */
+    this.startProfile = function(scopeName, identifier) {
+        if(scopeName === null &&  identifier === null) {
+            Pillow.logError("scopeName or identifier cannot be empty");
+            return;
+        }
+
+        if(m_mapped_scopes.hasOwnProperty(identifier)) {
+            Pillow.logError("identifier " + identifier + " already corresponds to a stored ProfilerScope");
+            return;
+        }
+
+        var scope = new ProfilerScope(scopeName);
+        scope.startScope();
+
+        m_mapped_scopes[identifier] = scope;
+    };
+
+    /**
+     * Ends profiling section.
+     *
+     * This method uses an identifier String lieu of a {@link ProfilerScope} and looks up
+     * the stored {@link ProfilerScope} by the String for the purposes of closing the scope.
+     *
+     * @param identifier request ID identifying stored scope
+     * @return elapsedTime
+     *
+     */
+    this.endProfile = function(identifier) {
+        if(identifier === null) {
+            Pillow.logError("identifier cannot be empty");
+            return;
+        }
+        if(!m_mapped_scopes.hasOwnProperty(identifier)) {
+            Pillow.logError("identifier does not exists");
+            return;
+        }
+
+        var scope = m_mapped_scopes[identifier];
+        if (scope !== null) {
+            delete m_mapped_scopes[identifier];
+            return scope.endScope();
+        }
+    };
+
+    /**
+     * Returns profiling scope.
+     *
+     * This method uses an identifier String lieu of a {@link ProfilerScope} and looks up
+     * the stored {@link ProfilerScope} by the String and returns the scopeObject
+     *
+     * @param identifier request ID identifying stored scope
+     * @return {@link ProfilerScope}
+     */
+    this.getScope = function(identifier) {
+        if(m_mapped_scopes.hasOwnProperty(identifier)) {
+            return m_mapped_scopes[identifier];
+        }
+    };
 };

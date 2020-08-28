@@ -1,6 +1,6 @@
 -- change.lua
 --
--- Copyright (c) 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.--
+-- Copyright (c) 2019-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.--
 -- PROPRIETARY/CONFIDENTIAL
 --
 -- Use is subject to license terms.
@@ -1336,6 +1336,32 @@ local function read_lastAccess_from_entries(cde_group, item_type)
     return lastAccess
 end
 
+local function read_lastAccess_for_uuid(uuid)
+    llog.debug4("read_lastAccess_for_uuid", "enter", "uuid=%s", "", tostring(uuid))
+
+    local stmt = assert(cc_db_util.package_for_assert(db:prepare("SELECT p_lastAccess AS lastAccess FROM Entries WHERE p_uuid = ?")))
+    local ok, msg = cc_db_util.package_for_assert(stmt:bind(uuid))
+
+    if not ok then
+        stmt:close()
+        assert(ok, msg)
+    end
+
+    local row, message, code = stmt:first_row()
+    stmt:close()
+    local lastAccess
+    if row then
+        lastAccess = row.lastAccess
+    end
+    if code and code ~= 0 then
+        lastAccess = -1
+    end
+
+    llog.debug4("read_lastAccess_for_uuid", "exit", "lastAccess=%s", "", tostring(lastAccess))
+    return lastAccess
+end
+
+
 -- This function tried the cde_type and cde_key to get the UUID for a given item.
 -- Otherwise it tries the location.
 local function read_uuid_from_entries (cde_type, cde_key, cde_group, version, guid, location, is_archive_item, title, item_type, origin_type)
@@ -1930,7 +1956,16 @@ local function change_internal(post_data, profile_data, rv)
 
     for _, non_sql in ipairs(non_sqls) do
         if non_sql.command == "updateDeletedArchivedItem" then
-            local deleted_cdekey, deleted_cdetype = archived_items.fetch_cdekey_and_cdetype( db, non_sql.args.deletedUuid)
+            local deleted_cdekey, deleted_cdetype, isDownloading = archived_items.fetch_cdekey_and_cdetype_and_isdownloading( db, non_sql.args.deletedUuid)
+            local deleted_lastaccess = read_lastAccess_for_uuid(non_sql.args.deletedUuid)
+
+            if isDownloading ~= 1 and deleted_lastaccess ~= -1 then
+                -- If the isDownloading Floag is "1", it means that the download is interrupted
+                -- Else, the download was already complete
+                -- In case the download was complete, set the downloaded time as the last_access_time for the archived entry
+                -- Previously, last_updated_time was updated as the deleted time, which was wrong
+                archived_items.set_last_access_time (db, deleted_cdekey, deleted_cdetype, deleted_lastaccess)
+            end
             if deleted_cdekey then
                 deleted_archived_item = {}
                 deleted_archived_item.cdekey = deleted_cdekey
@@ -2046,7 +2081,9 @@ local function change_internal(post_data, profile_data, rv)
                 llog.error("change", "deleted_archived_items_list", "", "")
                 assert(cc_db_util.package_for_assert(nil, message, code))
             else
-                archived_items.set_archive_item_visibility( db, (deleted_archived_item.cdekey or deleted_archived_item.cdeKey), (deleted_archived_item.cdetype or deleted_archived_item.cdeType), 1, true)
+                -- When an item gets deleted, DO NOT update the last accessed date of the archived entry
+                -- This is to ensure that the deleted item doesnt come up on top of the recent list based on lastAccessDate
+                archived_items.set_archive_item_visibility( db, (deleted_archived_item.cdekey or deleted_archived_item.cdeKey), (deleted_archived_item.cdetype or deleted_archived_item.cdeType), 1, false)
             end
         end
     end

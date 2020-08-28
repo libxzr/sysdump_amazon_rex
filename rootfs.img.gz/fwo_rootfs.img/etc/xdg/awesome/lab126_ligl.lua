@@ -1,8 +1,10 @@
--- Copyright (c) 2011-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+-- Copyright (c) 2011-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 -- PROPRIETARY/CONFIDENTIAL
 -- Use is subject to license terms.  
 require("liblab126IGL")
 require("lab126_flash_triggers")
+require("lab126_utils")
+require("lab126LayerLogic")
 
 -- ligl handle
 local g_liglRef = nil 
@@ -48,7 +50,13 @@ local AFTER_DAMAGE_TIMEOUT_HIDE_CHROME = 5
 local AFTER_DAMAGE_TIMEOUT_HIDE_PASSCODE_DIALOG = 100
 
 local FLAG_ANIMATED_WIPE_EFFECT = 0x00FF
-local FLAG_NON_BLOCKING_TRIGGER = 0x0100
+-- Flag mask to capture every trigger flag that we are interested in
+local FLAG_LIGL_SUPPORTED = 0x17FF
+-- Flag mask to request synchronous flashing, no afterDamageTimeout aka T1
+-- is considered in the case where eventTrigger causes completion of triggers
+local FLAG_LIGL_SYNC_FLASH = 0x1000
+
+local FLAG_NON_BLOCKING_TRIGGER = 0x0400
 
 -- initialize to minimum value
 local s_t1_damageTimeout = AFTER_DAMAGE_RESET_TIMEOUT
@@ -74,6 +82,7 @@ local TRIGGER_EVENT_WAIT_FOR_KB_SHOW = "waitForKbShow"
 local TRIGGER_EVENT_WAIT_FOR_KB_HIDE = "waitForKbHide"
 local TRIGGER_EVENT_WAIT_FOR_APP_SHOW = "waitForAppShow"
 local TRIGGER_EVENT_WAIT_FOR_PASSWDLG_SHOW = "waitForPasswdlgShow"
+local TRIGGER_EVENT_WAIT_FOR_ROTATE_START = "waitForRotateStart"
 
 -- TriggerTypes. These are defined as part of the protocol for the incoming
 -- Custom X Client Message. Changing these breaks external dependencies.
@@ -85,6 +94,7 @@ local TRIGGER_TYPE_CLIENT_RECT_ONLY = 4
 local TRIGGER_TYPE_WAIT_FOR_KB_SHOW = 5
 local TRIGGER_TYPE_WAIT_FOR_KB_HIDE = 6
 local TRIGGER_TYPE_WAIT_FOR_RESHOW = 7
+local TRIGGER_TYPE_WAIT_FOR_ROTATE_START = 8
 
 -- TODO: make these timeouts smaller
 -- So far the following scenarios prevent that:
@@ -423,15 +433,18 @@ local function liglFlash(trigger, mode, timeout, flags)
             s_flashTriggers[#s_flashTriggers + 1] = trigger
         end
 
-        if mode > s_flashMode.fid then
+        if mode >= s_flashMode.fid then
             s_flashMode.fid = mode
-            s_flashMode.flags = ligl.bitwiseAnd(flags,FLAG_ANIMATED_WIPE_EFFECT);
+            flags = ligl.bitwiseAnd(flags,FLAG_LIGL_SUPPORTED);
+            -- Keep the most significant nibble for persistant flags
+            s_flashMode.flags = ligl.bitwiseAnd(s_flashMode.flags, 0xF000);
+            s_flashMode.flags = ligl.bitwiseOr(s_flashMode.flags, flags);
         end
 
         if s_flashEnabled then
             liglPause()
             
-            if ligl.bitwiseAnd(flags,FLAG_NON_BLOCKING_TRIGGER) == 1 then
+            if ligl.bitwiseAnd(flags,FLAG_NON_BLOCKING_TRIGGER) > 0 then
               -- Incase of non blocking triggers enable Tapping
               liglResumeTaps()
             end
@@ -633,7 +646,7 @@ end
 --[[
 called when all ligl triggers are finished
 ]]--
-local function liglTriggersComplete()
+local function liglTriggersComplete(fromEventOrSignal)
     -- We are not waiting for more damages, stop T0, start T1
     if T0.started then
         logTimeStamp("T0 stop")
@@ -643,20 +656,23 @@ local function liglTriggersComplete()
     -- do not rearm, look to remove T1 timeout
     if not T1.started then
    
-        if s_t1_damageTimeout > 0.0 then
+        if s_t1_damageTimeout > 0.0 and
+            (not fromEventOrSignal or
+            not (ligl.bitwiseAnd(s_flashMode.flags, FLAG_LIGL_SYNC_FLASH) > 0)) then
         
             logTimeStamp("T1 start %f", s_t1_damageTimeout)
             
             T1.timeout = s_t1_damageTimeout
             T1:start()
-    
-            -- set it back to reset timeout
-            s_t1_damageTimeout = AFTER_DAMAGE_RESET_TIMEOUT
         else
             -- trigger immediately
-            log("no T1, trigger immediately")
+            log("Triggering immediately without T1 isSignalOrEvent %d flags %d",
+                 tostring(fromEventOrSignal), s_flashMode.flags);
             liglFlashPendingClients()
         end
+
+        -- set it back to reset timeout
+        s_t1_damageTimeout = AFTER_DAMAGE_RESET_TIMEOUT
     end
 end
 
@@ -665,6 +681,11 @@ clear out pending event triggers of a given name
 ]]--
 local function liglClearEventTrigger(eventName)
     log("+++++liglClearEventTrigger %s", eventName)
+
+    if not next(s_flashTriggers) then
+        return
+    end
+
     local waiting = false
     for i,v in ipairs(s_flashTriggers) do
         if getmetatable(v) == TriggerEvent then
@@ -681,7 +702,7 @@ local function liglClearEventTrigger(eventName)
     
     if not waiting then
         log("done waiting for triggers")
-        liglTriggersComplete()
+        liglTriggersComplete(true)
     end
 end
 
@@ -1191,6 +1212,8 @@ function ligl_set_trigger(win, triggerType, flashFid, waitTimeout, afterDamageTi
         trigger = TriggerEvent.create(TRIGGER_EVENT_WAIT_FOR_KB_SHOW)
     elseif triggerType == TRIGGER_TYPE_WAIT_FOR_KB_HIDE and keyboard_is_visible() then
         trigger = TriggerEvent.create(TRIGGER_EVENT_WAIT_FOR_KB_HIDE)
+    elseif triggerType == TRIGGER_TYPE_WAIT_FOR_ROTATE_START then
+        trigger = TriggerEvent.create(TRIGGER_EVENT_WAIT_FOR_ROTATE_START)
     elseif triggerType == TRIGGER_TYPE_WAIT_FOR_RESHOW and win.params.SE then
         trigger = TriggerEvent.create(win.params.SE)
     else
@@ -1236,7 +1259,7 @@ function ligl_clear_client_signal_trigger(win, justDestroy)
 
     if not waiting and (not justDestroy or justDestroy == 0) then
         log("done waiting for signal triggers")
-        liglTriggersComplete()
+        liglTriggersComplete(true)
     end
 end
 
@@ -1248,6 +1271,10 @@ function liglRotateScreen(rot)
     local returnVal = -1
     
     if g_liglRef then
+        -- Clear the waitForRotateStart event trigger here. Note that this may result in
+        -- liglTriggersComplete and synchronous screen update
+        liglClearEventTrigger(TRIGGER_EVENT_WAIT_FOR_ROTATE_START);
+
         liglEnableUnpausedRectangle(false)
         liglLockUnpausedRect(true)
         liglPause()
@@ -1261,7 +1288,7 @@ function liglRotateScreen(rot)
         
         if returnVal ~= 0 then
             liglLockUnpausedRect(false)
-	    sendScreenResumeEvent()
+            sendScreenResumeEvent()
             liglResume()
         end
     end
@@ -1446,6 +1473,56 @@ function ligl_register_properties()
             s_readerSensitivityEveryPage = true
         else
             s_readerSensitivityEveryPage = false
+        end
+    end
+
+    -- lipc property to simulate flash triggers
+    -- eg: "winId:triggerType:fidType:waitTimeout:T1Timeout:x:y:w:h:flags"
+    propertyCreateTrigger = registerLipcStringProp("createTrigger", "w")
+    propertyCreateTrigger.listener = function (name, value)
+        local params = {}
+        local index = 1
+        for param in stringSplit(value, ":") do
+            params[index] = tonumber(param)
+            index = index + 1
+        end
+
+        local c = params[1] and client.get_client_by_windowId(params[1]);
+        local window =  c and windowTableFindByClient(c) or getFocusedWindow()
+        local triggerType = params[2] or TRIGGER_TYPE_CLIENT_NEXT_DRAW
+        local triggerFid = params[3] or 7 -- default is GC16
+        local waitTimeout = params[4] or WAIT_DAMAGE_TIMEOUT * 1000
+        local afterDamageTimeout = params[5] or AFTER_DAMAGE_RESET_TIMEOUT * 1000
+        local x = params[6] or 0
+        local y = params[7] or 0
+        local w = params[8] or 0
+        local h = params[9] or 0
+        local flags = params[10] or FLAG_LIGL_SYNC_FLASH
+
+        llog.info("WindowManager", "lipc-createTrigger", "", "debugging only call")
+        ligl_set_trigger(window, triggerType, triggerFid, waitTimeout, afterDamageTimeout,
+                         x, y, w, h, flags);
+    end
+
+    -- licp property to simulate clear trigger - signal and event triggers
+    -- eg: "1:winId:forceDestroy" for clearing signal triggers
+    -- eg: "2:eventName" for clearing event trigger of that event name
+    propertyClearTrigger = registerLipcStringProp("clearTrigger", "w")
+    propertyClearTrigger.listener = function (name, value)
+
+        local params = {}
+        local index = 1
+        for param in stringSplit(value, ":") do
+            params[index] = param
+            index = index + 1
+        end
+        llog.info("WindowManager", "lipc-clearTrigger", "triggerType", "" .. params[1]);
+        if tonumber(params[1]) == 1 then
+            local c = params[2] and client.get_client_by_windowId(tonumber(params[2]))
+            local window = c and windowTableFindByClient(c) or getFocusedWindow()
+            ligl_clear_client_signal_trigger(window, tonumber(params[3]));
+        elseif tonumber(params[1]) == 2 then
+            liglClearEventTrigger(params[2])
         end
     end
 

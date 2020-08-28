@@ -2,7 +2,7 @@
 # early script to handle sys/upstart switch and normal init duties
 # init {sysv|upstart} will switch
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin:/app/bin
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/app/bin:/app/tools
 export PATH
 
 RW=

@@ -1,1 +1,1 @@
-https://s3.amazonaws.com/einkotareleasenotes/cc8358e468542ba7135b38803f2ef034/5.13.1
+https://s3.amazonaws.com/einkotareleasenotes/fcea42ccb0288293775a497d96eb1a81/5.13.2

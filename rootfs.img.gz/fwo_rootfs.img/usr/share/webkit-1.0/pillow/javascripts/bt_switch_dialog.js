@@ -1,7 +1,7 @@
 /*
  * bt_switch_dialog.js
  *
- * Copyright (c) 2016-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2016-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -25,6 +25,9 @@ Pillow.BtSwitchDialog = function () {
     const TRANSACT_FAILED_TIMEOUT = 15000;
     var m_buttonBar = null;
     const DIALOG_NAME = "BT Switch";
+
+    // To maintain the profiler
+    var timeProfiler = new TimeProfiler();
 
     var mTimer = btUtil.Timer(this);
     // Activity Indicator owned by the dialog to show the connection activity
@@ -107,7 +110,9 @@ Pillow.BtSwitchDialog = function () {
             mTimer.start(that.onTimerExpired, TRANSACT_FAILED_TIMEOUT);
         } else if (button.id === "connect") {
             mConnectAction = true;
-            Pillow.logDbgPrivate("Bt wizard connecting to device : " + m_item.device + " --- " +
+            timeProfiler.startProfile(BT_SWITCH_CONN_SCOPE, BT_SWITCH_CONN_ID);
+            Pillow.logDbgHigh("Bt wizard connecting to device : " + m_item.device);
+            Pillow.logDbgPrivate("Bt wizard connecting to device : " + Pillow.obfuscateBTName(m_item.device) + " --- " +
                 Pillow.obfuscateMac48Address(m_item.bdAddress, 4) +
                 "previously connected to device : " + Pillow.obfuscateMac48Address(m_item.currConnectedDevice.bdAddress, 4) );
             /**
@@ -133,12 +138,17 @@ Pillow.BtSwitchDialog = function () {
         this.disableWidgets(false);
         var dialogElem = document.getElementById('dialog');
         nativeBridge.setWindowSize(dialogElem.offsetWidth, dialogElem.offsetHeight);
-        Pillow.logInfo("Bt wizard item = " + m_item.device + "bt_address =" + Pillow.obfuscateMac48Address(m_item.bdAddress, 4));
+        Pillow.logDbgHigh("Bt wizard item = " + m_item.device);
+        Pillow.logInfo("Bt wizard item = " + Pillow.obfuscateBTName(m_item.device) + "bt_address =" + Pillow.obfuscateMac48Address(m_item.bdAddress, 4));
     };
 
     this.getCurrentItem = function () {
         return m_item;
     };
+
+    this.getProfiler = function () {
+        return timeProfiler;
+    }
 
     this.isForgetClicked = function () {
         return mForgetAction;
@@ -184,7 +194,10 @@ Pillow.BtSwitchDialog.LipcEventHandler = function (pillowCase) {
             pillowCase.mActivityIndicator.stop(BtActivity.CONNECTING);
 
         m_item = pillowCase.getCurrentItem();
-        btUtil.connectResult(values, m_item, pillowCase, DIALOG_NAME);
+
+        if (btUtil.connectResult(values, m_item, pillowCase, DIALOG_NAME)) {
+            captureBTConnTimeMetric(pillowCase.getProfiler().endProfile(BT_SWITCH_CONN_ID), 1);
+        }
     };
 
     this.Disconnect_Result = function (values) {

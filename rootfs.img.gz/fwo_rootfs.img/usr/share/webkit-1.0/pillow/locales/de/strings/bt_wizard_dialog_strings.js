@@ -44,7 +44,7 @@ var BTWizardDialogStringTable = {
        Connect :  new MessageFormat("Verbindung mit dem Bluetooth-Audioger\u00e4t \u201e{string}\u201c nicht m\u00f6glich.<br/><br/>Stellen Sie bitte sicher, dass das Ger\u00e4t eingeschaltet und in Reichweite ist."),
     },
     passKeyComparisonTitle: "Bluetooth-Kopplungsanfrage",
-    passKeyTextMessageFormat: new MessageFormat('\u201e{string}\u201c m\u00f6chte sich mit Ihrem Kindle verbinden. Bitte best\u00e4tigen Sie, dass die unten stehende Nummer auf \u201e{string}\u201c angezeigt wird'),
+    passKeyTextMessageFormat: new MessageFormat('\u201e{string}\u201c m\u00f6chte sich mit Ihrem Kindle verbinden. Best\u00e4tigen Sie bitte, dass der Verbindungscode auf \u201e{string}\u201c mit dem folgenden Code \u00fcbereinstimmt. Falls die Codes nicht genau \u00fcbereinstimmen, brechen Sie den Vorgang bitte ab und versuchen Sie es noch einmal.'),
     confirm: "BEST\u00c4TIGEN",
     scanningForBTDevices: "Bluetooth-Ger\u00e4te werden gesucht",
     connectingToBtDevice: "Ger\u00e4t wird verbunden",

@@ -24,10 +24,12 @@ Pillow.BtUtil = function () {
     this.unbondResult = function (values, m_item, pillowCase, dialogName) {
         Pillow.logInfo(dialogName + " dialog unbond result");
         if (values[0] === BT_SUCCESS && values[2] === m_item.bdAddress && pillowCase.isForgetClicked()) {
-            Pillow.logInfo(dialogName + " dialog unPairing device" + m_item.device + "bt_address ="
+            Pillow.logDbgHigh(dialogName + "dialog unPairing device " + m_item.device);
+            Pillow.logInfo(dialogName + " dialog unPairing device" + Pillow.obfuscateBTName(m_item.device) + "bt_address ="
                 + Pillow.obfuscateMac48Address(m_item.bdAddress, 4));
         } else {
-            Pillow.logError(dialogName + " dialog UnPairing device -- Something has gone wrong " + m_item.device + "bt_address"
+            Pillow.logDbgHigh(dialogName + "dialog unPairing device -- Something has gone wrong " + m_item.device);
+            Pillow.logError(dialogName + " dialog UnPairing device -- Something has gone wrong " + Pillow.obfuscateBTName(m_item.device) + "bt_address"
                 + Pillow.obfuscateMac48Address(m_item.bdAddress, 4) + "unbond_result = " + values[0]);
         }
         if (dialogName !== "BT Forget")
@@ -60,7 +62,8 @@ Pillow.BtUtil = function () {
                     }
                 };
                 nativeBridge.dismissMe();
-                Pillow.logInfo("Launching connect failed dialog for " + values[1] + " " + Pillow.obfuscateMac48Address(values[2], 4) );
+                Pillow.logDbgHigh(" Launching connect failed dialog for " + values[1]);
+                Pillow.logInfo("Launching connect failed dialog for " + Pillow.obfuscateBTName( values[1]) + Pillow.obfuscateMac48Address(values[2], 4) );
                 nativeBridge.showDialog('bt_error_dialog', JSON.stringify(message));
                 return false;
             }

@@ -44,7 +44,7 @@ var BTWizardDialogStringTable = {
        Connect :  new MessageFormat("Kan geen verbinding maken met het Bluetooth-audioapparaat \"{string}\".<br/><br/>Controleer of je apparaat is ingeschakeld en binnen bereik is."),
     },
     passKeyComparisonTitle: "Verzoek koppelen via Bluetooth",
-    passKeyTextMessageFormat: new MessageFormat('"{string}" wil graag verbinding maken met je Kindle. Bevestig dat het nummer hieronder wordt weergegeven op "{string}"'),
+    passKeyTextMessageFormat: new MessageFormat('"{string}" wil aan je Kindle worden gekoppeld. Bevestig dat de code voor het koppelen op "{string}" overeenkomt met de code hieronder. Is dat niet het geval, dan annuleer je en probeer je het opnieuw.'),
     confirm: "BEVESTIGEN",
     scanningForBTDevices: "Scannen naar Bluetooth-apparaten",
     connectingToBtDevice: "Apparaat verbinden",

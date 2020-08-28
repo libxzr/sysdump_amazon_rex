@@ -122,7 +122,8 @@ Pillow.BtPasskeyComparisonDialog = function () {
         var dialogElem = document.getElementById('main');
         nativeBridge.setWindowSize(dialogElem.offsetWidth,
             dialogElem.offsetHeight);
-        Pillow.logInfo("Bt wizard item = " + m_item.device + "bt_address"
+        Pillow.logDbgHigh("Bt wizard item = " + m_item.device);
+        Pillow.logInfo("Bt wizard item = " + Pillow.obfuscateBTName(m_item.device) + "bt_address"
             + Pillow.obfuscateMac48Address(m_item.bdAddress, 4));
     };
 
@@ -192,7 +193,8 @@ Pillow.BtPasskeyComparisonDialog.LipcEventHandler = function (pillowCase) {
         if(values[0] != BT_SUCCESS){
             pillowCase.stopTimer();
             nativeBridge.dismissMe();
-            Pillow.logInfo("Launch Pairing failed dialog for " + m_item.device + "  " + Pillow.obfuscateMac48Address(m_item.bdAddress, 4));
+            Pillow.logDbgHigh("Launch Pairing failed dialog for " + m_item.device);
+            Pillow.logInfo("Launch Pairing failed dialog for " + Pillow.obfuscateBTName(m_item.device) + " " + Pillow.obfuscateMac48Address(m_item.bdAddress, 4));
             btUtil.redirectToErrorDialog(m_item, PROP_BTMD_PAIR);
         } else {
             pillowCase.mActivityIndicator.start(BtActivity.CONNECTING, BTWizardDialogStringTable.connectingToBtDevice);

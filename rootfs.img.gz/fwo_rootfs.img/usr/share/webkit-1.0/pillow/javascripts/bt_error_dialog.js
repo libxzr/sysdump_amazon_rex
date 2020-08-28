@@ -62,7 +62,8 @@ Pillow.BtErrorDialog = function () {
                 });
         var dialogElem = document.getElementById('dialog');
         nativeBridge.setWindowSize(dialogElem.offsetWidth, dialogElem.offsetHeight);
-        Pillow.logInfo("Bt wizard item = " + mItem.device + "bt_address" + Pillow.obfuscateMac48Address(mItem.bdAddress, 4));
+        Pillow.logDbgHigh("Bt wizard item = " + mItem.device);
+        Pillow.logInfo("Bt wizard item = " + Pillow.obfuscateBTName(mItem.device) + "bt_address" + Pillow.obfuscateMac48Address(mItem.bdAddress, 4));
     };
 
     this.showRedirectDialog = function (clientParams) {

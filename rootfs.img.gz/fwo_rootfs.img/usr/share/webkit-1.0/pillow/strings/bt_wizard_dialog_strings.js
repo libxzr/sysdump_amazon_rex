@@ -44,7 +44,7 @@ var BTWizardDialogStringTable = {
        Connect :  new MessageFormat("Unable to connect to the Bluetooth audio device  \"{string}\".<br/><br/>Please make sure your device is on and within range."),
     },
     passKeyComparisonTitle: "Bluetooth Pairing Request",
-    passKeyTextMessageFormat: new MessageFormat('"{string}" would like to pair with your Kindle. Please confirm that the number below is shown on "{string}"'),
+    passKeyTextMessageFormat: new MessageFormat('"{string}" would like to pair with your Kindle. Please confirm that the pairing code on "{string}" matches the code below. If the codes do not match exactly, cancel and try again.'),
     confirm: "CONFIRM",
     scanningForBTDevices: "Scanning for Bluetooth Devices",
     connectingToBtDevice: "Connecting device",

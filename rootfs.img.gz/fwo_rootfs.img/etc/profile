@@ -2,7 +2,7 @@
 
 umask 002
 
-export PATH=/usr/local/bin:/bin:/usr/bin:/usr/sbin:/sbin:/app/bin
+export PATH=/usr/local/bin:/bin:/usr/bin:/usr/sbin:/sbin:/app/bin:/app/tools
 
 # use local X display if none set
 if [ -z "$DISPLAY" ]; then

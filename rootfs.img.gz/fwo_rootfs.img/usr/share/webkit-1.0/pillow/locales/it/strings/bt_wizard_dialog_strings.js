@@ -44,7 +44,7 @@ var BTWizardDialogStringTable = {
        Connect :  new MessageFormat("Impossibile connettersi al dispositivo audio Bluetooth \"{string}\".<br/><br/>Assicurati che il dispositivo sia acceso ed entro la portata del segnale."),
     },
     passKeyComparisonTitle: "Richiesta di associazione Bluetooth",
-    passKeyTextMessageFormat: new MessageFormat('"{string}" vorrebbe associarsi al tuo Kindle. Conferma che il numero indicato qui sotto viene visualizzato su "{string}"'),
+    passKeyTextMessageFormat: new MessageFormat('"{string}" vorrebbe associarsi al tuo Kindle. Conferma che il codice di associazione indicato su "{string}" corrisponda a quello visualizzato qui sotto. Se i codici non corrispondono esattamente, annulla e riprova.'),
     confirm: "CONFERMA",
     scanningForBTDevices: "Ricerca di dispositivi Bluetooth in corso",
     connectingToBtDevice: "Connessione dispositivo in corso",

@@ -1,6 +1,6 @@
 -- archived_items.lua
 
--- Copyright (c) 2011-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+-- Copyright (c) 2019-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 -- PROPRIETARY/CONFIDENTIAL
 -- Use is subject to license terms.
 
@@ -18,13 +18,13 @@ _G[modname] = archived_items
 
 -- This function retrieves the cdekey and cdetype of the item with the given uuid.
 -- It is used to update archived items if the item happens to also have an archived item.
-function archived_items.fetch_cdekey_and_cdetype (db, uuid)
+function archived_items.fetch_cdekey_and_cdetype_and_isdownloading (db, uuid)
     llog.debug4("archived_items.fetch_cdekey_and_cdetype", "enter", "uuid=%s", "", uuid)
 
-    local sql = "SELECT p_cdekey AS cdekey, p_cdetype AS cdetype FROM Entries WHERE p_uuid = '" .. uuid .. "'"
+    local sql = "SELECT p_cdekey AS cdekey, p_cdetype AS cdetype, p_isDownloading AS isdownloading FROM Entries WHERE p_uuid = '" .. uuid .. "'"
     local stmt = assert(cc_db_util.package_for_assert(db:prepare(sql)))
     local row, message, code = stmt:first_row()
-    stmt:close()    
+    stmt:close()
     if row == nil then
         if code and code ~= 0 then
             llog.error("archived_items.fetch_cdekey_and_cdetype", "error", "%s", "", sql)
@@ -34,7 +34,7 @@ function archived_items.fetch_cdekey_and_cdetype (db, uuid)
     end
 
     llog.debug4("archived_items.fetch_cdekey_and_cdetype", "exit", "uuid=%s", "", uuid)
-    return row.cdekey, row.cdetype
+    return row.cdekey, row.cdetype, row.isdownloading
 end
 
 
@@ -62,6 +62,30 @@ function archived_items.set_archive_item_visibility (db, cdekey, cdetype, isVisi
     assert(cc_db_util.package_for_assert(db:exec( sql)))
     llog.debug4("archived_items.set_archive_item_visibility", "exit", "cdekey=%s:cdetype=%s:is_visible_in_home=%d", "", cdekey, cdetype, isVisibleInHome)
 end
+
+
+-- This function is used to update the p_lastAccess on the archived item indicated by
+-- cdekey and cdetype.
+-- @param db Database which to perform operations.
+-- @param cdeKey cdeKey of the AI.
+-- @param cdeType cde Type of the AI.
+function archived_items.set_last_access_time (db, cdekey, cdetype, lastAccessTime)
+    if cdekey == nil or cdetype == nil then
+        llog.debug4("archived_items.set_last_access_time", "exit", "cdekey_or_cdetype_is_nil", "")
+        return
+    end
+
+    llog.debug4("archived_items.set_last_access_time", "enter", "cdekey=%s:cdetype=%s", "", cdekey, cdetype)
+
+    local sql = [[UPDATE Entries SET p_lastAccess = ]] .. lastAccessTime
+    .. [[ WHERE (p_cdekey = ']] .. cdekey .. [[' AND (p_cdetype = ']] .. cdetype .. [[' AND p_isArchived = 1 ))]]
+
+    llog.debug4("archived_items.set_last_access_time", "QUERY", "sql=%s", "", sql)
+
+    assert(cc_db_util.package_for_assert(db:exec( sql)))
+    llog.debug4("archived_items.set_last_access_time", "exit", "cdekey=%s:cdetype=%s", "", cdekey, cdetype)
+end
+
 
 -- This function sets the isVisibleInHome and virtualCollectionCount columns on the ADC
 -- item. Its isVisibleInHome field is set to true when there is at least one

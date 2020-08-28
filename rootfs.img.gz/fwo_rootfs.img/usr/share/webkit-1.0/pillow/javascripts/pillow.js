@@ -120,6 +120,16 @@ Pillow.obfuscateMac48Address = function (macAddress, maskLevel) {
     return macAddress;
 };
 
+Pillow.obfuscateBTName = function ( btName ) {
+    if (btName.length <= 2) {
+        return BTNAME_MASK+BTNAME_MASK ;
+    }
+    var returnString = btName[0];
+    var mask = new Array(btName.length - 1).join( BTNAME_MASK );
+    returnString = returnString.concat( mask, btName[btName.length-1]);
+    return returnString;
+};
+
 /**
  * Check whether a number is an integer.
  */

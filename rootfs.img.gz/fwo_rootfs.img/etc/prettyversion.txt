@@ -1,4 +1,4 @@
-Kindle 5.13.1 (~~otaVersion~~)
+Kindle 5.13.2 (~~otaVersion~~)
 
 
 

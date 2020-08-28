@@ -57,6 +57,9 @@ Pillow.BtWizardDialog = function () {
 
     var mTimer = btUtil.Timer(this);
 
+    // To maintain the profiler
+    var timeProfiler = new TimeProfiler();
+
     this.mActivityIndicator = new btUtil.ActivityIndicator();
 
     this.scanner = new function (mNumCycles) {
@@ -242,7 +245,7 @@ Pillow.BtWizardDialog = function () {
 
         var handleSelection = function(error) {
             if (error) {
-                Pillow.logError("Error occured: " + error);
+                Pillow.logError("Error occurred: " + error);
             }
 
             var message = {
@@ -277,11 +280,15 @@ Pillow.BtWizardDialog = function () {
                     } else {
                         // Pair with device and wait for timeout or Bond_Result
                         // event
+                        timeProfiler.startProfile(BT_WIZARD_CONN_SCOPE, BT_WIZARD_CONN_ID);
                         that.mActivityIndicator.start(BtActivity.PAIRING, BTWizardDialogStringTable.pairingToBtDevice);
                         Pillow
+                            .logDbgHigh("Bt wizard connecting to selected device, no previously connected device = "
+                                +selectedItem.device);
+                        Pillow
                             .logInfo("Bt wizard connecting to selected device, no previously connected device = "
-                                + selectedItem.device
-                                + "  --- "
+                                + Pillow.obfuscateBTName(selectedItem.device)
+                                + " ---"
                                 + Pillow.obfuscateMac48Address(selectedItem.bdAddress, 4) );
                         nativeBridge.recordDeviceMetric(PILLOW_PROGRAM_NAME, BT_PROGRAM_SOURCE, "ConnectNewDevice", 1, 0, METRIC_PRIORITY_LOW, METRIC_TYPE_COUNTER);
                         nativeBridge.setLipcProperty(LIPC_BTMD_SOURCE, PROP_BTMD_PAIR,
@@ -362,6 +369,10 @@ Pillow.BtWizardDialog = function () {
             mTimer.stopAndNotify(eventName);
         }
     };
+
+    this.getProfiler = function () {
+        return timeProfiler;
+    }
 
     // This routine is a generic utility routine for merging two lists.
     // First list is kept intact and de-duped items from secondlist must be appended.
@@ -564,7 +575,8 @@ Pillow.BtWizardDialog.LipcEventHandler = function (pillowCase) {
         if(values[0] != BT_SUCCESS){
             pillowCase.mActivityIndicator.stop(BtActivity.PAIRING);
             nativeBridge.dismissMe();
-            Pillow.logInfo("Launch Pairing failed dialog for " + m_item.device + "  " + Pillow.obfuscateMac48Address(m_item.bdAddress, 4) + "  " + m_item.isConnected);
+            Pillow.logInfo("Launch Pairing failed dialog for " + Pillow.obfuscateBTName(m_item.device) + " " +Pillow.obfuscateMac48Address(m_item.bdAddress, 4) + "  " + m_item.isConnected);
+            Pillow.logDbgHigh("Launch Pairing failed dialog for " + m_item.device);
             btUtil.redirectToErrorDialog(m_item, PROP_BTMD_PAIR);
         }
         else{
@@ -606,6 +618,7 @@ Pillow.BtWizardDialog.LipcEventHandler = function (pillowCase) {
 
         if (!m_item || btUtil.connectResult(values, m_item, pillowCase, DIALOG_NAME)) {
             Pillow.logInfo("Bt device is connected");
+            captureBTConnTimeMetric(pillowCase.getProfiler().endProfile(BT_WIZARD_CONN_ID), 0);
         }
 
         if (values[0] === BT_SUCCESS){
@@ -649,3 +662,4 @@ Pillow.BtWizardDialog.LipcEventHandler = function (pillowCase) {
 
 var btWizardDialog = new Pillow.BtWizardDialog();
 btWizardDialog.register();
+

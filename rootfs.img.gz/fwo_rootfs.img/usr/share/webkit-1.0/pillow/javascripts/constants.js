@@ -162,6 +162,8 @@ const MAC48_GROUP_LENGTH = 6;
 const MAC48_MASK = 'XX';
 const MAC48_DELIMITER = ':';
 
+const BTNAME_MASK = '*';
+
 var addConst = function (o, k, v) {
     Object.defineProperty(o, k, {value: v, writable: false, configurable: false, enumerable: true});
 };
@@ -216,5 +218,18 @@ const SCHEMA_WIFI_ERROR_DIALOGS = "ereader_wifi_error_dialogs";
 const SCHEMA_VERSION_WIFI_ERROR_DIALOGS = 0;
 const KEY_WIFI_ERROR_DIALOG_ERROR_REASON = "error_reason";
 const KEY_WIFI_ERROR_DIALOG_SELECTED_OPTION = "selected_option";
+// BT connection time constants
+const SCHEMA_BT_CONNECTION_TIME = "ereader_bt_conn_time_taken";
+const SCHEMA_VERSION_BT_CONNECTION_TIME = 0;
+const KEY_BT_CONN_TIME_TAKEN = "time_ms";
+const KEY_BT_IS_PAIRED_DEVICE = "is_paired_device";
 
 Object.freeze(BtActivity);
+
+/*
+ * TimeProfiler Constants
+ */
+const BT_WIZARD_CONN_SCOPE = "BT Wizard Unpaired Connect";
+const BT_WIZARD_CONN_ID = "BTWizardConnect";
+const BT_SWITCH_CONN_SCOPE = "BT Switch Paired Connect";
+const BT_SWITCH_CONN_ID = "BTSwitchConnect";

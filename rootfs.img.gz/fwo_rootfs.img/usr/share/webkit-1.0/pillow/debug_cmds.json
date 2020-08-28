@@ -7,6 +7,7 @@
     ";411" : "/usr/bin/411.sh",
     ";611" : "/usr/bin/611.sh",
     ";711" : "/usr/bin/711.sh",
+    ";st" : "/usr/bin/dateTime.sh",
     ";shpm" : "/usr/sbin/shipping_mode",
     ";un" : "/usr/local/bin/usbnetwork.sh start",
     ";uns" : "/usr/local/bin/usbnetwork.sh stop",
